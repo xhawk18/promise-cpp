@@ -53,11 +53,13 @@ public:
     Defer next_;
     bool is_resolved_;
     bool is_rejected_;
+    bool is_called_;
     
     explicit Promise()
         : next_(NULL)
         , is_resolved_(false)
-        , is_rejected_(false) {
+        , is_rejected_(false)
+        , is_called_(false) {
         //PTI;
     }
     
@@ -67,16 +69,16 @@ public:
     }
     
     void resolve() {
-        assert(!is_resolved_ && !is_rejected_);        
+        if(is_resolved_ || is_rejected_)
+            return;
         is_resolved_ = true;
-        if(next_.get())
-            next_->call_resolve(next_);
+        call_next();
     }
     void reject() {
-        assert(!is_resolved_ && !is_rejected_);
+        if(is_resolved_ || is_rejected_)
+            return;
         is_rejected_ = true;
-        if(next_.get())
-            next_->call_reject(next_);
+        call_next();
     }
 
     virtual Defer call_resolve(Defer self) = 0;
@@ -85,26 +87,42 @@ public:
     template <typename FUNC>
     void run(FUNC func, Defer d) {
         //PTI;
-        func(d);
+        try {
+            func(d);
+            return;
+        } catch(...) {}
+        d->reject();
+    }
+    
+    Defer call_next() {
+        if(!next_.get()) {
+            PTI;
+        }
+        else if(!is_called_ && is_resolved_) {
+            PTI;
+            is_called_ = true;
+            Defer d = next_->call_resolve(next_);
+            if(d.get())
+                d->call_next();
+            return d;
+        }
+        else if(!is_called_ && is_rejected_) {
+            PTI;
+            is_called_ = true;
+            Defer d =  next_->call_reject(next_);
+            if (d.get())
+                d->call_next();
+            return d;
+        }
+
+        return next_;
     }
 
     template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
     Defer then(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject) {
         Defer promise(new PromiseEx<Promise, FUNC_ON_RESOLVE, FUNC_ON_REJECT>(on_resolve, on_reject));
         next_ = promise;
-        
-        if(is_resolved_) {
-            PTI;
-            return promise->call_resolve(promise);
-        }
-        else if(is_rejected_) {
-            PTI;
-            return promise->call_reject(promise);
-        }
-        else {
-            PTI;
-            return promise;
-        }
+        return call_next();
     }
 
     template <typename FUNC_ON_RESOLVE>
@@ -143,9 +161,8 @@ struct ResolveChecker<Defer, FUNC> {
         try {
             Defer ret = func();
             PTI;
-            printf("%d\n", self->next_.get());
+            printf("%p\n", self->next_.get());
             ret->next_ = self->next_;
-            //ret->next_
             return ret;
         } catch(...) {}
 
@@ -234,14 +251,16 @@ int main(int argc, char **argv) {
     newPromise([argc, &d1](Defer d){
         PTI;
         d1 = d;
-        //d->resolve();
+        d->resolve();
         //d->reject();
     })->then([](){
         PTI;
         Defer d1 = newPromise([](Defer d){
             PTI;
-        d->resolve();
+        //d->resolve();
         });
+        d1->resolve();
+        throw 33;
         return d1;        
         //return d1;        
     }, [&d1](){
@@ -259,7 +278,7 @@ int main(int argc, char **argv) {
     
     
     printf("later=================\n");
-    (d1)->resolve();
+    //(d1)->resolve();
     
     return 0;
 }
