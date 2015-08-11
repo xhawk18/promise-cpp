@@ -1,10 +1,9 @@
+#ifndef INC_PROMISE_HPP_
+#define INC_PROMISE_HPP_
 
 #include <functional>
 #include <memory>
-#include <cassert>
-#include <stdio.h>
 
-#define PTI do{printf("%d, %s\n", __LINE__, __func__);} while(0)
 
 struct Promise;
 typedef std::shared_ptr<Promise> Defer;
@@ -28,11 +27,9 @@ struct PromiseEx
     PromiseEx(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject)
         : on_resolve_(on_resolve)
         , on_reject_(on_reject) {
-        //PTI;
     }
     
     virtual ~PromiseEx() {
-        //PTI;
     }
     
     virtual Defer call_resolve(Defer self) {
@@ -46,7 +43,6 @@ struct PromiseEx
 struct Promise {
 private:
     explicit Promise(const Promise &){
-        //PTI;
     }
 
 public:
@@ -60,12 +56,9 @@ public:
         , is_resolved_(false)
         , is_rejected_(false)
         , is_called_(false) {
-        //PTI;
     }
     
     virtual ~Promise() {
-        //printf("this = %p ", this);
-        //PTI;
     }
     
     void resolve() {
@@ -86,7 +79,6 @@ public:
 
     template <typename FUNC>
     void run(FUNC func, Defer d) {
-        //PTI;
         try {
             func(d);
             return;
@@ -96,10 +88,8 @@ public:
     
     Defer call_next() {
         if(!next_.get()) {
-            PTI;
         }
         else if(!is_called_ && is_resolved_) {
-            PTI;
             is_called_ = true;
             Defer d = next_->call_resolve(next_);
             if(d.get())
@@ -107,7 +97,6 @@ public:
             return d;
         }
         else if(!is_called_ && is_rejected_) {
-            PTI;
             is_called_ = true;
             Defer d =  next_->call_reject(next_);
             if (d.get())
@@ -160,8 +149,6 @@ struct ResolveChecker<Defer, FUNC> {
     static Defer call(FUNC func, Defer self) {
         try {
             Defer ret = func();
-            PTI;
-            printf("%p\n", self->next_.get());
             ret->next_ = self->next_;
             return ret;
         } catch(...) {}
@@ -245,40 +232,4 @@ Defer newPromise(FUNC func) {
     return promise;
 }
 
-int main(int argc, char **argv) {
-    Defer d1;
-    
-    newPromise([argc, &d1](Defer d){
-        PTI;
-        d1 = d;
-        d->resolve();
-        //d->reject();
-    })->then([](){
-        PTI;
-        Defer d1 = newPromise([](Defer d){
-            PTI;
-        //d->resolve();
-        });
-        d1->resolve();
-        throw 33;
-        return d1;        
-        //return d1;        
-    }, [&d1](){
-        PTI;
-        throw 3;
-    })->then([](){
-        PTI;
-    })->then([](){
-        PTI;
-    })->fail([](){
-        PTI;
-    })->always([](){
-        PTI;
-    });
-    
-    
-    printf("later=================\n");
-    //(d1)->resolve();
-    
-    return 0;
-}
+#endif
