@@ -2,6 +2,7 @@
 #include "promise.hpp"
 
 #define PTI do{printf("%d, %s\n", __LINE__, __func__);} while(0)
+using namespace promise;
 
 int main(int argc, char **argv) {
     Defer d1;
