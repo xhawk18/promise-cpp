@@ -13,15 +13,17 @@ int main(int argc, char **argv) {
         PTI;
         //d1 = d;
         //return 
-		d->resolve();
+		d->resolve(222);
         //return 33;
         //d->reject();
-	})->then([]() {
-		printf("xxxx\n");
+	})->then([](int n) {
+		printf("xxxx n = %d\n", n);
 		return 555;
 	})->then([](int n) {
 		printf("n = %d\n", n);
-    });
+	})->then([]() {
+		printf("xcxcxc\n");
+	});
 #if 0    
         printf("n = %d\n", n);
         PTI;
