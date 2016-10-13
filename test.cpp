@@ -6,6 +6,20 @@
 #define PTI do{printf("%d, %s\n", __LINE__, __func__);} while(0)
 using namespace promise;
 
+void test1() {
+	PTI;
+}
+int test2() {
+	PTI;
+	return 5;
+}
+void test3(int n) {
+	PTI;
+	printf("n = %d\n", n);
+}
+
+
+
 int main(int argc, char **argv) {
     //Defer d1;
     
@@ -23,7 +37,9 @@ int main(int argc, char **argv) {
 		printf("n = %d\n", n);
 	})->then([]() {
 		printf("xcxcxc\n");
-	});
+	})->then(test1)
+	->then(test2)
+	->then(test3);
 #if 0    
         printf("n = %d\n", n);
         PTI;
