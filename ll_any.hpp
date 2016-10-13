@@ -20,7 +20,11 @@ namespace ll
         typedef T type;
     };
     template<typename T>
-        struct remove_reference<T&> {
+    struct remove_reference<T&> {
+        typedef T type;
+    };
+    template<typename T>
+    struct remove_reference<const T&> {
         typedef T type;
     };
 

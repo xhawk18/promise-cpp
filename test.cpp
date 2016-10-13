@@ -13,7 +13,7 @@ int test2() {
 	PTI;
 	return 5;
 }
-void test3(int n) {
+void test3(const int &n) {
 	PTI;
 	printf("n = %d\n", n);
 }
@@ -32,7 +32,10 @@ int main(int argc, char **argv) {
         //d->reject();
 	})->then([](int n) {
 		printf("xxxx n = %d\n", n);
-		return 555;
+		//return 555;
+		return newPromise([](Defer d) {
+			d->resolve(788);
+		});
 	})->then([](int n) {
 		printf("n = %d\n", n);
 	})->then([]() {
