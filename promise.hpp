@@ -91,17 +91,21 @@ public:
         return object_;
     }
 
-	void resolve() const {
-		object_->resolve();
-	}
-	template <typename RET_ARG>
-	void resolve(const RET_ARG &ret_arg) const {
-		object_->resolve<RET_ARG>(ret_arg);
-	}
-	void reject() const {
-		object_->reject();
-	}
-	template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
+    void resolve() const {
+        object_->resolve();
+    }
+    template <typename RET_ARG>
+    void resolve(const RET_ARG &ret_arg) const {
+        object_->resolve<RET_ARG>(ret_arg);
+    }
+    void reject() const {
+        object_->reject();
+    }
+    template <typename RET_ARG>
+    void reject(const RET_ARG &ret_arg) const {
+        object_->reject<RET_ARG>(ret_arg);
+    }
+    template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
     Defer then(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject) const {
         return object_->then<FUNC_ON_RESOLVE, FUNC_ON_REJECT>(on_resolve, on_reject);
     }
@@ -128,7 +132,7 @@ private:
     T *object_;
 };
 
-typedef std::shared_ptr<Promise> Defer;
+typedef shared_ptr<Promise> Defer;
 
 typedef void(*FnSimple)();
 
@@ -136,7 +140,7 @@ struct Void {};
 
 template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct ResolveChecker;
-template <typename RET, typename FUNC>
+template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct RejectChecker;
 
 template<typename FUNC>
@@ -195,9 +199,10 @@ struct GetRetArgType {
 template <typename Promise, typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
 struct PromiseEx 
     : public Promise {
-    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::ret_type ret_type;
-    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::arg_type arg_type;
-	typedef typename GetRetArgType<FUNC_ON_REJECT>::ret_type reject_ret_type;
+    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::ret_type resolve_ret_type;
+    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::arg_type resolve_arg_type;
+    typedef typename GetRetArgType<FUNC_ON_REJECT>::ret_type reject_ret_type;
+    typedef typename GetRetArgType<FUNC_ON_REJECT>::arg_type reject_arg_type;
 
     FUNC_ON_RESOLVE on_resolve_;
     FUNC_ON_REJECT on_reject_;
@@ -211,10 +216,10 @@ struct PromiseEx
     }
     
     virtual Defer call_resolve(Defer self, Promise *caller) {
-        return ResolveChecker<PromiseEx, ret_type, FUNC_ON_RESOLVE, arg_type>::call(on_resolve_, self, caller);
+        return ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVE, resolve_arg_type>::call(on_resolve_, self, caller);
     }
     virtual Defer call_reject(Defer self, Promise *caller) {
-        return RejectChecker<reject_ret_type, FUNC_ON_REJECT>::call(on_reject_, self);
+        return RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECT, reject_arg_type>::call(on_reject_, self, caller);
     }
 };
 
@@ -255,6 +260,11 @@ struct Promise {
         is_rejected_ = true;
         call_next();
     }
+    template <typename RET_ARG>
+    void reject(const RET_ARG &ret_arg) {
+        ret_arg_ = ret_arg;
+        reject();
+    }
 
     virtual Defer call_resolve(Defer self, Promise *caller) = 0;
     virtual Defer call_reject(Defer self, Promise *caller) = 0;
@@ -263,25 +273,27 @@ struct Promise {
     void run(FUNC func, Defer d) {
         try {
             func(d);
-            return;
-        } catch(...) {}
-        d->reject();
+        } catch(const ll::bad_any_cast &ex) {
+            d->reject(ex);
+        } catch(...) {
+            d->reject();
+        }
     }
     
     Defer call_next() {
-        if(!next_.get()) {
+        if(!next_.operator->()) {
         }
         else if(!is_called_ && is_resolved_) {
             is_called_ = true;
             Defer d = next_->call_resolve(next_, this);
-            if(d.get())
+            if(d.operator->())
                 d->call_next();
             return d;
         }
         else if(!is_called_ && is_rejected_) {
             is_called_ = true;
             Defer d =  next_->call_reject(next_, this);
-            if (d.get())
+            if (d.operator->())
                 d->call_next();
             return d;
         }
@@ -315,15 +327,13 @@ struct Promise {
 template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct ResolveChecker {
     static Defer call(FUNC func, Defer self, Promise *caller) {
-        bool success = false;
         try {
-            RET ret = func(ll::any_cast<RET_ARG>(caller->ret_arg_));
-            success = true;
-            self->resolve(ret);
+            self->resolve(func(ll::any_cast<RET_ARG>(caller->ret_arg_)));
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
         } catch(...) {
-            if (success) throw;
+            self->reject();
         }
-        if(!success) self->reject();
         return self;
     }
 };
@@ -331,14 +341,14 @@ struct ResolveChecker {
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
     static Defer call(FUNC func, Defer self, Promise *caller) {
-        bool success = false;
         try {
             func(ll::any_cast<RET_ARG>(caller->ret_arg_));
-            success = true;
+            self->resolve();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
         }
-        catch (...) {}
-        if (success) self->resolve();
-        else        self->reject();
         return self;
     }
 };
@@ -346,15 +356,13 @@ struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
 template <typename PROMISE_EX, typename RET, typename FUNC>
 struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
     static Defer call(FUNC func, Defer self, Promise *caller) {
-        bool success = false;
         try {
-            RET ret = func();
-            success = true;
-            self->resolve(ret);
+            self->resolve(func());
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
         } catch(...) {
-            if (success) throw;
+            self->reject();
         }
-        if(!success) self->reject();
         return self;
     }
 };
@@ -362,14 +370,14 @@ struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
 template <typename PROMISE_EX, typename FUNC>
 struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
     static Defer call(FUNC func, Defer self, Promise *caller) {
-        bool success = false;
         try {
             func();
-            success = true;
+            self->resolve();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
         }
-        catch (...) {}
-        if (success) self->resolve();
-        else        self->reject();
         return self;
     }
 };
@@ -382,9 +390,11 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
             Defer ret = func(ll::any_cast<RET_ARG>(caller->ret_arg_));
             ret->next_ = self->next_;
             return ret;
-        } catch(...) {}
-
-        self->reject();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
         return self;
     }
 };
@@ -396,74 +406,148 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
             Defer ret = func();
             ret->next_ = self->next_;
             return ret;
-        } catch(...) {}
-
-        self->reject();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
         return self;
     }
 };
 
 template <typename PROMISE_EX>
 struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
-	static Defer call(FnSimple func, Defer self, Promise *caller) {
-		bool success = false;
-		try {
-			if(func != NULL)
-				(*func)();
-			success = true;
-		}
-		catch (...) {}
-		if (success) self->resolve();
-		else        self->reject();
-		return self;
-	}
-};
-
-
-
-template <typename RET, typename FUNC>
-struct RejectChecker {
-    static Defer call(FUNC func, Defer self) {
-        bool success = false;
+    static Defer call(FnSimple func, Defer self, Promise *caller) {
         try {
-            func();
-            success = true;
-        } catch(...) {}
-        if(success) self->resolve();
-        else        self->reject();
+            if(func != NULL)
+                (*func)();
+            self->resolve();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
         return self;
     }
 };
 
-template <typename FUNC>
-struct RejectChecker<Defer, FUNC> {
-    static Defer call(FUNC func, Defer self) {
+
+template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
+struct RejectChecker {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
+        try {
+            self->resolve(func(ll::any_cast<RET_ARG>(caller->ret_arg_)));
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
+        return self;
+    }
+};
+
+template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
+struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
+        try {
+            func(ll::any_cast<RET_ARG>(caller->ret_arg_));
+            self->resolve();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
+        return self;
+    }
+};
+
+template <typename PROMISE_EX, typename RET, typename FUNC>
+struct RejectChecker<PROMISE_EX, RET, FUNC, Void> {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
+        try {
+            self->resolve(func());
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
+        return self;
+    }
+};
+
+template <typename PROMISE_EX, typename FUNC>
+struct RejectChecker<PROMISE_EX, Void, FUNC, Void> {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
+        try {
+            func();
+            self->resolve();
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        } catch(...) {
+            self->reject();
+        }
+        return self;
+    }
+};
+
+
+template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
+struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
+        try {
+            Defer ret = func(ll::any_cast<RET_ARG>(caller->ret_arg_));
+            ret->next_ = self->next_;
+            return ret;
+        }
+        catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        }
+        catch(...) {
+            self->reject();
+        }
+        return self;
+    }
+};
+
+template <typename PROMISE_EX, typename FUNC>
+struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
+    static Defer call(FUNC func, Defer self, Promise *caller) {
         try {
             Defer ret = func();
             ret->next_ = self->next_;
             return ret;
-        } catch(...) {}
-        
-        self->reject();
+        }
+        catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+        }
+        catch(...) {
+            self->reject();
+        }
         return self;
     }
 };
 
-template <>
-struct RejectChecker<Void, FnSimple> {
-	static Defer call(FnSimple func, Defer self) {
-		bool success = false;
-		try {
-			if(func != NULL) {
-				(*func)();
-				success = true;
-			}
-		}
-		catch (...) {}
-		if (success) self->resolve();
-		else        self->reject();
-		return self;
-	}
+template <typename PROMISE_EX>
+struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
+    static Defer call(FnSimple func, Defer self, Promise *caller) {
+        try {
+            if (func != NULL) {
+                (*func)();
+                self->resolve();
+                return self;
+            }
+        } catch(const ll::bad_any_cast &ex) {
+            self->reject(ex);
+            return self;
+        } catch(...) {
+            self->reject();
+            return self;
+        }
+
+        self->ret_arg_.swap(caller->ret_arg_);
+        self->reject();
+        return self;
+    }
 };
 
 
