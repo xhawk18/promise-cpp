@@ -34,6 +34,100 @@
 namespace promise {
 
 struct Promise;
+
+template< class T >
+class shared_ptr {
+    typedef shared_ptr<Promise> Defer;
+public:
+    virtual ~shared_ptr() {
+        if(object_ != NULL) {
+            --object_->ref_count_;
+            if(object_->ref_count_ == 0)
+                delete object_;
+        }
+    }
+
+    explicit shared_ptr(T *object)
+        : object_(object) {
+        if(object_ != NULL)
+            ++object_->ref_count_;
+    }
+    
+    explicit shared_ptr()
+        : object_(NULL) {
+    }
+
+    shared_ptr(shared_ptr const &ptr)
+        : object_(ptr.object_) {
+        if(object_ != NULL)
+            ++object_->ref_count_;
+    }
+
+    shared_ptr &operator=(shared_ptr const &ptr) {
+        shared_ptr(ptr).swap(*this);
+        return *this;
+    }
+
+    bool operator==(shared_ptr const &ptr) const {
+        return object_ == ptr.object_;
+    }
+
+    bool operator!=(shared_ptr const &ptr) const {
+        return !( *this == ptr );
+    }
+
+    bool operator==(T const *ptr) const {
+        return object_ == ptr;
+    }
+
+    bool operator!=(T const *ptr) const {
+        return !( *this == ptr );
+    }
+
+    T *operator->() {
+        return object_;
+    }
+    T *operator->() const {
+        return object_;
+    }
+
+	void resolve() const {
+		object_->resolve();
+	}
+	template <typename RET_ARG>
+	void resolve(const RET_ARG &ret_arg) const {
+		object_->resolve<RET_ARG>(ret_arg);
+	}
+	void reject() const {
+		object_->reject();
+	}
+	template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
+    Defer then(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject) const {
+        return object_->then<FUNC_ON_RESOLVE, FUNC_ON_REJECT>(on_resolve, on_reject);
+    }
+
+    template <typename FUNC_ON_RESOLVE>
+    Defer then(FUNC_ON_RESOLVE on_resolve) const {
+        return object_->then<FUNC_ON_RESOLVE>(on_resolve);
+    }
+
+    template <typename FUNC_ON_REJECT>
+    Defer fail(FUNC_ON_REJECT on_reject) const {
+        return object_->fail<FUNC_ON_REJECT>(on_reject);
+    }
+    
+    template <typename FUNC_ON_ALWAYS>
+    Defer always(FUNC_ON_ALWAYS on_always) const {
+        return object_->always<FUNC_ON_ALWAYS>(on_always);
+    }   
+private:
+    inline void swap(shared_ptr &ptr) {
+        std::swap(object_, ptr.object_);
+    }
+
+    T *object_;
+};
+
 typedef std::shared_ptr<Promise> Defer;
 
 typedef void(*FnSimple)();
@@ -44,11 +138,6 @@ template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct ResolveChecker;
 template <typename RET, typename FUNC>
 struct RejectChecker;
-
-template <typename RET_ARG>
-struct RetArg {
-    typedef RET_ARG ret_arg_type;
-};
 
 template<typename FUNC>
 struct GetRetArgType0 {
@@ -108,6 +197,7 @@ struct PromiseEx
     : public Promise {
     typedef typename GetRetArgType<FUNC_ON_RESOLVE>::ret_type ret_type;
     typedef typename GetRetArgType<FUNC_ON_RESOLVE>::arg_type arg_type;
+	typedef typename GetRetArgType<FUNC_ON_REJECT>::ret_type reject_ret_type;
 
     FUNC_ON_RESOLVE on_resolve_;
     FUNC_ON_REJECT on_reject_;
@@ -124,24 +214,22 @@ struct PromiseEx
         return ResolveChecker<PromiseEx, ret_type, FUNC_ON_RESOLVE, arg_type>::call(on_resolve_, self, caller);
     }
     virtual Defer call_reject(Defer self, Promise *caller) {
-        return RejectChecker<decltype(on_reject_()), FUNC_ON_REJECT>::call(on_reject_, self);
+        return RejectChecker<reject_ret_type, FUNC_ON_REJECT>::call(on_reject_, self);
     }
 };
 
 struct Promise {
-private:
-    explicit Promise(const Promise &){
-    }
-
-public:
+    int ref_count_;
     Defer next_;
     ll::any<> ret_arg_;
     bool is_resolved_;
     bool is_rejected_;
     bool is_called_;
     
+    Promise(const Promise &) = delete;
     explicit Promise()
-        : next_(NULL)
+        : ref_count_(0)
+        , next_(NULL)
         , is_resolved_(false)
         , is_rejected_(false)
         , is_called_(false) {
@@ -157,10 +245,9 @@ public:
         call_next();
     }
     template <typename RET_ARG>
-    RetArg<RET_ARG> resolve(const RET_ARG &ret_arg) {
+    void resolve(const RET_ARG &ret_arg) {
         ret_arg_ = ret_arg;
         resolve();
-        return RetArg<RET_ARG>();
     }
     void reject() {
         if(is_resolved_ || is_rejected_)
@@ -316,6 +403,24 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
     }
 };
 
+template <typename PROMISE_EX>
+struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
+	static Defer call(FnSimple func, Defer self, Promise *caller) {
+		bool success = false;
+		try {
+			if(func != NULL)
+				(*func)();
+			success = true;
+		}
+		catch (...) {}
+		if (success) self->resolve();
+		else        self->reject();
+		return self;
+	}
+};
+
+
+
 template <typename RET, typename FUNC>
 struct RejectChecker {
     static Defer call(FUNC func, Defer self) {
@@ -343,6 +448,24 @@ struct RejectChecker<Defer, FUNC> {
         return self;
     }
 };
+
+template <>
+struct RejectChecker<Void, FnSimple> {
+	static Defer call(FnSimple func, Defer self) {
+		bool success = false;
+		try {
+			if(func != NULL) {
+				(*func)();
+				success = true;
+			}
+		}
+		catch (...) {}
+		if (success) self->resolve();
+		else        self->reject();
+		return self;
+	}
+};
+
 
 template <typename FUNC>
 Defer newPromise(FUNC func) {
