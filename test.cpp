@@ -1,41 +1,51 @@
 #include <stdio.h>
+
 #include "promise.hpp"
 
-#define PTI do{printf("%d, %s\n", __LINE__, __func__);} while(0)
 using namespace promise;
+
+void test1() {
+	printf("in function %s, line %d\n", __func__, __LINE__);
+}
+int test2() {
+	printf("in function %s, line %d\n", __func__, __LINE__);
+    return 5;
+}
+void test3(int n) {
+	printf("in function %s, line %d\n", __func__, __LINE__);
+    printf("n = %d\n", n);
+}
 
 int main(int argc, char **argv) {
     Defer d1;
-    
-    newPromise([argc, &d1](Defer d){
-        PTI;
-        d1 = d;
-        d->resolve();
-        //d->reject();
-    })->then([](){
-        PTI;
-        Defer d2 = newPromise([](Defer d){
-            PTI;
-            d->resolve();
-        });
-        d2->resolve();
-        return d2;
-    }, [&d1](){
-        PTI;
-        throw 3;
-    })->then([](){
-        PTI;
-    })->then([](){
-        PTI;
-    })->fail([](){
-        PTI;
-    })->always([](){
-        PTI;
-    });
-    
-    
-    printf("later=================\n");
-    //(d1)->resolve();
-    
+
+    newPromise([argc](Defer d){
+		printf("in function %s, line %d\n", __func__, __LINE__);
+		d->resolve();
+	}).then([]() {
+		printf("in function %s, line %d\n", __func__, __LINE__);
+	}).then([](){
+		printf("in function %s, line %d\n", __func__, __LINE__);
+	}).then([&d1](){
+		printf("in function %s, line %d\n", __func__, __LINE__);
+		d1 = newPromise([](Defer d) {
+			printf("in function %s, line %d\n", __func__, __LINE__);
+			//d->resolve();
+		});
+		return d1;
+	}).fail([](int n){
+		printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+	}).then(test1)
+    .then(test2)
+    .then(test3)
+	.always([]() {
+		printf("in function %s, line %d\n", __func__, __LINE__);
+	});
+
+	printf("call later=================\n");
+    //d1.resolve();
+	d1.reject(123);
+
     return 0;
 }
+
