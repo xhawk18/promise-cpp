@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#if 1
 #include "promise.hpp"
 
 using namespace promise;
@@ -49,4 +48,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-#endif
+
