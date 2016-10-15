@@ -40,8 +40,18 @@
 #include "stream-inl.h"
 #include "req-inl.h"
 
+#include "missing.h"
+
+#ifdef __GNUC__
+LONG InterlockedOr(LONG volatile *Destination, LONG Value) {
+	__asm__ __volatile__("lock ; orl %0,%1"
+		 : : "r"(Value), "m"(*Destination) : "memory");
+	return *Destination;
+}
+#else
 #pragma intrinsic (_InterlockedOr)
 #define InterlockedOr _InterlockedOr
+#endif
 
 #define UNICODE_REPLACEMENT_CHARACTER (0xfffd)
 

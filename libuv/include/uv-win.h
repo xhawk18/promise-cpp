@@ -57,6 +57,10 @@ typedef struct pollfd {
 # include <stdint.h>
 #endif
 
+#ifdef __GNUC__
+#include "win-missing.h"
+#endif
+
 #include "tree.h"
 #include "uv-threadpool.h"
 

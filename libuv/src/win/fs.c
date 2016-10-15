@@ -115,7 +115,9 @@ const WCHAR UNC_PATH_PREFIX_LEN = 8;
 
 
 void uv_fs_init() {
+#ifndef __GNUC__
   _fmode = _O_BINARY;
+#endif
 }
 
 
