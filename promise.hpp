@@ -356,10 +356,10 @@ public:
         return !( *this == ptr );
     }
 
-    T *operator->() {
+    inline T *operator->() {
         return object_;
     }
-    T *operator->() const {
+    inline T *operator->() const {
         return object_;
     }
 
@@ -479,7 +479,7 @@ struct PromiseEx
     FUNC_ON_RESOLVE on_resolve_;
     FUNC_ON_REJECT on_reject_;
     
-    PromiseEx(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject)
+    PromiseEx(const FUNC_ON_RESOLVE &on_resolve, const FUNC_ON_REJECT &on_reject)
         : on_resolve_(on_resolve)
         , on_reject_(on_reject) {
     }
@@ -487,10 +487,10 @@ struct PromiseEx
     virtual ~PromiseEx() {
     }
     
-    virtual Defer call_resolve(Defer self, Promise *caller) {
+    virtual Defer call_resolve(Defer &self, Promise *caller) {
         return ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVE, resolve_arg_type>::call(on_resolve_, self, caller);
     }
-    virtual Defer call_reject(Defer self, Promise *caller) {
+    virtual Defer call_reject(Defer &self, Promise *caller) {
         return RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECT, reject_arg_type>::call(on_reject_, self, caller);
     }
 
@@ -509,26 +509,28 @@ struct Promise {
     int ref_count_;
     Defer next_;
     any<> ret_arg_;
-    bool is_resolved_;
-    bool is_rejected_;
-    bool is_called_;
+    
+    enum status_t {
+        kInit,
+        kResolved,
+        kRejected,
+        kFinished
+    };
+    status_t status_;
     
     Promise(const Promise &) = delete;
     explicit Promise()
         : ref_count_(0)
         , next_(nullptr)
-        , is_resolved_(false)
-        , is_rejected_(false)
-        , is_called_(false) {
+        , status_(kInit) {
     }
     
     virtual ~Promise() {
     }
     
     void resolve() {
-        if(is_resolved_ || is_rejected_)
-            return;
-        is_resolved_ = true;
+        if(status_ != kInit) return;
+        status_ = kResolved;
         call_next();
     }
     template <typename RET_ARG>
@@ -537,9 +539,8 @@ struct Promise {
         resolve();
     }
     void reject() {
-        if(is_resolved_ || is_rejected_)
-            return;
-        is_rejected_ = true;
+        if(status_ != kInit) return;
+        status_ = kRejected;
         call_next();
     }
     template <typename RET_ARG>
@@ -548,8 +549,8 @@ struct Promise {
         reject();
     }
 
-    virtual Defer call_resolve(Defer self, Promise *caller) = 0;
-    virtual Defer call_reject(Defer self, Promise *caller) = 0;
+    virtual Defer call_resolve(Defer &self, Promise *caller) = 0;
+    virtual Defer call_reject(Defer &self, Promise *caller) = 0;
 
     template <typename FUNC>
     void run(FUNC func, Defer d) {
@@ -563,21 +564,23 @@ struct Promise {
     }
     
     Defer call_next() {
-        if(!next_.operator->()) {
+        if(status_ == kResolved) {
+            if(next_.operator->()){
+                status_ = kFinished;
+                Defer d = next_->call_resolve(next_, this);
+                if(d.operator->())
+                    d->call_next();
+                return d;
+            }
         }
-        else if(!is_called_ && is_resolved_) {
-            is_called_ = true;
-            Defer d = next_->call_resolve(next_, this);
-            if(d.operator->())
-                d->call_next();
-            return d;
-        }
-        else if(!is_called_ && is_rejected_) {
-            is_called_ = true;
-            Defer d =  next_->call_reject(next_, this);
-            if (d.operator->())
-                d->call_next();
-            return d;
+        else if(status_ == kRejected ) {
+            if(next_.operator->()){
+                status_ = kFinished;
+                Defer d =  next_->call_reject(next_, this);
+                if (d.operator->())
+                    d->call_next();
+                return d;
+            }
         }
 
         return next_;
@@ -608,7 +611,7 @@ struct Promise {
 
 template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct ResolveChecker {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             self->resolve(func(any_cast<RET_ARG>(caller->ret_arg_)));
         } catch(const bad_any_cast &ex) {
@@ -622,7 +625,7 @@ struct ResolveChecker {
 
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             func(any_cast<RET_ARG>(caller->ret_arg_));
             self->resolve();
@@ -637,7 +640,7 @@ struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
 
 template <typename PROMISE_EX, typename RET, typename FUNC>
 struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             self->resolve(func());
         } catch(const bad_any_cast &ex) {
@@ -651,7 +654,7 @@ struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
 
 template <typename PROMISE_EX, typename FUNC>
 struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             func();
             self->resolve();
@@ -667,7 +670,7 @@ struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
 
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func(any_cast<RET_ARG>(caller->ret_arg_));
             ret->next_ = self->next_;
@@ -683,7 +686,7 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
 
 template <typename PROMISE_EX, typename FUNC>
 struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func();
             ret->next_ = self->next_;
@@ -699,7 +702,7 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
 
 template <typename PROMISE_EX>
 struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
-    static Defer call(FnSimple func, Defer self, Promise *caller) {
+    static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
             if(func != nullptr)
                 (*func)();
@@ -716,7 +719,7 @@ struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
 
 template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct RejectChecker {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             self->resolve(func(any_cast<RET_ARG>(caller->ret_arg_)));
         } catch(const bad_any_cast &ex) {
@@ -730,7 +733,7 @@ struct RejectChecker {
 
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             func(any_cast<RET_ARG>(caller->ret_arg_));
             self->resolve();
@@ -745,7 +748,7 @@ struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
 
 template <typename PROMISE_EX, typename RET, typename FUNC>
 struct RejectChecker<PROMISE_EX, RET, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             self->resolve(func());
         } catch(const bad_any_cast &ex) {
@@ -759,7 +762,7 @@ struct RejectChecker<PROMISE_EX, RET, FUNC, Void> {
 
 template <typename PROMISE_EX, typename FUNC>
 struct RejectChecker<PROMISE_EX, Void, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             func();
             self->resolve();
@@ -775,7 +778,7 @@ struct RejectChecker<PROMISE_EX, Void, FUNC, Void> {
 
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func(any_cast<RET_ARG>(caller->ret_arg_));
             ret->next_ = self->next_;
@@ -793,7 +796,7 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
 
 template <typename PROMISE_EX, typename FUNC>
 struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
-    static Defer call(FUNC func, Defer self, Promise *caller) {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func();
             ret->next_ = self->next_;
@@ -811,7 +814,7 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
 
 template <typename PROMISE_EX>
 struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
-    static Defer call(FnSimple func, Defer self, Promise *caller) {
+    static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
             if (func != nullptr) {
                 (*func)();
