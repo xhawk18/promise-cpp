@@ -60,28 +60,71 @@ Defer newDelay(uint64_t timeout) {
     });
 }
 
+void testTimer() {
+	newPromise([](Defer d) {
+		setTimeout([d]() {
+			printf("In timerout 1\n");
+			d.resolve(893);
+		}, 1000);
+	}).then([](const int &vv) {
+		printf("In then 1, vv = %d\n", vv);
+		return newDelay(1000);
+	}).then([]() {
+		printf("In then 2\n");
+		return newDelay(2000);
+	}).then([]() {
+		printf("In then 3\n");
+		return newDelay(3000);
+	}).then([]() {
+		printf("In last then\n");
+	});
+}
+
+Defer testPerformance() {
+	static int i = 0;
+	static uint64_t count = 0;
+	static uint64_t hrtime;
+
+	if (count == 0) {
+		hrtime = uv_hrtime();
+	}
+	else if (count >= 50000) {
+		uint64_t interval = uv_hrtime() - hrtime;
+		printf("time = %lld, %lld per seconds\n", interval, (uint64_t)(count / (interval / 1e9)));
+		count = 0;
+		hrtime = uv_hrtime();
+	}
+
+	++count;
+	return newPromise([](Defer d) {
+		++i;
+		d->resolve(12);
+	}).then([](int n) {
+		++i;
+		return '3';
+	}).then([](char ch) {
+		++i;
+	}).then([]() {
+		++i;
+		return newPromise([](Defer d) {
+			++i;
+			d->reject();
+		});
+	}).fail([](int n) {
+		++i;
+	}).always([]() {
+		++i;
+		setTimeout([]() {
+			testPerformance();
+		}, 0);
+	});
+}
+
 int main() {
-    uv_loop_t *loop;
+    uv_loop_t *loop = uv_default_loop();
 
-    loop = uv_default_loop();
-
-    newPromise([](Defer d) {
-        setTimeout([d]() {
-            printf("In timerout 1\n");
-            d.resolve(893);
-        }, 1000);
-    }).then([](const int &vv) {
-        printf("In then 1, vv = %d\n", vv);
-        return newDelay(1000);
-    }).then([]() {
-        printf("In then 2\n");
-        return newDelay(2000);
-    }).then([]() {
-        printf("In then 3\n");
-        return newDelay(3000);
-    }).then([]() {
-        printf("In last then\n");
-    });
+	testTimer();
+	testPerformance();
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }

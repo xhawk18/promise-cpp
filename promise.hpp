@@ -31,8 +31,91 @@
 #include <memory>
 #include <algorithm>
 #include <typeinfo>
+#include <list>
 
 namespace promise {
+
+
+template<class P, class M>
+inline size_t pm_offsetof(const M P::*member) {
+    return (size_t)&(reinterpret_cast<P*>(0)->*member);
+}
+
+template<class P, class M>
+inline P* pm_container_of(M* ptr, const M P::*member) {
+    return (P*)((char*)ptr - pm_offsetof(member));
+}
+
+//allocator
+template <typename T>
+struct memory_pool_buf {
+    struct buf_t {
+        buf_t(){}
+        char buf[sizeof(T)];
+    };
+    
+    typename std::list<memory_pool_buf>::iterator self_;
+    buf_t buf_;
+};
+
+template <typename T>
+struct memory_pool {
+    std::list<memory_pool_buf<T> > used_;
+    std::list<memory_pool_buf<T> > free_;
+};
+
+template <typename T>
+struct allocator {
+    static inline memory_pool<T> *get_memory_pool() {
+        static memory_pool<T> *pool_ = nullptr;
+        if(pool_ == nullptr)
+        pool_ = new memory_pool<T>();
+        return pool_;
+    }
+
+    enum allocator_type_t {
+        kNew,
+        kMalloc,
+        kListPool
+    };
+
+    static const allocator_type_t allocator_type = kListPool;
+
+    static inline void *do_new(size_t size) {
+        if(allocator_type == kNew)
+            return new typename memory_pool_buf<T>::buf_t;
+        else if(allocator_type == kMalloc)
+            return malloc(size);
+        else if(allocator_type == kListPool){
+            memory_pool<T> *pool = get_memory_pool();
+            if(pool->free_.size() > 0)
+                pool->used_.splice(pool->used_.begin(), pool->free_, pool->free_.begin());
+            else
+                pool->used_.emplace_front();
+            pool->used_.begin()->self_ = pool->used_.begin();
+            return (void *)&pool->used_.begin()->buf_;
+        }
+        else return NULL;
+    }
+    
+    static inline void do_delete(void *ptr) {
+        if(allocator_type == kNew){
+            delete reinterpret_cast<typename memory_pool_buf<T>::buf_t *>(ptr);
+            return;
+        }
+        else if(allocator_type == kMalloc){
+            free(ptr);
+            return;
+        }
+        else if(allocator_type == kListPool){
+            memory_pool<T> *pool = get_memory_pool();
+            memory_pool_buf<T> *pool_buf = pm_container_of<memory_pool_buf<T>, typename memory_pool_buf<T>::buf_t>
+                ((typename memory_pool_buf<T>::buf_t *)ptr, &memory_pool_buf<T>::buf_);
+            pool->free_.splice(pool->free_.begin(), pool->used_, pool_buf->self_);
+        }
+    }
+};
+
 
 // Any library
 // See http://www.boost.org/libs/any for Documentation.
@@ -117,6 +200,15 @@ public: // types (public so any_cast can be non-friend)
     template<typename ValueType>
     class holder : public placeholder {
     public: // structors
+#if 1
+        void* operator new(size_t size) {
+            return allocator<holder>::do_new(size);
+        }
+        
+        void operator delete(void *ptr) {
+            allocator<holder>::do_delete(ptr);
+        }
+#endif
 
         holder(const ValueType & value)
             : held(value) {
@@ -220,7 +312,7 @@ class shared_ptr {
     typedef shared_ptr<Promise> Defer;
 public:
     virtual ~shared_ptr() {
-        if(object_ != NULL) {
+        if(object_ != nullptr) {
             --object_->ref_count_;
             if(object_->ref_count_ == 0)
                 delete object_;
@@ -229,17 +321,17 @@ public:
 
     explicit shared_ptr(T *object)
         : object_(object) {
-        if(object_ != NULL)
+        if(object_ != nullptr)
             ++object_->ref_count_;
     }
     
     explicit shared_ptr()
-        : object_(NULL) {
+        : object_(nullptr) {
     }
 
     shared_ptr(shared_ptr const &ptr)
         : object_(ptr.object_) {
-        if(object_ != NULL)
+        if(object_ != nullptr)
             ++object_->ref_count_;
     }
 
@@ -401,6 +493,16 @@ struct PromiseEx
     virtual Defer call_reject(Defer self, Promise *caller) {
         return RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECT, reject_arg_type>::call(on_reject_, self, caller);
     }
+
+#if 1
+    void* operator new(size_t size) {
+        return allocator<PromiseEx>::do_new(size);
+    }
+    
+    void operator delete(void *ptr) {
+        allocator<PromiseEx>::do_delete(ptr);
+    }
+#endif
 };
 
 struct Promise {
@@ -414,7 +516,7 @@ struct Promise {
     Promise(const Promise &) = delete;
     explicit Promise()
         : ref_count_(0)
-        , next_(NULL)
+        , next_(nullptr)
         , is_resolved_(false)
         , is_rejected_(false)
         , is_called_(false) {
@@ -490,12 +592,12 @@ struct Promise {
 
     template <typename FUNC_ON_RESOLVE>
     Defer then(FUNC_ON_RESOLVE on_resolve) {
-        return then<FUNC_ON_RESOLVE, FnSimple>(on_resolve, NULL);
+        return then<FUNC_ON_RESOLVE, FnSimple>(on_resolve, nullptr);
     }
 
     template <typename FUNC_ON_REJECT>
     Defer fail(FUNC_ON_REJECT on_reject) {
-        return then<FnSimple, FUNC_ON_REJECT>(NULL, on_reject);
+        return then<FnSimple, FUNC_ON_REJECT>(nullptr, on_reject);
     }
     
     template <typename FUNC_ON_ALWAYS>
@@ -599,7 +701,7 @@ template <typename PROMISE_EX>
 struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
     static Defer call(FnSimple func, Defer self, Promise *caller) {
         try {
-            if(func != NULL)
+            if(func != nullptr)
                 (*func)();
             self->resolve();
         } catch(const bad_any_cast &ex) {
@@ -711,7 +813,7 @@ template <typename PROMISE_EX>
 struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
     static Defer call(FnSimple func, Defer self, Promise *caller) {
         try {
-            if (func != NULL) {
+            if (func != nullptr) {
                 (*func)();
                 self->resolve();
                 return self;
@@ -733,7 +835,7 @@ struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
 
 template <typename FUNC>
 Defer newPromise(FUNC func) {
-    Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(NULL, NULL));
+    Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(nullptr, nullptr));
     promise->run(func, promise);
     return promise;
 }
