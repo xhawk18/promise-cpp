@@ -40,8 +40,6 @@
 #include "stream-inl.h"
 #include "req-inl.h"
 
-#include "missing.h"
-
 #ifdef __GNUC__
 LONG InterlockedOr(LONG volatile *Destination, LONG Value) {
 	__asm__ __volatile__("lock ; orl %0,%1"
