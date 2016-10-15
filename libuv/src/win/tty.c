@@ -40,6 +40,8 @@
 #include "stream-inl.h"
 #include "req-inl.h"
 
+#pragma intrinsic (_InterlockedOr)
+#define InterlockedOr _InterlockedOr
 
 #define UNICODE_REPLACEMENT_CHARACTER (0xfffd)
 
