@@ -31,6 +31,10 @@
 #include "stream-inl.h"
 #include "req-inl.h"
 
+#ifndef min
+#define min(a,b)	((a) <(b) ? (a) : (b))
+#endif
+
 typedef struct uv__ipc_queue_item_s uv__ipc_queue_item_t;
 
 struct uv__ipc_queue_item_s {

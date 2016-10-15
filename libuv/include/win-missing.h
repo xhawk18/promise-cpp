@@ -29,8 +29,4 @@ typedef int MIB_TCP_STATE;
 #define VOLUME_NAME_DOS 0
 #endif
 
-#ifndef min
-#define min(a,b)	((a) <(b) ? (a) : (b))
-#endif
-
 #endif

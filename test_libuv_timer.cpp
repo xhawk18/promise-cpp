@@ -38,6 +38,14 @@ void setTimeout(std::function<void()> cb, uint64_t timeout) {
 
             delete handler;
         }
+
+		void* operator new(size_t size){
+			return allocator<Handler>::do_new(size);
+		}
+
+		void operator delete(void *ptr) {
+			allocator<Handler>::do_delete(ptr);
+		}
     };
 
     uv_loop_t *loop;
@@ -109,7 +117,7 @@ Defer testPerformance() {
 		++i;
 		return newPromise([](Defer d) {
 			++i;
-			d->reject();
+			d->reject(66);
 		});
 	}).fail([](int n) {
 		++i;
