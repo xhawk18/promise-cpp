@@ -47,32 +47,35 @@ inline P* pm_container_of(M* ptr, const M P::*member) {
 }
 
 //allocator
-template <typename T>
+template <size_t SIZE>
 struct memory_pool_buf {
     struct buf_t {
         buf_t(){}
-        char buf[sizeof(T)];
+        char buf[SIZE];
     };
     
     typename std::list<memory_pool_buf>::iterator self_;
     buf_t buf_;
 };
 
-template <typename T>
+template <size_t SIZE>
 struct memory_pool {
-    std::list<memory_pool_buf<T> > used_;
-    std::list<memory_pool_buf<T> > free_;
+    std::list<memory_pool_buf<SIZE> > used_;
+    std::list<memory_pool_buf<SIZE> > free_;
+};
+
+template <size_t SIZE>
+struct size_allocator {
+    static inline memory_pool<SIZE> *get_memory_pool() {
+        static memory_pool<SIZE> *pool_ = nullptr;
+        if(pool_ == nullptr)
+        pool_ = new memory_pool<SIZE>();
+        return pool_;
+    }
 };
 
 template <typename T>
 struct allocator {
-    static inline memory_pool<T> *get_memory_pool() {
-        static memory_pool<T> *pool_ = nullptr;
-        if(pool_ == nullptr)
-        pool_ = new memory_pool<T>();
-        return pool_;
-    }
-
     enum allocator_type_t {
         kNew,
         kMalloc,
@@ -83,11 +86,11 @@ struct allocator {
 
     static inline void *do_new(size_t size) {
         if(allocator_type == kNew)
-            return new typename memory_pool_buf<T>::buf_t;
+            return new typename memory_pool_buf<sizeof(T)>::buf_t;
         else if(allocator_type == kMalloc)
             return malloc(size);
         else if(allocator_type == kListPool){
-            memory_pool<T> *pool = get_memory_pool();
+            memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
             if(pool->free_.size() > 0)
                 pool->used_.splice(pool->used_.begin(), pool->free_, pool->free_.begin());
             else
@@ -100,7 +103,7 @@ struct allocator {
     
     static inline void do_delete(void *ptr) {
         if(allocator_type == kNew){
-            delete reinterpret_cast<typename memory_pool_buf<T>::buf_t *>(ptr);
+            delete reinterpret_cast<typename memory_pool_buf<sizeof(T)>::buf_t *>(ptr);
             return;
         }
         else if(allocator_type == kMalloc){
@@ -108,9 +111,9 @@ struct allocator {
             return;
         }
         else if(allocator_type == kListPool){
-            memory_pool<T> *pool = get_memory_pool();
-            memory_pool_buf<T> *pool_buf = pm_container_of<memory_pool_buf<T>, typename memory_pool_buf<T>::buf_t>
-                ((typename memory_pool_buf<T>::buf_t *)ptr, &memory_pool_buf<T>::buf_);
+            memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
+            memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, typename memory_pool_buf<sizeof(T)>::buf_t>
+                ((typename memory_pool_buf<sizeof(T)>::buf_t *)ptr, &memory_pool_buf<sizeof(T)>::buf_);
             pool->free_.splice(pool->free_.begin(), pool->used_, pool_buf->self_);
         }
     }
