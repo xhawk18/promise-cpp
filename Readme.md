@@ -2,7 +2,7 @@
 
 ## Usage
    promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
-   With promise-cpp, you can resolve or reject any type of data without writing any complex template syntax.
+   With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
 ## Example
 ```cpp
