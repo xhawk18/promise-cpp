@@ -6,100 +6,100 @@
 
 ## Example
 ```cpp
-    #include <stdio.h>
-    #include <string>
+#include <stdio.h>
+#include <string>
 
-    #include "promise.hpp"
-    using namespace promise;
+#include "promise.hpp"
+using namespace promise;
 
-    #define PRINT_FUNC_INFO() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
+#define PRINT_FUNC_INFO() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
 
-    void test1() {
+void test1() {
+    PRINT_FUNC_INFO();
+}
+
+int test2() {
+    PRINT_FUNC_INFO();
+    return 5;
+}
+
+void test3(int n) {
+    PRINT_FUNC_INFO();
+    printf("n = %d\n", n);
+}
+
+Defer run(Defer &next){
+    return newPromise([](Defer d){
         PRINT_FUNC_INFO();
-    }
-
-    int test2() {
+        d->resolve();
+    }).then([]() {
         PRINT_FUNC_INFO();
-        return 5;
-    }
-
-    void test3(int n) {
+        //throw 33;
+    }).then([](){
         PRINT_FUNC_INFO();
-        printf("n = %d\n", n);
-    }
-
-    Defer run(Defer &next){
-        return newPromise([](Defer d){
-            PRINT_FUNC_INFO();
-            d->resolve();
-        }).then([]() {
-            PRINT_FUNC_INFO();
-            //throw 33;
-        }).then([](){
-            PRINT_FUNC_INFO();
-        }).then([&next](){
-            PRINT_FUNC_INFO();
-            next = newPromise([](Defer d) {
-                PRINT_FUNC_INFO();
-            });
-            //Will call next.resole() or next.reject() later
-            return next;
-        }).then([](int n) {
-            PRINT_FUNC_INFO();
-            printf("n = %d\n", (int)n);
-        }).fail([](char n){
-            PRINT_FUNC_INFO();
-            printf("n = %d\n", (int)n);
-        }).fail([](short n) {
-            PRINT_FUNC_INFO();
-            printf("n = %d\n", (int)n);
-        }).fail([](int &n) {
-            PRINT_FUNC_INFO();
-            printf("n = %d\n", (int)n);
-        }).fail([](const std::string &str) {
-            PRINT_FUNC_INFO();
-            printf("str = %s\n", str.c_str());
-        }).fail([](uint64_t n) {
-            PRINT_FUNC_INFO();
-            printf("n = %d\n", (int)n);
-        }).then(test1)
-        .then(test2)
-        .then(test3)
-        .always([]() {
+    }).then([&next](){
+        PRINT_FUNC_INFO();
+        next = newPromise([](Defer d) {
             PRINT_FUNC_INFO();
         });
-    }
+        //Will call next.resole() or next.reject() later
+        return next;
+    }).then([](int n) {
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).fail([](char n){
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).fail([](short n) {
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).fail([](int &n) {
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).fail([](const std::string &str) {
+        PRINT_FUNC_INFO();
+        printf("str = %s\n", str.c_str());
+    }).fail([](uint64_t n) {
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).then(test1)
+    .then(test2)
+    .then(test3)
+    .always([]() {
+        PRINT_FUNC_INFO();
+    });
+}
 
-    int main(int argc, char **argv) {
-        Defer next;
+int main(int argc, char **argv) {
+    Defer next;
 
-        run(next);
-        printf("======  after call run ======\n");
+    run(next);
+    printf("======  after call run ======\n");
 
-        next.resolve(123);
-        //next.reject('c');
-        //next.reject(std::string("xhchen"));
-        //next.reject(45);
+    next.resolve(123);
+    //next.reject('c');
+    //next.reject(std::string("xhchen"));
+    //next.reject(45);
 
-        return 0;
-    }
+    return 0;
+}
 ```
 
 ## Class Defer
-    Defer object is the promise object itself.
+Defer object is the promise object itself.
 
 ### Defer newPromise(FUNC func);
-    Create a new Defer object with a user-defined function.
-    The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
-    for example --
+Create a new Defer object with a user-defined function.
+The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
+for example --
 ```cpp
 return newPromise([](Defer d){
 })
 ```
 
 ### Defer::resolve();
-    Resolve the promise object.
-    for example --
+Resolve the promise object.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.resolve();
@@ -199,8 +199,8 @@ return newPromise([](Defer d){
     For the performance, we suggest to use function reject instead of throw.
 
 ### about the chaining parameter
-    Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
-    To use plain string or array as chaining parameters, we may wrap it into an object.
+Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
+To use plain string or array as chaining parameters, we may wrap it into an object.
 ```cpp
 newPromise([](Defer d){
     // d.resolve("ok"); may cause a compiling error, use the following code instead.
@@ -209,10 +209,10 @@ newPromise([](Defer d){
 ```
 
 ### copy the promise object
-    To copy the promise object is allowed and effective, please do that when you need.
+To copy the promise object is allowed and effective, please do that when you need.
 ```cpp
-    Defer d = newPromise([](Defer d){});
-    Defer d1 = d;  //It's safe and effective
+Defer d = newPromise([](Defer d){});
+Defer d1 = d;  //It's safe and effective
 ```
 
 
