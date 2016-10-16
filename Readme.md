@@ -107,8 +107,8 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::resolve(const RET_ARG &ret_arg);
-    Resolve the promise object with an argument, where ret_arg can be any types of arguments.
-    for example --
+Resolve the promise object with an argument, where ret_arg can be any types of arguments.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.resolve(9567);
@@ -116,8 +116,8 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::reject();
-    Reject the promise object.
-    for example --
+Reject the promise object.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.reject();
@@ -125,8 +125,8 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::reject(const RET_ARG &ret_arg);
-    Reject the promise object with an argument, where ret_arg can be any types of arguments.
-    for example --
+Reject the promise object with an argument, where ret_arg can be any types of arguments.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.reject(std::string("oh, no!"));
@@ -134,10 +134,10 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)
-    Return the chaining promise object, where on_resolved is the function to be called when 
-    previous promise object calls function resolve, on_rejected is the function to be called
-    when previous promise object calls function reject.
-    for example --
+Return the chaining promise object, where on_resolved is the function to be called when 
+previous promise object calls function resolve, on_rejected is the function to be called
+when previous promise object calls function reject.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.resolve(9567);
@@ -151,9 +151,9 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::then(FUNC_ON_RESOLVED on_resolved)
-    Return the chaining promise object, where on_resolved is the function to be called when 
-    previous promise object calls function resolve.
-    for example --
+Return the chaining promise object, where on_resolved is the function to be called when 
+previous promise object calls function resolve.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.resolve(9567);
@@ -163,9 +163,9 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::fail(FUNC_ON_REJECTED on_rejected)
-    Return the chaining promise object, where on_rejected is the function to be called when
-    previous promise object calls function reject.
-    for example --
+Return the chaining promise object, where on_rejected is the function to be called when
+previous promise object calls function reject.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.reject(std::string("oh, no!"));
@@ -175,9 +175,9 @@ return newPromise([](Defer d){
 ```
 
 ### Defer::always(FUNC_ON_ALWAYS on_always)
-    Return the chaining promise object, where on_always is the function to be called whenever
-    the previous promise object is be resolved or rejected.
-    for example --
+Return the chaining promise object, where on_always is the function to be called whenever
+the previous promise object is be resolved or rejected.
+for example --
 ```cpp
 return newPromise([](Defer d){
     d.reject(std::string("oh, no!"));
@@ -186,9 +186,9 @@ return newPromise([](Defer d){
 });
 
 ### about exceptions
-    To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
-    will same as d.reject(the_throwed_object) and returns immediately.
-    for example --
+To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
+will same as d.reject(the_throwed_object) and returns immediately.
+for example --
 ```cpp
 return newPromise([](Defer d){
     throw std::string("oh, no!");
@@ -196,7 +196,7 @@ return newPromise([](Defer d){
     printf("%s\n", str.c_str());   //will print "oh, no!" here
 });
 ```
-    For the performance, we suggest to use function reject instead of throw.
+For the performance, we suggest to use function reject instead of throw.
 
 ### about the chaining parameter
 Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
