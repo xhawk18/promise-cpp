@@ -184,6 +184,7 @@ return newPromise([](Defer d){
 }).always([](){
     printf("in always\n");   //will print "in always" here
 });
+```
 
 ### about exceptions
 To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
