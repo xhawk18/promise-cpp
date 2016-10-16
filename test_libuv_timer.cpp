@@ -40,11 +40,11 @@ void setTimeout(std::function<void()> cb, uint64_t timeout) {
         }
 
 		void* operator new(size_t size){
-			return allocator<Handler>::do_new(size);
+			return allocator<Handler>::obtain(size);
 		}
 
 		void operator delete(void *ptr) {
-			allocator<Handler>::do_delete(ptr);
+			allocator<Handler>::release(ptr);
 		}
     };
 
@@ -63,7 +63,7 @@ void setTimeout(std::function<void()> cb, uint64_t timeout) {
 Defer newDelay(uint64_t timeout) {
     return newPromise([timeout](Defer d) {
         setTimeout([d]() {
-            d->resolve();
+            d.resolve();
         }, timeout);
     });
 }
@@ -107,7 +107,7 @@ Defer testPerformance() {
 	++count;
 	return newPromise([](Defer d) {
 		++i;
-		d->resolve(12);
+		d.resolve(12);
 	}).then([](int n) {
 		++i;
 		return '3';
@@ -117,7 +117,7 @@ Defer testPerformance() {
 		++i;
 		return newPromise([](Defer d) {
 			++i;
-			d->reject(66);
+			d.reject(66);
 		});
 	}).fail([](int n) {
 		++i;

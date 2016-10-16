@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
         d->resolve();
     }).then([]() {
         printf("in function %s, line %d\n", __func__, __LINE__);
+        throw 33;
     }).then([](){
         printf("in function %s, line %d\n", __func__, __LINE__);
     }).then([&d1](){
@@ -58,8 +59,14 @@ int main(int argc, char **argv) {
             //d->resolve();
         });
         return d1;
-    }).fail([](int n){
+    }).fail([](char n){
         printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+    }).fail([](short n) {
+        printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+    }).fail([](int &n) {
+        printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+    }).fail([](uint64_t n) {
+        printf("in function %s, line %d, failed with value %lld\n", __func__, __LINE__, n);
     }).then(test1)
     .then(test2)
     .then(test3)
@@ -69,7 +76,7 @@ int main(int argc, char **argv) {
 
     printf("call later=================\n");
     //d1.resolve();
-    d1.reject(123);
+    //d1.reject(123);
 
     return 0;
 }
