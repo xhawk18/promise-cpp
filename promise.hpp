@@ -381,19 +381,19 @@ public:
     void reject(const RET_ARG &ret_arg) const {
         object_->reject<RET_ARG>(ret_arg);
     }
-    template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
-    Defer then(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject) const {
-        return object_->then<FUNC_ON_RESOLVE, FUNC_ON_REJECT>(on_resolve, on_reject);
+    template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
+    Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
+        return object_->then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
     }
 
-    template <typename FUNC_ON_RESOLVE>
-    Defer then(FUNC_ON_RESOLVE on_resolve) const {
-        return object_->then<FUNC_ON_RESOLVE>(on_resolve);
+    template <typename FUNC_ON_RESOLVED>
+    Defer then(FUNC_ON_RESOLVED on_resolved) const {
+        return object_->then<FUNC_ON_RESOLVED>(on_resolved);
     }
 
-    template <typename FUNC_ON_REJECT>
-    Defer fail(FUNC_ON_REJECT on_reject) const {
-        return object_->fail<FUNC_ON_REJECT>(on_reject);
+    template <typename FUNC_ON_REJECTED>
+    Defer fail(FUNC_ON_REJECTED on_rejected) const {
+        return object_->fail<FUNC_ON_REJECTED>(on_rejected);
     }
     
     template <typename FUNC_ON_ALWAYS>
@@ -472,30 +472,30 @@ struct GetRetArgType {
 };
 
 
-template <typename Promise, typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
+template <typename Promise, typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
 struct PromiseEx 
     : public Promise {
-    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::ret_type resolve_ret_type;
-    typedef typename GetRetArgType<FUNC_ON_RESOLVE>::arg_type resolve_arg_type;
-    typedef typename GetRetArgType<FUNC_ON_REJECT>::ret_type reject_ret_type;
-    typedef typename GetRetArgType<FUNC_ON_REJECT>::arg_type reject_arg_type;
+    typedef typename GetRetArgType<FUNC_ON_RESOLVED>::ret_type resolve_ret_type;
+    typedef typename GetRetArgType<FUNC_ON_RESOLVED>::arg_type resolve_arg_type;
+    typedef typename GetRetArgType<FUNC_ON_REJECTED>::ret_type reject_ret_type;
+    typedef typename GetRetArgType<FUNC_ON_REJECTED>::arg_type reject_arg_type;
 
-    FUNC_ON_RESOLVE on_resolve_;
-    FUNC_ON_REJECT on_reject_;
+    FUNC_ON_RESOLVED on_resolve_;
+    FUNC_ON_REJECTED on_reject_;
     
-    PromiseEx(const FUNC_ON_RESOLVE &on_resolve, const FUNC_ON_REJECT &on_reject)
-        : on_resolve_(on_resolve)
-        , on_reject_(on_reject) {
+    PromiseEx(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
+        : on_resolve_(on_resolved)
+        , on_reject_(on_rejected) {
     }
     
     virtual ~PromiseEx() {
     }
     
     virtual Defer call_resolve(Defer &self, Promise *caller) {
-        return ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVE, resolve_arg_type>::call(on_resolve_, self, caller);
+        return ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVED, resolve_arg_type>::call(on_resolve_, self, caller);
     }
     virtual Defer call_reject(Defer &self, Promise *caller) {
-        return RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECT, reject_arg_type>::call(on_reject_, self, caller);
+        return RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECTED, reject_arg_type>::call(on_reject_, self, caller);
     }
 
 #if 1
@@ -590,21 +590,21 @@ struct Promise {
         return next_;
     }
 
-    template <typename FUNC_ON_RESOLVE, typename FUNC_ON_REJECT>
-    Defer then(FUNC_ON_RESOLVE on_resolve, FUNC_ON_REJECT on_reject) {
-        Defer promise(new PromiseEx<Promise, FUNC_ON_RESOLVE, FUNC_ON_REJECT>(on_resolve, on_reject));
+    template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
+    Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) {
+        Defer promise(new PromiseEx<Promise, FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected));
         next_ = promise;
         return call_next();
     }
 
-    template <typename FUNC_ON_RESOLVE>
-    Defer then(FUNC_ON_RESOLVE on_resolve) {
-        return then<FUNC_ON_RESOLVE, FnSimple>(on_resolve, nullptr);
+    template <typename FUNC_ON_RESOLVED>
+    Defer then(FUNC_ON_RESOLVED on_resolved) {
+        return then<FUNC_ON_RESOLVED, FnSimple>(on_resolved, nullptr);
     }
 
-    template <typename FUNC_ON_REJECT>
-    Defer fail(FUNC_ON_REJECT on_reject) {
-        return then<FnSimple, FUNC_ON_REJECT>(nullptr, on_reject);
+    template <typename FUNC_ON_REJECTED>
+    Defer fail(FUNC_ON_REJECTED on_rejected) {
+        return then<FnSimple, FUNC_ON_REJECTED>(nullptr, on_rejected);
     }
     
     template <typename FUNC_ON_ALWAYS>

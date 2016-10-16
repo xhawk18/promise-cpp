@@ -25,59 +25,79 @@
  * THE SOFTWARE.
  */
 #include <stdio.h>
+#include <string>
 #include "promise.hpp"
 
 using namespace promise;
 
+#define PRINT_FUNC_INFO() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
+
 void test1() {
-    printf("in function %s, line %d\n", __func__, __LINE__);
+    PRINT_FUNC_INFO();
 }
+
 int test2() {
-    printf("in function %s, line %d\n", __func__, __LINE__);
+    PRINT_FUNC_INFO();
     return 5;
 }
+
 void test3(int n) {
-    printf("in function %s, line %d\n", __func__, __LINE__);
+    PRINT_FUNC_INFO();
     printf("n = %d\n", n);
 }
 
-int main(int argc, char **argv) {
-    Defer d1;
-
-    newPromise([argc](Defer d){
-        printf("in function %s, line %d\n", __func__, __LINE__);
+Defer run(Defer &next){
+    return newPromise([](Defer d){
+        PRINT_FUNC_INFO();
         d->resolve();
     }).then([]() {
-        printf("in function %s, line %d\n", __func__, __LINE__);
-        throw 33;
+        PRINT_FUNC_INFO();
+        //throw 33;
     }).then([](){
-        printf("in function %s, line %d\n", __func__, __LINE__);
-    }).then([&d1](){
-        printf("in function %s, line %d\n", __func__, __LINE__);
-        d1 = newPromise([](Defer d) {
-            printf("in function %s, line %d\n", __func__, __LINE__);
-            //d->resolve();
+        PRINT_FUNC_INFO();
+    }).then([&next](){
+        PRINT_FUNC_INFO();
+        next = newPromise([](Defer d) {
+            PRINT_FUNC_INFO();
         });
-        return d1;
+        //Will call next.resole() or next.reject() later
+        return next;
+    }).then([](int n) {
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
     }).fail([](char n){
-        printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
     }).fail([](short n) {
-        printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
     }).fail([](int &n) {
-        printf("in function %s, line %d, failed with value %d\n", __func__, __LINE__, n);
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
+    }).fail([](const std::string &str) {
+        PRINT_FUNC_INFO();
+        printf("str = %s\n", str.c_str());
     }).fail([](uint64_t n) {
-        printf("in function %s, line %d, failed with value %lld\n", __func__, __LINE__, n);
+        PRINT_FUNC_INFO();
+        printf("n = %d\n", (int)n);
     }).then(test1)
     .then(test2)
     .then(test3)
     .always([]() {
-        printf("in function %s, line %d\n", __func__, __LINE__);
+        PRINT_FUNC_INFO();
     });
+}
 
-    printf("call later=================\n");
-    //d1.resolve();
-    //d1.reject(123);
+int main(int argc, char **argv) {
+    Defer next;
+
+    run(next);
+    printf("======  after call run ======\n");
+
+    next.resolve(123);
+    //next.reject('c');
+    //next.reject(std::string("xhchen"));
+    //next.reject(45);
 
     return 0;
 }
-
