@@ -39,12 +39,12 @@ namespace promise {
 
 template<class P, class M>
 inline size_t pm_offsetof(const M P::*member) {
-    return (size_t)&(reinterpret_cast<P*>(0)->*member);
+    return (size_t)&reinterpret_cast<char const&>((reinterpret_cast<P*>(0)->*member));
 }
 
 template<class P, class M>
 inline P* pm_container_of(M* ptr, const M P::*member) {
-    return (P*)((char*)ptr - pm_offsetof(member));
+    return reinterpret_cast<P*>(reinterpret_cast<char*>(ptr) - pm_offsetof(member));
 }
 
 //allocator
@@ -316,17 +316,12 @@ class shared_ptr {
     typedef shared_ptr<Promise> Defer;
 public:
     virtual ~shared_ptr() {
-        if(object_ != nullptr) {
-            --object_->ref_count_;
-            if(object_->ref_count_ == 0)
-                delete object_;
-        }
+        dec_ref();
     }
 
     explicit shared_ptr(T *object)
         : object_(object) {
-        if(object_ != nullptr)
-            ++object_->ref_count_;
+        add_ref();
     }
     
     explicit shared_ptr()
@@ -335,8 +330,21 @@ public:
 
     shared_ptr(shared_ptr const &ptr)
         : object_(ptr.object_) {
-        if(object_ != nullptr)
+        add_ref();
+    }
+    
+    void add_ref() {
+        if (object_ != nullptr) {
             ++object_->ref_count_;
+        }
+    }
+    
+    void dec_ref() {
+        if(object_ != nullptr) {
+            --object_->ref_count_;
+            if(object_->ref_count_ == 0)
+                delete object_;
+        }
     }
 
     shared_ptr &operator=(shared_ptr const &ptr) {
@@ -874,7 +882,9 @@ struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
 
 template <typename FUNC>
 Defer newPromise(FUNC func) {
-    Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(nullptr, nullptr));
+    /* Here func in PromiseEx will never be called.
+       To save func in PromiseEx is just to keep reference of the object */
+    Defer promise(new PromiseEx<Promise, FUNC, FnSimple>(func, nullptr));
     promise->run(func, promise);
     return promise;
 }

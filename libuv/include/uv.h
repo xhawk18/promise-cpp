@@ -443,6 +443,8 @@ UV_EXTERN uv_buf_t uv_buf_init(char* base, unsigned int len);
 #define UV_STREAM_FIELDS                                                      \
   /* number of bytes queued for writing */                                    \
   size_t write_queue_size;                                                    \
+  /* arguments for read */                                                    \
+  void *read_arg;                                                             \
   uv_alloc_cb alloc_cb;                                                       \
   uv_read_cb read_cb;                                                         \
   /* private */                                                               \
