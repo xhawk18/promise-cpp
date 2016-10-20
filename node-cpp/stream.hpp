@@ -39,6 +39,7 @@ struct UvRead {
 
 Defer cuv_read(
     uv_stream_t *stream,
+    UvRead &r,
     Buffer buf,
     unsigned int nbufs);
 

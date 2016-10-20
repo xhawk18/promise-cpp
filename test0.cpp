@@ -49,7 +49,7 @@ void test3(int n) {
 Defer run(Defer &next){
     return newPromise([](Defer d){
         PRINT_FUNC_INFO();
-        d->resolve();
+        d.resolve();
     }).then([]() {
         PRINT_FUNC_INFO();
         //throw 33;
