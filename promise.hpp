@@ -890,7 +890,7 @@ template <typename FUNC>
 Defer newPromise(FUNC func) {
     /* Here func in PromiseEx will never be called.
        To save func in PromiseEx is just to keep reference of the object */
-    Defer promise(new PromiseEx<Promise, FUNC, FnSimple>(func, nullptr));
+    Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(nullptr, nullptr));
     promise->run(func, promise);
     return promise;
 }
