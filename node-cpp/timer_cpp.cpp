@@ -30,10 +30,8 @@ void setTimeout(Defer &d, uint64_t time_ms) {
     UvTimer *handler = new UvTimer(d);
     d->any_ = handler;
 
-    UvTimer *handler2 = any_cast<UvTimer *>(d->any_);
-
     uv_loop_t *loop = uv_default_loop();
-    uv_timer_t *timer = static_cast<uv_timer_t *>(handler2);
+    uv_timer_t *timer = static_cast<uv_timer_t *>(handler);
     uv_timer_init(loop, timer);
     uv_timer_start(timer, &UvTimer::onTimer, time_ms, 0);
 }
