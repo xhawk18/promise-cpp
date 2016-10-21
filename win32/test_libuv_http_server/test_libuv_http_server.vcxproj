@@ -190,6 +190,7 @@
     <ClCompile Include="..\..\libuv\src\win\winapi.c" />
     <ClCompile Include="..\..\libuv\src\win\winsock.c" />
     <ClCompile Include="..\..\node-cpp\stream_cpp.cpp" />
+    <ClCompile Include="..\..\node-cpp\timer_cpp.cpp" />
     <ClCompile Include="..\..\test_libuv_http_server.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -220,6 +221,7 @@
     <ClInclude Include="..\..\libuv\src\win\winsock.h" />
     <ClInclude Include="..\..\node-cpp\buffer.hpp" />
     <ClInclude Include="..\..\node-cpp\stream.hpp" />
+    <ClInclude Include="..\..\node-cpp\timer.hpp" />
     <ClInclude Include="..\..\node-cpp\uv_types.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

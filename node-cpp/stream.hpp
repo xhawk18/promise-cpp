@@ -2,7 +2,7 @@
 #define INC_STREAM_HPP_
 
 #include <memory>
-#include "promise.hpp"
+#include "../promise.hpp"
 #include "buffer.hpp"
 
 namespace promise {
@@ -21,13 +21,20 @@ struct UvReadArg {
     }
     ~UvReadArg() {
         printf("in %s %p %p\n", __func__, this, stream_);
-        uv_read_stop(stream_);
+        stop_read();
+    }
+
+    void stop_read() {
+        if (stream_ != nullptr) {
+            uv_read_stop(stream_);
+            stream_ = nullptr;
+        }
     }
 
     void* operator new(size_t size){
         return allocator<UvReadArg>::obtain(size);
     }
-    void operator delete(void *ptr) {
+        void operator delete(void *ptr) {
         allocator<UvReadArg>::release(ptr);
     }
 };
@@ -39,7 +46,6 @@ struct UvRead {
 
 Defer cuv_read(
     uv_stream_t *stream,
-    UvRead &r,
     Buffer buf,
     unsigned int nbufs);
 
@@ -47,6 +53,8 @@ Defer cuv_read(
     UvRead &r,
     Buffer buf,
     unsigned int nbufs);
+
+void cuv_read_stop(Defer d);
 
 Defer cuv_write(
     uv_stream_t* handle,

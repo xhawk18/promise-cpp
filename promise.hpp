@@ -367,6 +367,10 @@ public:
         dec_ref();
     }
 
+    Defer find_pending() const {
+        return object_->find_pending();
+    }
+
     void resolve() const {
         object_->resolve();
     }
@@ -525,6 +529,7 @@ struct PromiseEx
 
 struct Promise {
     int ref_count_;
+    Promise *prev_;
     Defer next_;
     any<> any_;
     
@@ -539,32 +544,42 @@ struct Promise {
     Promise(const Promise &) = delete;
     explicit Promise()
         : ref_count_(0)
+        , prev_(nullptr)
         , next_(nullptr)
         , status_(kInit) {
     }
     
     virtual ~Promise() {
+        if (next_.operator->()) {
+            next_->prev_ = nullptr;
+        }
     }
     
     void resolve() {
         if(status_ != kInit) return;
         status_ = kResolved;
+        any_ = any<>();
         call_next();
     }
     template <typename RET_ARG>
     void resolve(const RET_ARG &ret_arg) {
+        if(status_ != kInit) return;
+        status_ = kResolved;
         any_ = ret_arg;
-        resolve();
+        call_next();
     }
     void reject() {
         if(status_ != kInit) return;
         status_ = kRejected;
+        any_ = any<>();
         call_next();
     }
     template <typename RET_ARG>
     void reject(const RET_ARG &ret_arg) {
+        if(status_ != kInit) return;
+        status_ = kRejected;
         any_ = ret_arg;
-        reject();
+        call_next();
     }
 
     virtual Defer call_resolve(Defer &self, Promise *caller) = 0;
@@ -608,6 +623,7 @@ struct Promise {
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) {
         Defer promise(new PromiseEx<Promise, FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected));
         next_ = promise;
+        promise->prev_ = this;
         return call_next();
     }
 
@@ -624,8 +640,41 @@ struct Promise {
     template <typename FUNC_ON_ALWAYS>
     Defer always(FUNC_ON_ALWAYS on_always) {
         return then<FUNC_ON_ALWAYS, FUNC_ON_ALWAYS>(on_always, on_always);
-    }    
+    }
+
+    Defer find_pending() {
+        if (status_ == kInit) {
+            Promise *p = this;
+            Promise *prev = p->prev_;
+            while (prev != nullptr) {
+                if (prev->status_ != kInit)
+                    return prev->next_;
+                p = prev;
+                prev = p->prev_;
+            }
+            return Defer(p);
+        }
+        else {
+            Promise *p = this;
+            Promise *next = p->next_.operator->();
+            while (next != nullptr) {
+                if (next->status_ == kInit)
+                    return p->next_;
+                p = next;
+                next = p->next_.operator->();
+            }
+            return Defer();
+        }
+    }
 };
+
+inline void joinDeferObject(Defer &self, Defer &next){
+    if(self->next_.operator->())
+        self->next_->prev_ = next.operator->();
+    next->next_ = self->next_;
+    self->next_ = next;
+    next->prev_ = self.operator->();
+}
 
 template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
 struct ResolveChecker {
@@ -685,13 +734,12 @@ struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
     }
 };
 
-
 template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
 struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func(any_cast<RET_ARG>(caller->any_));
-            ret->next_ = self->next_;
+            joinDeferObject(self, ret);
             return ret;
         } catch(const bad_any_cast &) {
             self->reject(caller->any_);
@@ -707,7 +755,7 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func();
-            ret->next_ = self->next_;
+            joinDeferObject(self, ret);
             return ret;
         } catch(const bad_any_cast &) {
             self->reject(caller->any_);
@@ -824,13 +872,13 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
                     std::rethrow_exception(eptr);
                 }catch(const RET_ARG &ret_arg){
                     Defer ret = func(ret_arg);
-                    ret->next_ = self->next_;
+                    joinDeferObject(self, ret);
                     return ret;
                 }
             }
             else{
                 Defer ret = func(any_cast<RET_ARG>(caller->any_));
-                ret->next_ = self->next_;
+                joinDeferObject(self, ret);
                 return ret;
             }
         }
@@ -849,7 +897,7 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             Defer ret = func();
-            ret->next_ = self->next_;
+            joinDeferObject(self, ret);
             return ret;
         }
         catch(const bad_any_cast &) {

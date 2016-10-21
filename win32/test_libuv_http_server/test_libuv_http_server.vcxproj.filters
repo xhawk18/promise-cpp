@@ -129,6 +129,9 @@
     <ClCompile Include="..\..\node-cpp\stream_cpp.cpp">
       <Filter>node</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\node-cpp\timer_cpp.cpp">
+      <Filter>node</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libuv\include\android-ifaddrs.h">
@@ -213,6 +216,9 @@
       <Filter>node</Filter>
     </ClInclude>
     <ClInclude Include="..\..\node-cpp\stream.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\timer.hpp">
       <Filter>node</Filter>
     </ClInclude>
   </ItemGroup>

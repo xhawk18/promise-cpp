@@ -1,8 +1,10 @@
+#include <time.h>
 #include "uv.h"
 #include "promise.hpp"
 #include "buffer.hpp"
 #include "stream.hpp"
 #include "uv_types.hpp"
+#include "timer.hpp"
 using namespace promise;
 
 #if 1
@@ -65,9 +67,8 @@ static void tinyweb_on_connection(uv_stream_t* server, int status) {
         if (uv_accept((uv_stream_t*)server, (uv_stream_t*)client) != 0)
             return;
 #if 1
-        Buffer buf(3);
-        UvRead r;
-        cuv_read((uv_stream_t *)client, r, buf, buf.length()).then([buf](UvRead &r) {
+        Buffer buf(333);
+        Defer d = cuv_read((uv_stream_t *)client, buf, buf.length()).then([buf](UvRead &r) {
             printf("%d nread = %d\n", __LINE__, r.nread_);
             return cuv_read(r, buf, buf.length());
         }).then([buf](UvRead &r) {
@@ -82,6 +83,12 @@ static void tinyweb_on_connection(uv_stream_t* server, int status) {
         }).always([](UvRead &r) {
             printf("%d nread = %d\n", __LINE__, r.nread_);
             //cuv_read_stop(r);
+        }).always([]() {
+            printf("%d\n", __LINE__);
+        });
+
+        delay(3000).then([d]() {
+            cuv_read_stop(d);
         });
 
 #else
@@ -109,11 +116,29 @@ static void tinyweb_on_connection(uv_stream_t* server, int status) {
     }  
 }  
 
+void testTimeout() {
+    printf("in test\n");
+    uint64_t delay = rand() % 1000;
+    Defer d = setTimeout(delay).then([]() {
+        printf("success\n");
+    }).fail([](){
+        printf("fail\n");
+    }).always([]() {
+        testTimeout();
+    });
+
+    uint64_t delay1 = rand() % 1000;
+    Defer d1 = setTimeout(delay1).then([d]() {
+        printf("clear\n");
+        clearTimeout(d);
+    });
+}
 
 int main() {
 	uv_loop_t *loop = uv_default_loop();
-
+    srand(time(0));
 	tinyweb_start(loop, "127.0.0.1", 8080);
+    //testTimeout();
 	return uv_run(loop, UV_RUN_DEFAULT);
 }
 #endif

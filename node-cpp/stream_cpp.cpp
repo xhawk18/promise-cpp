@@ -5,13 +5,12 @@ namespace promise {
 
 Defer cuv_read(
     uv_stream_t *stream,
-    UvRead &r,
     Buffer buf,
     unsigned int nbufs) {
 
-    return newPromise([&r, stream, buf, nbufs](Defer d) {
-        r.r_ = shared_ptr<UvReadArg>(new UvReadArg(buf, nbufs, stream));
-        r.nread_ = 0;
+    return newPromise([stream, buf, nbufs](Defer d) {
+        UvRead r({ shared_ptr<UvReadArg>(new UvReadArg(buf, nbufs, stream)),
+            0 });
         d->any_ = r;
         stream->read_arg = d.obtain_rawptr();
 
@@ -21,7 +20,7 @@ Defer cuv_read(
             printf("suggested_size = %d, buf = %p\n", suggested_size, uv_buf);
             uv_stream_t *stream = reinterpret_cast<uv_stream_t *>(handle);
             Promise *promise = reinterpret_cast<Promise *>(stream->read_arg);
-            UvRead &r = any_cast<UvRead>(promise->any_);
+            UvRead &r = any_cast<UvRead &>(promise->any_);
             *uv_buf = uv_buf_init(&r.r_->buf_, r.r_->nbufs_);
         }, [](uv_stream_t* stream,
             ssize_t nread,
@@ -57,6 +56,17 @@ Defer cuv_read(
         r.r_->stream_->read_arg = reinterpret_cast<void *>(d.obtain_rawptr());
         d->any_ = r;
     });
+}
+
+void cuv_read_stop(Defer d) {
+    d = d.find_pending();
+    if (d.operator->()) {
+        UvRead &r = any_cast<UvRead &>(d->any_);
+        if (r.r_.operator->()) {
+            r.r_->stop_read();
+        }
+        d.reject();
+    }
 }
 
 Defer cuv_write(
