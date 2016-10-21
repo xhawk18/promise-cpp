@@ -212,13 +212,13 @@
     <ClInclude Include="..\..\node-cpp\buffer.hpp">
       <Filter>node</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\node-cpp\uv_types.hpp">
-      <Filter>node</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\node-cpp\stream.hpp">
       <Filter>node</Filter>
     </ClInclude>
     <ClInclude Include="..\..\node-cpp\timer.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\uv_types.hpp">
       <Filter>node</Filter>
     </ClInclude>
   </ItemGroup>

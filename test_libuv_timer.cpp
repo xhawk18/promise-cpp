@@ -25,64 +25,20 @@
  * THE SOFTWARE.
  */
 #include "uv.h"
-#include "../../promise.hpp"
+#include <stdio.h>
+#include "timer.hpp"
 using namespace promise;
 
-void setTimeout(std::function<void()> cb, uint64_t timeout) {
-    struct Handler : public uv_timer_t {
-        std::function<void()> cb_;
-
-        static void onTimer(uv_timer_t* timer) {
-            Handler *handler = static_cast<Handler *>(timer);
-            handler->cb_();
-
-            delete handler;
-        }
-
-		void* operator new(size_t size){
-			return allocator<Handler>::obtain(size);
-		}
-
-		void operator delete(void *ptr) {
-			allocator<Handler>::release(ptr);
-		}
-    };
-
-    uv_loop_t *loop;
-    Handler *handler = new Handler;
-    uv_timer_t *timer = static_cast<uv_timer_t *>(handler);
-
-    loop = uv_default_loop();
-    handler->cb_ = cb;
-    uv_timer_init(loop, timer);
-
-    uv_timer_start(timer, &Handler::onTimer, timeout, 0);
-
-}
-
-Defer newDelay(uint64_t timeout) {
-    return newPromise([timeout](Defer d) {
-        setTimeout([d]() {
-            d.resolve();
-        }, timeout);
-    });
-}
-
 void testTimer() {
-	newPromise([](Defer d) {
-		setTimeout([d]() {
-			printf("In timerout 1\n");
-			d.resolve(893);
-		}, 1000);
-	}).then([](const int &vv) {
-		printf("In then 1, vv = %d\n", vv);
-		return newDelay(1000);
+	delay(500).then([]() {
+		printf("In then 1\n");
+		return delay(1000);
 	}).then([]() {
 		printf("In then 2\n");
-		return newDelay(2000);
+		return delay(2000);
 	}).then([]() {
 		printf("In then 3\n");
-		return newDelay(3000);
+		return delay(3000);
 	}).then([]() {
 		printf("In last then\n");
 	});
@@ -123,9 +79,9 @@ Defer testPerformance() {
 		++i;
 	}).always([]() {
 		++i;
-		setTimeout([]() {
-			testPerformance();
-		}, 0);
+        delay(0).then([]() {
+            testPerformance();
+        });
 	});
 }
 

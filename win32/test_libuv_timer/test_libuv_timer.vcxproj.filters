@@ -25,6 +25,9 @@
     <Filter Include="libuv\src\win">
       <UniqueIdentifier>{1c0a3fdd-40cb-4597-99f5-065e7d67a8f5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="node">
+      <UniqueIdentifier>{9cbefe77-ce27-4cc7-afc9-4c323cd6afd9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\test_libuv_timer.cpp">
@@ -123,6 +126,12 @@
     <ClCompile Include="..\..\libuv\src\win\winsock.c">
       <Filter>libuv\src\win</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\node-cpp\stream_cpp.cpp">
+      <Filter>node</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\node-cpp\timer_cpp.cpp">
+      <Filter>node</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libuv\include\android-ifaddrs.h">
@@ -199,6 +208,18 @@
     </ClInclude>
     <ClInclude Include="..\..\libuv\src\win\winsock.h">
       <Filter>libuv\src\win</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\uv_types.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\buffer.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\stream.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\node-cpp\timer.hpp">
+      <Filter>node</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
