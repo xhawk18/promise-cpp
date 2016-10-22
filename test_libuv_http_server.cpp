@@ -67,7 +67,7 @@ static void tinyweb_on_connection(uv_stream_t* server, int status) {
         if (uv_accept((uv_stream_t*)server, (uv_stream_t*)client) != 0)
             return;
 #if 1
-        Buffer buf(333);
+        Buffer buf(223);
         Defer d = cuv_read((uv_stream_t *)client, buf, buf.length()).then([buf](UvRead &r) {
             printf("%d nread = %d\n", __LINE__, r.nread_);
             return cuv_read(r, buf, buf.length());
@@ -83,6 +83,12 @@ static void tinyweb_on_connection(uv_stream_t* server, int status) {
         }).always([](UvRead &r) {
             printf("%d nread = %d\n", __LINE__, r.nread_);
             //cuv_read_stop(r);
+        }).always([]() {
+            printf("%d\n", __LINE__);
+        }).always([]() {
+            printf("%d\n", __LINE__);
+        }).always([]() {
+            printf("%d\n", __LINE__);
         }).always([]() {
             printf("%d\n", __LINE__);
         });

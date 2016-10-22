@@ -500,28 +500,6 @@ struct GetRetArgType {
 };
 
 
-template<typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
-struct PromiseFuncs {
-    int ref_count_;
-
-    FUNC_ON_RESOLVED on_resolved_;
-    FUNC_ON_REJECTED on_rejected_;
-    PromiseFuncs(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
-        : ref_count_(0)
-        , on_resolved_(on_resolved)
-        , on_rejected_(on_rejected) {
-        
-    }
-    
-    void* operator new(size_t size) {
-        return allocator<PromiseFuncs>::obtain(size);
-    }
-    
-    void operator delete(void *ptr) {
-        allocator<PromiseFuncs>::release(ptr);
-    }
-};
-
 template <typename Promise, typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
 struct PromiseEx 
     : public Promise {
@@ -529,31 +507,7 @@ struct PromiseEx
     typedef typename GetRetArgType<FUNC_ON_RESOLVED>::arg_type resolve_arg_type;
     typedef typename GetRetArgType<FUNC_ON_REJECTED>::ret_type reject_ret_type;
     typedef typename GetRetArgType<FUNC_ON_REJECTED>::arg_type reject_arg_type;
-    typedef PromiseFuncs<FUNC_ON_RESOLVED, FUNC_ON_REJECTED> promise_funcs_type;
 
-#if 0
-    shared_ptr<promise_funcs_type> promise_funcs_;
-    
-    PromiseEx(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
-        : promise_funcs_(shared_ptr<promise_funcs_type>(new promise_funcs_type(on_resolved, on_rejected))) {
-    }
-
-    virtual ~PromiseEx() {
-    }
-    
-    virtual Defer call_resolve(Defer &self, Promise *caller) {
-        FUNC_ON_RESOLVED &on_resolved = promise_funcs_->on_resolved_;
-        Defer d = ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVED, resolve_arg_type>::call(on_resolved, self, caller);
-        promise_funcs_.clear();
-        return d;
-    }
-    virtual Defer call_reject(Defer &self, Promise *caller) {
-        FUNC_ON_REJECTED &on_rejected = promise_funcs_->on_rejected_;
-        Defer d = RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECTED, reject_arg_type>::call(on_rejected, self, caller);
-        promise_funcs_.clear();
-        return d;
-    }
-#else
     struct {
         void *buf[(sizeof(FUNC_ON_RESOLVED) + sizeof(void *) - 1)/ sizeof(void *)];
     } func_buf0_t;
@@ -593,8 +547,6 @@ struct PromiseEx
         clear_func();
         return d;
     }
-
-#endif
 
     void* operator new(size_t size) {
         return allocator<PromiseEx>::obtain(size);
@@ -703,7 +655,6 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d = next_->call_resolve(next_, this);
-                this->any_.clear();
                 if(d.operator->())
                     d->call_next();
                 return d;
@@ -713,7 +664,6 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d =  next_->call_reject(next_, this);
-                this->any_.clear();
                 if (d.operator->())
                     d->call_next();
                 return d;
@@ -785,9 +735,12 @@ struct ResolveChecker {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             self->prepare_resolve(func(any_cast<RET_ARG>(caller->any_)));
+            caller->any_.clear();
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -800,9 +753,12 @@ struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
         try {
             func(any_cast<RET_ARG>(caller->any_));
             self->prepare_resolve();
+            caller->any_.clear();
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -813,10 +769,13 @@ template <typename PROMISE_EX, typename RET, typename FUNC>
 struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             self->prepare_resolve(func());
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -827,11 +786,14 @@ template <typename PROMISE_EX, typename FUNC>
 struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             func();
             self->prepare_resolve();
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -844,10 +806,13 @@ struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
         try {
             Defer ret = func(any_cast<RET_ARG>(caller->any_));
             joinDeferObject(self, ret);
+            caller->any_.clear();
             return ret;
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -858,12 +823,15 @@ template <typename PROMISE_EX, typename FUNC>
 struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             Defer ret = func();
             joinDeferObject(self, ret);
             return ret;
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -874,12 +842,15 @@ template <typename PROMISE_EX>
 struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             if(func != nullptr)
                 (*func)();
             self->prepare_resolve();
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -893,17 +864,22 @@ struct RejectChecker {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+                caller->any_.clear();
                 try{
                     std::rethrow_exception(eptr);
                 }catch(const RET_ARG &ret_arg){
                     self->prepare_resolve(func(ret_arg));
                 }
             }
-            else
+            else {
                 self->prepare_resolve(func(any_cast<RET_ARG>(caller->any_)));
+                caller->any_.clear();
+            }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -916,6 +892,7 @@ struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+                caller->any_.clear();
                 try{
                     std::rethrow_exception(eptr);
                 }catch(const RET_ARG &ret_arg){
@@ -926,10 +903,13 @@ struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
             else{
                 func(any_cast<RET_ARG>(caller->any_));
                 self->prepare_resolve();
+                caller->any_.clear();
             }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -940,10 +920,13 @@ template <typename PROMISE_EX, typename RET, typename FUNC>
 struct RejectChecker<PROMISE_EX, RET, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             self->prepare_resolve(func());
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -954,11 +937,14 @@ template <typename PROMISE_EX, typename FUNC>
 struct RejectChecker<PROMISE_EX, Void, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             func();
             self->prepare_resolve();
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -972,6 +958,7 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+                caller->any_.clear();
                 try{
                     std::rethrow_exception(eptr);
                 }catch(const RET_ARG &ret_arg){
@@ -983,13 +970,16 @@ struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
             else{
                 Defer ret = func(any_cast<RET_ARG>(caller->any_));
                 joinDeferObject(self, ret);
+                caller->any_.clear();
                 return ret;
             }
         }
         catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         }
         catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -1000,14 +990,17 @@ template <typename PROMISE_EX, typename FUNC>
 struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             Defer ret = func();
             joinDeferObject(self, ret);
             return ret;
         }
         catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
         }
         catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
@@ -1018,6 +1011,7 @@ template <typename PROMISE_EX>
 struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
+            caller->any_.clear();
             if (func != nullptr) {
                 (*func)();
                 self->prepare_resolve();
@@ -1025,8 +1019,10 @@ struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
             }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
+            caller->any_.clear();
             return self;
         } catch(...) {
+            caller->any_.clear();
             self->prepare_reject(std::current_exception());
             return self;
         }
