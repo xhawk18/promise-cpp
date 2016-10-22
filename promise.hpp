@@ -52,9 +52,9 @@ template <size_t SIZE>
 struct memory_pool_buf {
     struct buf_t {
         buf_t(){}
-        char buf[SIZE];
+        void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
     };
-    
+
     typename std::list<memory_pool_buf>::iterator self_;
     buf_t buf_;
 };
@@ -531,6 +531,7 @@ struct PromiseEx
     typedef typename GetRetArgType<FUNC_ON_REJECTED>::arg_type reject_arg_type;
     typedef PromiseFuncs<FUNC_ON_RESOLVED, FUNC_ON_REJECTED> promise_funcs_type;
 
+#if 0
     shared_ptr<promise_funcs_type> promise_funcs_;
     
     PromiseEx(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
@@ -552,8 +553,49 @@ struct PromiseEx
         promise_funcs_.clear();
         return d;
     }
+#else
+    struct {
+        void *buf[(sizeof(FUNC_ON_RESOLVED) + sizeof(void *) - 1)/ sizeof(void *)];
+    } func_buf0_t;
+    struct {
+        void *buf[(sizeof(FUNC_ON_REJECTED) + sizeof(void *) - 1) / sizeof(void *)];
+    } func_buf1_t;
 
-#if 1
+    PromiseEx(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
+        : Promise(reinterpret_cast<void *>(new(&func_buf0_t) FUNC_ON_RESOLVED(on_resolved)),
+            reinterpret_cast<void *>(new(&func_buf1_t) FUNC_ON_REJECTED(on_rejected))) {
+    }
+
+    virtual ~PromiseEx() {
+        clear_func();
+    }
+    
+    void clear_func() {
+        if(Promise::on_resolved_ != nullptr) {
+            reinterpret_cast<FUNC_ON_RESOLVED *>(Promise::on_resolved_)->~FUNC_ON_RESOLVED();
+            Promise::on_resolved_ = nullptr;
+        }
+        if(Promise::on_rejected_ != nullptr) {
+            reinterpret_cast<FUNC_ON_REJECTED *>(Promise::on_rejected_)->~FUNC_ON_REJECTED();
+            Promise::on_rejected_ = nullptr;
+        }
+    }
+    
+    virtual Defer call_resolve(Defer &self, Promise *caller) {
+        const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(Promise::on_resolved_);
+        Defer d = ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVED, resolve_arg_type>::call(on_resolved, self, caller);
+        clear_func();
+        return d;
+    }
+    virtual Defer call_reject(Defer &self, Promise *caller) {
+        const FUNC_ON_REJECTED &on_rejected = *reinterpret_cast<FUNC_ON_REJECTED *>(Promise::on_rejected_);
+        Defer d = RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECTED, reject_arg_type>::call(on_rejected, self, caller);
+        clear_func();
+        return d;
+    }
+
+#endif
+
     void* operator new(size_t size) {
         return allocator<PromiseEx>::obtain(size);
     }
@@ -561,7 +603,6 @@ struct PromiseEx
     void operator delete(void *ptr) {
         allocator<PromiseEx>::release(ptr);
     }
-#endif
 };
 
 struct Promise {
@@ -569,6 +610,8 @@ struct Promise {
     Promise *prev_;
     Defer next_;
     any<> any_;
+    void *on_resolved_;
+    void *on_rejected_;
     
     enum status_t {
         kInit,
@@ -579,10 +622,12 @@ struct Promise {
     status_t status_;
     
     Promise(const Promise &) = delete;
-    explicit Promise()
+    explicit Promise(void *on_resolved, void *on_rejected)
         : ref_count_(0)
         , prev_(nullptr)
         , next_(nullptr)
+        , on_resolved_(on_resolved)
+        , on_rejected_(on_rejected)
         , status_(kInit) {
     }
     
