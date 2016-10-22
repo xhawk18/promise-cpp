@@ -107,8 +107,18 @@ inline void listDetach (list_t *node) {
    list->prev == node
  */
 inline void listMove(list_t *list, list_t *node) {
+#if 1
+    node->prev_->next_ = node->next_;
+    node->next_->prev_ = node->prev_;
+
+    node->next_ = list;
+    node->prev_ = list->prev_;
+    list->prev_->next_ = node;
+    list->prev_ = node;
+#else
     listDetach(node);
     listAttach(list, node);
+#endif
 }
 
 /* Check if list is empty */
@@ -147,7 +157,7 @@ struct size_allocator {
     static inline memory_pool<SIZE> *get_memory_pool() {
         static memory_pool<SIZE> *pool_ = nullptr;
         if(pool_ == nullptr)
-        pool_ = new memory_pool<SIZE>();
+            pool_ = new memory_pool<SIZE>();
         return pool_;
     }
 };
