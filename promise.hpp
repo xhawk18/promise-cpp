@@ -28,11 +28,8 @@
 #define INC_PROMISE_HPP_
 
 #include <exception>
-#include <functional>
 #include <memory>
-#include <algorithm>
 #include <typeinfo>
-#include <list>
 
 namespace promise {
 
@@ -47,6 +44,79 @@ inline P* pm_container_of(M* ptr, const M P::*member) {
     return reinterpret_cast<P*>(reinterpret_cast<char*>(ptr) - pm_offsetof(member));
 }
 
+//List
+struct list_t {
+    struct list_t *next_;
+    struct list_t *prev_;
+};
+
+inline list_t *listGetPrev (list_t *list) {
+    return list->prev_;
+}
+
+inline list_t *listGetNext (list_t *list) {
+    return list->next_;
+}
+
+inline void listSetPrev (list_t *list, list_t *other) {
+    list->prev_ = other;
+}
+
+inline void listSetNext (list_t *list, list_t *other) {
+    list->next_ = other;
+}
+
+/* Initilization a list */
+inline void listInit(list_t *list) {
+    listSetPrev(list, list);
+    listSetNext(list, list);
+}
+
+/* Connect or disconnect two lists. */
+inline void listToggleConnect(list_t *list1, list_t *list2) {
+    list_t *prev1 = listGetPrev(list1);
+    list_t *prev2 = listGetPrev(list2);
+    listSetNext(prev1, list2);
+    listSetNext(prev2, list1);
+    listSetPrev(list1, prev2);
+    listSetPrev(list2, prev1);
+}
+
+/* Connect two lists. */
+inline void listConnect (list_t *list1, list_t *list2) {
+    listToggleConnect (list1, list2);
+}
+
+/* Disconnect tow lists. */
+inline void listDisconnect (list_t *list1, list_t *list2) {
+    listToggleConnect (list1, list2);
+}
+
+/* Same as listConnect */
+inline void listAttach (list_t *node1, list_t *node2) {
+    listConnect (node1, node2);
+}
+
+/* Make node in detach mode */
+inline void listDetach (list_t *node) {
+    listDisconnect (node, listGetNext(node));
+}
+
+/* Move node to list, after moving,
+   node->next == list
+   list->prev == node
+ */
+inline void listMove(list_t *list, list_t *node) {
+    listDetach(node);
+    listAttach(list, node);
+}
+
+/* Check if list is empty */
+inline int listIsEmpty (list_t *list) {
+    return (listGetNext(list) == list);
+}
+
+
 //allocator
 template <size_t SIZE>
 struct memory_pool_buf {
@@ -55,14 +125,21 @@ struct memory_pool_buf {
         void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
     };
 
-    typename std::list<memory_pool_buf>::iterator self_;
+    memory_pool_buf() {
+        listInit(&list_);
+    }
     buf_t buf_;
+    list_t list_;
 };
 
 template <size_t SIZE>
 struct memory_pool {
-    std::list<memory_pool_buf<SIZE> > used_;
-    std::list<memory_pool_buf<SIZE> > free_;
+    list_t used_;
+    list_t free_;
+    memory_pool(){
+        listInit(&used_);
+        listInit(&free_);
+    }
 };
 
 template <size_t SIZE>
@@ -92,12 +169,18 @@ struct allocator {
             return malloc(size);
         else if(allocator_type == kListPool){
             memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
-            if(pool->free_.size() > 0)
-                pool->used_.splice(pool->used_.begin(), pool->free_, pool->free_.begin());
-            else
-                pool->used_.emplace_front();
-            pool->used_.begin()->self_ = pool->used_.begin();
-            return (void *)&pool->used_.begin()->buf_;
+            if (listIsEmpty(&pool->free_)) {
+                memory_pool_buf<sizeof(T)> *pool_buf = new memory_pool_buf<sizeof(T)>;
+                listAttach(&pool->used_, &pool_buf->list_);
+                return (void *)&pool_buf->buf_;
+            }
+            else {
+                list_t *node = listGetNext(&pool->free_);
+                listMove(&pool->used_, node);
+                memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, list_t>
+                    (node, &memory_pool_buf<sizeof(T)>::list_);
+                return (void *)&pool_buf->buf_;
+            }
         }
         else return NULL;
     }
@@ -115,7 +198,7 @@ struct allocator {
             memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
             memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, typename memory_pool_buf<sizeof(T)>::buf_t>
                 ((typename memory_pool_buf<sizeof(T)>::buf_t *)ptr, &memory_pool_buf<sizeof(T)>::buf_);
-            pool->free_.splice(pool->free_.begin(), pool->used_, pool_buf->self_);
+            listMove(&pool->free_, &pool_buf->list_);
         }
     }
 };
