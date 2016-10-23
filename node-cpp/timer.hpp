@@ -5,6 +5,7 @@
 
 namespace promise {
 
+Defer yield();
 Defer delay(uint64_t time_ms);
 Defer setTimeout(uint64_t time_ms);
 void clearTimeout(Defer d);

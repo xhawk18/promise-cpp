@@ -36,6 +36,10 @@ void setTimeout(Defer &d, uint64_t time_ms) {
     uv_timer_start(timer, &UvTimer::onTimer, time_ms, 0);
 }
 
+Defer yield(){
+    return setTimeout(0);
+}
+
 Defer delay(uint64_t time_ms) {
     return setTimeout(time_ms);
 }
