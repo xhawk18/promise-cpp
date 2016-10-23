@@ -55,7 +55,7 @@ Defer testPerformance() {
 
 	uint64_t interval = uv_hrtime() - hrtime;
 	if(interval >= 2e9) {
-		printf("time = %lld, %lld per seconds\n", interval, (uint64_t)(count / (interval / 1e9)));
+		printf("time = %u, %u per seconds\n", (int)interval, (int)(uint64_t)(count / (interval / 1e9)));
 		count = 0;
 		hrtime = uv_hrtime();
 	}
