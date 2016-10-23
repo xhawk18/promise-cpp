@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeLite_Workspace Name="codelite" Database="" SWTLW="Yes">
+  <WorkspaceParserMacros/>
+  <WorkspaceParserPaths/>
+  <Project Name="test_libuv_timer" Path="test_libuv_timer.project" Active="No"/>
+  <Project Name="test0" Path="test0.project" Active="No"/>
+  <Project Name="test_libuv_http_server" Path="test_libuv_http_server.project" Active="No"/>
+  <Project Name="test_tasks" Path="test_tasks.project" Active="Yes"/>
+  <BuildMatrix>
+    <WorkspaceConfiguration Name="Debug" Selected="no">
+      <Environment/>
+      <Project Name="test_libuv_timer" ConfigName="Debug"/>
+      <Project Name="test0" ConfigName="Debug"/>
+      <Project Name="test_libuv_http_server" ConfigName="Debug"/>
+      <Project Name="test_tasks" ConfigName="Debug"/>
+    </WorkspaceConfiguration>
+    <WorkspaceConfiguration Name="Release" Selected="yes">
+      <Environment/>
+      <Project Name="test_libuv_timer" ConfigName="Release"/>
+      <Project Name="test0" ConfigName="Release"/>
+      <Project Name="test_libuv_http_server" ConfigName="Release"/>
+      <Project Name="test_tasks" ConfigName="Release"/>
+    </WorkspaceConfiguration>
+  </BuildMatrix>
+</CodeLite_Workspace>

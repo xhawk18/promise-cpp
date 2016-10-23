@@ -18,13 +18,10 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\test\test0.cpp" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{2DB01D3D-F09A-4E4C-AD0D-631301A32916}</ProjectGuid>
+    <ProjectGuid>{A29888F1-E3F3-4E96-9D4D-5C19273AEEAF}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>test0</RootNamespace>
+    <RootNamespace>test_libuv_http_server</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -94,12 +91,15 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\..</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\..\..;$(ProjectDir)\..\..\..\node-cpp;$(ProjectDir)\..\..\..\libuv\include;</AdditionalIncludeDirectories>
+      <UndefinePreprocessorDefinitions>
+      </UndefinePreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;user32.lib;userenv.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -109,11 +109,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\..\..;$(ProjectDir)\..\..\..\node-cpp;$(ProjectDir)\..\..\..\libuv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;user32.lib;userenv.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -124,14 +125,17 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\..</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\..\..;$(ProjectDir)\..\..\..\node-cpp;$(ProjectDir)\..\..\..\libuv\include;</AdditionalIncludeDirectories>
+      <UndefinePreprocessorDefinitions>
+      </UndefinePreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;user32.lib;userenv.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -143,15 +147,83 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\..\..;$(ProjectDir)\..\..\..\node-cpp;$(ProjectDir)\..\..\..\libuv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;user32.lib;userenv.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\libuv\src\fs-poll.c" />
+    <ClCompile Include="..\..\..\libuv\src\inet.c" />
+    <ClCompile Include="..\..\..\libuv\src\threadpool.c" />
+    <ClCompile Include="..\..\..\libuv\src\uv-common.c" />
+    <ClCompile Include="..\..\..\libuv\src\version.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\async.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\core.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\dl.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\error.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\fs-event.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\fs.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\getaddrinfo.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\getnameinfo.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\handle.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\loop-watcher.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\pipe.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\poll.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\process-stdio.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\process.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\req.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\signal.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\snprintf.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\stream.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\tcp.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\thread.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\timer.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\tty.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\udp.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\util.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\winapi.c" />
+    <ClCompile Include="..\..\..\libuv\src\win\winsock.c" />
+    <ClCompile Include="..\..\..\node-cpp\stream_cpp.cpp" />
+    <ClCompile Include="..\..\..\node-cpp\timer_cpp.cpp" />
+    <ClCompile Include="..\..\..\test\test_libuv_http_server.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\libuv\include\android-ifaddrs.h" />
+    <ClInclude Include="..\..\..\libuv\include\pthread-barrier.h" />
+    <ClInclude Include="..\..\..\libuv\include\stdint-msvc2008.h" />
+    <ClInclude Include="..\..\..\libuv\include\tree.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-aix.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-bsd.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-darwin.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-errno.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-linux.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-sunos.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-threadpool.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-unix.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-version.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv-win.h" />
+    <ClInclude Include="..\..\..\libuv\include\uv.h" />
+    <ClInclude Include="..\..\..\libuv\src\heap-inl.h" />
+    <ClInclude Include="..\..\..\libuv\src\queue.h" />
+    <ClInclude Include="..\..\..\libuv\src\uv-common.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\atomicops-inl.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\handle-inl.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\internal.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\req-inl.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\stream-inl.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\winapi.h" />
+    <ClInclude Include="..\..\..\libuv\src\win\winsock.h" />
+    <ClInclude Include="..\..\..\node-cpp\buffer.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\stream.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\timer.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\uv_types.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

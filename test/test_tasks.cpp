@@ -80,6 +80,8 @@ int main() {
         return test_switch(1000);
     }).then([](){
         return test_switch(10000);
+    }).then([](){
+        return test_switch(100000);
     });
 
     return uv_run(loop, UV_RUN_DEFAULT);

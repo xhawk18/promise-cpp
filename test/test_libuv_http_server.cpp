@@ -1,4 +1,5 @@
 #include <time.h>
+#include <string.h>
 #include "uv.h"
 #include "promise.hpp"
 #include "buffer.hpp"
