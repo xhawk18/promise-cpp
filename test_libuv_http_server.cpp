@@ -12,11 +12,11 @@ using namespace promise;
 static void tinyweb_on_connection(uv_stream_t* server, int status);  
 
 void tinyweb_start(uv_loop_t* loop, const char* ip, int port) {  
-	uv_tcp_t *server = new uv_tcp_t;
+    uv_tcp_t *server = new uv_tcp_t;
 
-	struct sockaddr_in addr;
+    struct sockaddr_in addr;
     uv_tcp_init(loop, server);
-	uv_ip4_addr(ip, port, &addr);
+    uv_ip4_addr(ip, port, &addr);
     uv_tcp_bind(server, (struct sockaddr *)&addr, 0);
     uv_listen((uv_stream_t*)server, 8, tinyweb_on_connection);
 }  
@@ -60,7 +60,7 @@ static const char* http_respone = "HTTP/1.1 200 OK\r\n"
 
 static void tinyweb_on_connection(uv_stream_t* server, int status) {  
 
-	if(status == 0) {  
+    if(status == 0) {  
         uv_tcp_t* client = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
         uv_tcp_init(server->loop, client);
 
@@ -141,10 +141,10 @@ void testTimeout() {
 }
 
 int main() {
-	uv_loop_t *loop = uv_default_loop();
+    uv_loop_t *loop = uv_default_loop();
     srand(time(0));
-	tinyweb_start(loop, "127.0.0.1", 8080);
+    tinyweb_start(loop, "127.0.0.1", 8080);
     //testTimeout();
-	return uv_run(loop, UV_RUN_DEFAULT);
+    return uv_run(loop, UV_RUN_DEFAULT);
 }
 #endif

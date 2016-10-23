@@ -30,66 +30,66 @@
 using namespace promise;
 
 void testTimer() {
-	delay(500).then([]() {
-		printf("In then 1\n");
-		return delay(1000);
-	}).then([]() {
-		printf("In then 2\n");
-		return delay(2000);
-	}).then([]() {
-		printf("In then 3\n");
-		return delay(3000);
-	}).then([]() {
-		printf("In last then\n");
-	});
+    delay(500).then([]() {
+        printf("In then 1\n");
+        return delay(1000);
+    }).then([]() {
+        printf("In then 2\n");
+        return delay(2000);
+    }).then([]() {
+        printf("In then 3\n");
+        return delay(3000);
+    }).then([]() {
+        printf("In last then\n");
+    });
 }
 
 Defer testPerformance() {
-	static int i = 0;
-	static uint64_t count = 0;
-	static uint64_t hrtime;
+    static int i = 0;
+    static uint64_t count = 0;
+    static uint64_t hrtime;
 
-	if (count == 0) {
-		hrtime = uv_hrtime();
-	}
+    if (count == 0) {
+        hrtime = uv_hrtime();
+    }
 
-	uint64_t interval = uv_hrtime() - hrtime;
-	if(interval >= 2e9) {
-		printf("time = %u, %u per seconds\n", (int)interval, (int)(uint64_t)(count / (interval / 1e9)));
-		count = 0;
-		hrtime = uv_hrtime();
-	}
+    uint64_t interval = uv_hrtime() - hrtime;
+    if(interval >= 2e9) {
+        printf("time = %u, %u per seconds\n", (int)interval, (int)(uint64_t)(count / (interval / 1e9)));
+        count = 0;
+        hrtime = uv_hrtime();
+    }
 
-	++count;
-	return newPromise([](Defer d) {
-		++i;
-		d.resolve(12);
-	}).then([](int n) {
-		++i;
-		return '3';
-	}).then([](char ch) {
-		++i;
-	}).then([]() {
-		++i;
-		return newPromise([](Defer d) {
-			++i;
-			d.reject(66);
-		});
-	}).fail([](int n) {
-		++i;
-	}).always([]() {
-		++i;
+    ++count;
+    return newPromise([](Defer d) {
+        ++i;
+        d.resolve(12);
+    }).then([](int n) {
+        ++i;
+        return '3';
+    }).then([](char ch) {
+        ++i;
+    }).then([]() {
+        ++i;
+        return newPromise([](Defer d) {
+            ++i;
+            d.reject(66);
+        });
+    }).fail([](int n) {
+        ++i;
+    }).always([]() {
+        ++i;
         delay(0).then([]() {
             testPerformance();
         });
-	});
+    });
 }
 
 int main() {
     uv_loop_t *loop = uv_default_loop();
 
-	testTimer();
-	testPerformance();
+    testTimer();
+    testPerformance();
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }
