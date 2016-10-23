@@ -30,9 +30,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\test_libuv_timer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\libuv\src\fs-poll.c">
       <Filter>libuv\src</Filter>
     </ClCompile>
@@ -131,6 +128,9 @@
     </ClCompile>
     <ClCompile Include="..\..\node-cpp\timer_cpp.cpp">
       <Filter>node</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\test\test_libuv_timer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

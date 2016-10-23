@@ -60,7 +60,7 @@ static const char* http_respone = "HTTP/1.1 200 OK\r\n"
 
 static void tinyweb_on_connection(uv_stream_t* server, int status) {  
 
-    if(status == 0) {  
+    if(status == 0) {
         uv_tcp_t* client = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
         uv_tcp_init(server->loop, client);
 

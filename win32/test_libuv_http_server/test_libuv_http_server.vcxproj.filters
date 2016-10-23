@@ -123,14 +123,14 @@
     <ClCompile Include="..\..\libuv\src\win\winsock.c">
       <Filter>libuv\src\win</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\test_libuv_http_server.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\node-cpp\stream_cpp.cpp">
       <Filter>node</Filter>
     </ClCompile>
     <ClCompile Include="..\..\node-cpp\timer_cpp.cpp">
       <Filter>node</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\test\test_libuv_http_server.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -2,7 +2,7 @@
 #define INC_STREAM_HPP_
 
 #include <memory>
-#include "../promise.hpp"
+#include "promise.hpp"
 #include "buffer.hpp"
 
 namespace promise {

@@ -3,20 +3,20 @@
   <WorkspaceParserMacros/>
   <WorkspaceParserPaths/>
   <Project Name="test_libuv_timer" Path="test_libuv_timer.project" Active="Yes"/>
-  <Project Name="test_libuv_http_server" Path="test_libuv_http_server.project" Active="No"/>
   <Project Name="test0" Path="test0.project" Active="No"/>
+  <Project Name="test_libuv_http_server" Path="test_libuv_http_server.project" Active="No"/>
   <BuildMatrix>
     <WorkspaceConfiguration Name="Debug" Selected="no">
       <Environment/>
       <Project Name="test_libuv_timer" ConfigName="Debug"/>
-      <Project Name="test_libuv_http_server" ConfigName="Debug"/>
       <Project Name="test0" ConfigName="Debug"/>
+      <Project Name="test_libuv_http_server" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="Release" Selected="yes">
       <Environment/>
       <Project Name="test_libuv_timer" ConfigName="Release"/>
-      <Project Name="test_libuv_http_server" ConfigName="Release"/>
       <Project Name="test0" ConfigName="Release"/>
+      <Project Name="test_libuv_http_server" ConfigName="Release"/>
     </WorkspaceConfiguration>
   </BuildMatrix>
 </CodeLite_Workspace>

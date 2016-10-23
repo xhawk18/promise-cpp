@@ -191,7 +191,7 @@
     <ClCompile Include="..\..\libuv\src\win\winsock.c" />
     <ClCompile Include="..\..\node-cpp\stream_cpp.cpp" />
     <ClCompile Include="..\..\node-cpp\timer_cpp.cpp" />
-    <ClCompile Include="..\..\test_libuv_http_server.cpp" />
+    <ClCompile Include="..\..\test\test_libuv_http_server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\libuv\include\android-ifaddrs.h" />

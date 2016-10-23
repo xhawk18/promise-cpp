@@ -1,7 +1,7 @@
 #ifndef INC_TIMER_HPP_
 #define INC_TIMER_HPP_
 
-#include "../promise.hpp"
+#include "promise.hpp"
 
 namespace promise {
 
