@@ -235,7 +235,6 @@ struct remove_reference<const T&> {
     typedef T type;
 };
 
-template<class BaseT = void>
 class any {
 public: // structors
     any()
@@ -295,7 +294,7 @@ public: // types (public so any_cast can be non-friend)
     public: // queries
         virtual const std::type_info & type() const = 0;
         virtual placeholder * clone() const = 0;
-        virtual BaseT *get_pointer() = 0;
+        virtual void *get_pointer() = 0;
     };
 
     template<typename ValueType>
@@ -324,8 +323,8 @@ public: // types (public so any_cast can be non-friend)
             return new holder(held);
         }
 
-        inline virtual BaseT *get_pointer() {
-            return static_cast<BaseT *>(&held);
+        inline virtual void *get_pointer() {
+            return static_cast<void *>(&held);
         }
 
     public: // representation
@@ -336,10 +335,10 @@ public: // types (public so any_cast can be non-friend)
 
 public: // representation (public so any_cast can be non-friend)
     placeholder * content;
-    BaseT *base() {
+    void *base() {
         return content->get_pointer();
     }
-    const BaseT *base() const {
+    const void *base() const {
         return content->get_pointer();
     }
 };
@@ -352,22 +351,22 @@ public:
     }
 };
 
-template<typename ValueType, class BaseT>
-ValueType * any_cast(any<BaseT> * operand) {
-    typedef typename any<BaseT>::template holder<ValueType> holder_t;
+template<typename ValueType>
+ValueType * any_cast(any *operand) {
+    typedef typename any::template holder<ValueType> holder_t;
     return operand &&
         operand->type() == typeid(ValueType)
         ? &static_cast<holder_t *>(operand->content)->held
         : 0;
 }
 
-template<typename ValueType, class BaseT>
-inline const ValueType * any_cast(const any<BaseT> * operand) {
-    return any_cast<ValueType>(const_cast<any<BaseT> *>(operand));
+template<typename ValueType>
+inline const ValueType * any_cast(const any *operand) {
+    return any_cast<ValueType>(const_cast<any *>(operand));
 }
 
-template<typename ValueType, class BaseT>
-ValueType any_cast(any<BaseT> & operand) {
+template<typename ValueType>
+ValueType any_cast(any & operand) {
     typedef typename remove_reference<ValueType>::type nonref;
 
     nonref * result = any_cast<nonref>(&operand);
@@ -376,10 +375,10 @@ ValueType any_cast(any<BaseT> & operand) {
     return *result;
 }
 
-template<typename ValueType, class BaseT>
-inline ValueType any_cast(const any<BaseT> & operand) {
+template<typename ValueType>
+inline ValueType any_cast(const any &operand) {
     typedef typename remove_reference<ValueType>::type nonref;
-    return any_cast<const nonref &>(const_cast<any<BaseT> &>(operand));
+    return any_cast<const nonref &>(const_cast<any &>(operand));
 }
 
 // Note: The "unsafe" versions of any_cast are not part of the
@@ -387,15 +386,15 @@ inline ValueType any_cast(const any<BaseT> & operand) {
 // required where we know what type is stored in the any and can't
 // use typeid() comparison, e.g., when our types may travel across
 // different shared libraries.
-template<typename ValueType, class BaseT>
-inline ValueType * unsafe_any_cast(any<BaseT> * operand) {
-    typedef typename any<BaseT>::template holder<ValueType> holder_t;
+template<typename ValueType>
+inline ValueType * unsafe_any_cast(any *operand) {
+    typedef typename any::template holder<ValueType> holder_t;
     return &static_cast<holder_t *>(operand->content)->held;
 }
 
-template<typename ValueType, class BaseT>
-inline const ValueType * unsafe_any_cast(const any<BaseT> * operand) {
-    return unsafe_any_cast<ValueType>(const_cast<any<BaseT> *>(operand));
+template<typename ValueType>
+inline const ValueType * unsafe_any_cast(const any *operand) {
+    return unsafe_any_cast<ValueType>(const_cast<any *>(operand));
 }
 // Copyright Kevlin Henney, 2000, 2001, 2002. All rights reserved.
 //
@@ -654,7 +653,7 @@ struct Promise {
     int ref_count_;
     Promise *prev_;
     Defer next_;
-    any<> any_;
+    any any_;
     void *on_resolved_;
     void *on_rejected_;
     
