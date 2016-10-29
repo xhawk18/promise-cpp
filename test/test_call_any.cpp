@@ -123,6 +123,8 @@ struct offset_tuple_impl<TUPLE, 0> {
     void *tuple_offset(size_t i) const {
         return nullptr;
     }
+    offset_tuple_impl(const TUPLE *tuple) {
+    }
 };
 
 template<typename TUPLE>
