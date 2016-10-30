@@ -309,7 +309,7 @@ public: // types (public so any_cast can be non-friend)
             return allocator<holder>::obtain(size);
         }
 
-            void operator delete(void *ptr) {
+        void operator delete(void *ptr) {
             allocator<holder>::release(ptr);
         }
 #endif

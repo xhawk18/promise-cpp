@@ -47,12 +47,14 @@ void test3(int n) {
 }
 
 Defer run(Defer &next){
+
     return newPromise([](Defer d){
         PRINT_FUNC_INFO();
-        d.resolve();
-    }).then([]() {
+        d.resolve(3, 5, 6);
+    }).then([](const int &a, int b, int c) {
+        printf("%d %d %d\n", a, b, c);
         PRINT_FUNC_INFO();
-        //throw 33;
+        throw 3333;
     }).then([](){
         PRINT_FUNC_INFO();
     }).then([&next](){
@@ -94,7 +96,7 @@ int main(int argc, char **argv) {
     run(next);
     printf("======  after call run ======\n");
 
-    next.resolve(123);
+    //next.resolve(123);
     //next.reject('c');
     //next.reject(std::string("xhchen"));
     //next.reject(45);

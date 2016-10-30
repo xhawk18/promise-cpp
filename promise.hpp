@@ -29,7 +29,10 @@
 
 #include <exception>
 #include <memory>
+#include <tuple>
 #include <typeinfo>
+#include <typeindex>
+#include <type_traits>
 
 namespace promise {
 
@@ -222,18 +225,177 @@ struct allocator {
 //        Ed Brey, Mark Rodgers, Peter Dimov, and James Curran
 // when:  July 2001
 // where: tested with BCC 5.5, MSVC 6.0, and g++ 2.95
+
 template<typename T>
-struct remove_reference {
-    typedef T type;
+struct void_ptr_type {
+    static void *cast(const T &t) {
+        return reinterpret_cast<void *>(const_cast<char *>(&reinterpret_cast<const char &>(t)));
+    }
 };
+
 template<typename T>
-struct remove_reference<T&> {
-    typedef T type;
+struct void_ptr_type<const T *> {
+    typedef const T* PT;
+    static void *cast(const PT &t) {
+        return (void *)(&t);
+    }
 };
+
 template<typename T>
-struct remove_reference<const T&> {
-    typedef T type;
+void *void_ptr_cast(const T &t) {
+    return void_ptr_type<T>::cast(t);
+}
+
+template<typename TUPLE, std::size_t SIZE>
+struct offset_tuple_impl {
+    template<size_t I_SIZE, std::size_t... I>
+    struct offset_array {
+        void *offsets_[I_SIZE];
+
+        offset_array(const TUPLE *tuple)
+            : offsets_{ void_ptr_cast(std::get<I>(*tuple))... } {
+        }
+    };
+
+    template<std::size_t... I>
+    static offset_array<SIZE, I...> get_array(const TUPLE *tuple, const std::index_sequence<I...> &) {
+        return offset_array<SIZE, I...>(tuple);
+    }
+
+    decltype(get_array(nullptr, std::make_index_sequence<SIZE>())) value_;
+
+    offset_tuple_impl(const TUPLE *tuple)
+        : value_(get_array(tuple, std::make_index_sequence<SIZE>())) {
+    }
+
+    void *tuple_offset(size_t i) const {
+        return value_.offsets_[i];
+    }
 };
+
+template<typename TUPLE>
+struct offset_tuple_impl<TUPLE, 0> {
+    offset_tuple_impl(const TUPLE *tuple) {
+    }
+    void *tuple_offset(size_t i) const {
+        return nullptr;
+    }
+};
+
+template<typename NOT_TUPLE>
+struct offset_tuple
+    : public offset_tuple_impl<NOT_TUPLE, 0> {
+    offset_tuple(const NOT_TUPLE *tuple)
+        : offset_tuple_impl<NOT_TUPLE, 0>(tuple) {
+    }
+};
+
+template<typename ...T>
+struct offset_tuple<std::tuple<T...>>
+    : public offset_tuple_impl<std::tuple<T...>, std::tuple_size<std::tuple<T...>>::value> {
+    offset_tuple(const std::tuple<T...> *tuple)
+        : offset_tuple_impl<std::tuple<T...>, std::tuple_size<std::tuple<T...>>::value>(tuple) {
+    }
+};
+
+template<typename TUPLE, std::size_t SIZE>
+struct type_tuple_impl {
+    template<size_t I_SIZE, std::size_t... I>
+    struct type_index_array {
+        std::type_index types1_[I_SIZE];
+
+        type_index_array()
+            : types1_{ std::type_index(typeid(typename std::tuple_element<I, TUPLE>::type))... } {
+        }
+    };
+
+    template<std::size_t... I>
+    static type_index_array<SIZE, I...> get_array(const std::index_sequence<I...> &) {
+        return type_index_array<SIZE, I...>();
+    }
+
+    decltype(get_array(std::make_index_sequence<SIZE>())) value_;
+
+    type_tuple_impl()
+        : value_(get_array(std::make_index_sequence<SIZE>())) {
+    }
+
+    const std::type_index tuple_type(size_t i) const {
+        return value_.types1_[i];
+    }
+};
+
+template<typename TUPLE>
+struct type_tuple_impl<TUPLE, 0> {
+    static const std::size_t size_ = 0;
+    const std::type_index tuple_type(size_t i) const {
+        return std::type_index(typeid(void));
+    }
+};
+
+template<typename NOT_TUPLE>
+struct type_tuple :
+    public type_tuple_impl<void, 0> {
+    static const std::size_t size_ = 0;
+};
+
+template<typename ...T>
+struct type_tuple<std::tuple<T...>> :
+    public type_tuple_impl<std::tuple<T...>, std::tuple_size<std::tuple<T...>>::value> {
+    static const std::size_t size_ = std::tuple_size<std::tuple<T...>>::value;
+};
+
+
+template<typename TUPLE>
+struct remove_reference_tuple {
+    static const std::size_t size_ = std::tuple_size<TUPLE>::value;
+
+    template<size_t SIZE, std::size_t... I>
+    struct converted {
+        typedef std::tuple<typename std::remove_reference<typename std::tuple_element<I, TUPLE>::type>::type...> type;
+    };
+
+    template<std::size_t... I>
+    static converted<size_, I...> get_type(const std::index_sequence<I...> &) {
+        return converted<size_, I...>();
+    }
+
+    typedef decltype(get_type(std::make_index_sequence<size_>())) converted_type;
+    typedef typename converted_type::type type;
+};
+
+
+template<typename FUNC>
+struct func_traits_impl {
+    typedef decltype(&FUNC::operator()) func_type;
+    typedef typename func_traits_impl<func_type>::ret_type ret_type;
+    typedef typename func_traits_impl<func_type>::arg_type arg_type;
+};
+
+template<typename RET, class T, typename ...ARG>
+struct func_traits_impl< RET(T::*)(ARG...) const > {
+    typedef RET ret_type;
+    typedef std::tuple<ARG...> arg_type;
+};
+
+template<typename RET, typename ...ARG>
+struct func_traits_impl< RET(*)(ARG...) > {
+    typedef RET ret_type;
+    typedef std::tuple<ARG...> arg_type;
+};
+
+template<typename RET, typename ...ARG>
+struct func_traits_impl< RET(ARG...) > {
+    typedef RET ret_type;
+    typedef std::tuple<ARG...> arg_type;
+};
+
+template<typename FUNC>
+struct func_traits {
+    typedef typename func_traits_impl<FUNC>::ret_type ret_type;
+    typedef typename remove_reference_tuple<typename func_traits_impl<FUNC>::arg_type>::type arg_type;
+};
+
 
 class any {
 public: // structors
@@ -285,6 +447,18 @@ public: // queries
         return content ? content->type() : typeid(void);
     }
 
+    const std::size_t tuple_size() const {
+        return content ? content->tuple_size() : 0;
+    }
+
+    const std::type_index tuple_type(size_t i) const {
+        return content ? content->tuple_type(i) : std::type_index(typeid(void));
+    }
+
+    void *tuple_element(size_t i) const {
+        return content ? content->tuple_element(i) : nullptr;
+    }
+
 public: // types (public so any_cast can be non-friend)
     class placeholder {
     public: // structors
@@ -293,8 +467,11 @@ public: // types (public so any_cast can be non-friend)
 
     public: // queries
         virtual const std::type_info & type() const = 0;
+        virtual const std::size_t tuple_size() const = 0;
+        virtual const std::type_index tuple_type(size_t i) const = 0;
+        virtual void *tuple_element(size_t i) const = 0;
+
         virtual placeholder * clone() const = 0;
-        virtual void *get_pointer() = 0;
     };
 
     template<typename ValueType>
@@ -304,14 +481,16 @@ public: // types (public so any_cast can be non-friend)
         void* operator new(size_t size) {
             return allocator<holder>::obtain(size);
         }
-        
+
         void operator delete(void *ptr) {
             allocator<holder>::release(ptr);
         }
 #endif
 
         holder(const ValueType & value)
-            : held(value) {
+            : held(value)
+            , type_tuple_()
+            , offset_tuple_(&held) {
         }
 
     public: // queries
@@ -319,28 +498,31 @@ public: // types (public so any_cast can be non-friend)
             return typeid(ValueType);
         }
 
+        virtual const std::size_t tuple_size() const {
+            return type_tuple_.size_;
+        }
+
+        virtual const std::type_index tuple_type(size_t i) const {
+            return type_tuple_.tuple_type(i);
+        }
+
+        virtual void *tuple_element(size_t i) const {
+            return offset_tuple_.tuple_offset(i);
+        }
+
         virtual placeholder * clone() const {
             return new holder(held);
         }
-
-        inline virtual void *get_pointer() {
-            return static_cast<void *>(&held);
-        }
-
     public: // representation
         ValueType held;
+        type_tuple<ValueType> type_tuple_;
+        offset_tuple<ValueType> offset_tuple_;
     private: // intentionally left unimplemented
         holder & operator=(const holder &);
     };
 
 public: // representation (public so any_cast can be non-friend)
     placeholder * content;
-    void *base() {
-        return content->get_pointer();
-    }
-    const void *base() const {
-        return content->get_pointer();
-    }
 };
 
 class bad_any_cast : public std::bad_cast {
@@ -367,7 +549,7 @@ inline const ValueType * any_cast(const any *operand) {
 
 template<typename ValueType>
 ValueType any_cast(any & operand) {
-    typedef typename remove_reference<ValueType>::type nonref;
+    typedef typename std::remove_reference<ValueType>::type nonref;
 
     nonref * result = any_cast<nonref>(&operand);
     if (!result)
@@ -377,25 +559,10 @@ ValueType any_cast(any & operand) {
 
 template<typename ValueType>
 inline ValueType any_cast(const any &operand) {
-    typedef typename remove_reference<ValueType>::type nonref;
+    typedef typename std::remove_reference<ValueType>::type nonref;
     return any_cast<const nonref &>(const_cast<any &>(operand));
 }
 
-// Note: The "unsafe" versions of any_cast are not part of the
-// public interface and may be removed at any time. They are
-// required where we know what type is stored in the any and can't
-// use typeid() comparison, e.g., when our types may travel across
-// different shared libraries.
-template<typename ValueType>
-inline ValueType * unsafe_any_cast(any *operand) {
-    typedef typename any::template holder<ValueType> holder_t;
-    return &static_cast<holder_t *>(operand->content)->held;
-}
-
-template<typename ValueType>
-inline const ValueType * unsafe_any_cast(const any *operand) {
-    return unsafe_any_cast<ValueType>(const_cast<any *>(operand));
-}
 // Copyright Kevlin Henney, 2000, 2001, 2002. All rights reserved.
 //
 // Distributed under the Boost Software License, Version 1.0. (See
@@ -403,6 +570,53 @@ inline const ValueType * unsafe_any_cast(const any *operand) {
 // http://www.boost.org/LICENSE_1_0.txt)
 
 
+
+template<typename RET, typename FUNC, std::size_t ...I>
+struct call_tuple_t {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+    typedef typename remove_reference_tuple<std::tuple<RET>>::type ret_type;
+    
+    static ret_type call(const FUNC &func, any &arg) {
+        func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
+        arg.clear();
+        return ret_type(func(std::get<I>(new_arg)...));
+    }
+};
+
+template<typename FUNC, std::size_t ...I>
+struct call_tuple_t<void, FUNC, I...> {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+
+    static std::tuple<> call(const FUNC &func, any &arg) {
+        func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
+        arg.clear();
+        func(std::get<I>(new_arg)...);
+        return std::tuple<>();
+    }
+};
+
+template<typename FUNC, std::size_t ...I>
+inline auto call_tuple_as_argument(const FUNC &func, any &arg, const std::index_sequence<I...> &) {
+    typedef typename func_traits<FUNC>::ret_type ret_type;
+
+    return call_tuple_t<ret_type, FUNC, I...>::call(func, arg);
+}
+
+template<typename FUNC>
+inline auto call_func(const FUNC &func, any &arg) {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+    type_tuple<func_arg_type> tuple_func;
+
+    if (arg.tuple_size() < tuple_func.size_)
+        throw bad_any_cast();
+
+    for (size_t i = tuple_func.size_; i-- != 0; ) {
+        if (arg.tuple_type(i) != tuple_func.tuple_type(i))
+            throw bad_any_cast();
+    }
+
+    return call_tuple_as_argument(func, arg, std::make_index_sequence<tuple_func.size_>());
+}
 
 
 struct Promise;
@@ -471,20 +685,16 @@ public:
         shared_ptr().swap(*this);
     }
 
-    void resolve() const {
-        object_->resolve();
+    template <typename ...RET_ARG>
+    void resolve(const RET_ARG &... ret_arg) const {
+        object_->resolve<RET_ARG...>(ret_arg...);
     }
-    template <typename RET_ARG>
-    void resolve(const RET_ARG &ret_arg) const {
-        object_->resolve<RET_ARG>(ret_arg);
+
+    template <typename ...RET_ARG>
+    void reject(const RET_ARG &... ret_arg) const {
+        object_->reject<RET_ARG...>(ret_arg...);
     }
-    void reject() const {
-        object_->reject();
-    }
-    template <typename RET_ARG>
-    void reject(const RET_ARG &ret_arg) const {
-        object_->reject<RET_ARG>(ret_arg);
-    }
+
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
         return object_->then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
@@ -532,73 +742,16 @@ typedef shared_ptr<Promise> Defer;
 
 typedef void(*FnSimple)();
 
-struct Void {};
-
-template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
+template <typename RET, typename FUNC>
 struct ResolveChecker;
-template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
+template <typename RET, typename FUNC>
 struct RejectChecker;
-
-template<typename FUNC>
-struct GetRetArgType0 {
-    typedef decltype(&FUNC::operator()) func_type;
-    typedef typename GetRetArgType0<func_type>::ret_type ret_type;
-    typedef typename GetRetArgType0<func_type>::arg_type arg_type;
-};
-
-template<typename RET, class T, class ARG>
-struct GetRetArgType0< RET (T::*)(ARG) const > {
-    typedef RET ret_type;
-    typedef ARG arg_type;
-};
-
-template<typename RET, typename ARG>
-struct GetRetArgType0< RET (*)(ARG) > {
-    typedef RET ret_type;
-    typedef ARG arg_type;
-};
-
-template<typename RET, typename T>
-struct GetRetArgType0< RET (T::*)() const > {
-    typedef RET ret_type;
-    typedef Void arg_type;
-};
-
-template<typename RET>
-struct GetRetArgType0< RET (*)() > {
-    typedef RET ret_type;
-    typedef Void arg_type;
-};
-
-template<typename RET>
-struct CheckVoidType {
-    typedef RET type;
-    void operator()(const RET &) {
-    }
-};
-
-template<>
-struct CheckVoidType<void> {
-    typedef Void type;
-    void operator()() {
-    }
-};
-
-template<typename RET>
-struct GetRetArgType {
-    typedef typename GetRetArgType0<RET>::ret_type ret_type0;
-    typedef typename CheckVoidType<ret_type0>::type ret_type;
-    typedef typename GetRetArgType0<RET>::arg_type arg_type;
-};
-
 
 template <typename Promise, typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
 struct PromiseEx 
     : public Promise {
-    typedef typename GetRetArgType<FUNC_ON_RESOLVED>::ret_type resolve_ret_type;
-    typedef typename GetRetArgType<FUNC_ON_RESOLVED>::arg_type resolve_arg_type;
-    typedef typename GetRetArgType<FUNC_ON_REJECTED>::ret_type reject_ret_type;
-    typedef typename GetRetArgType<FUNC_ON_REJECTED>::arg_type reject_arg_type;
+    typedef typename func_traits<FUNC_ON_RESOLVED>::ret_type resolve_ret_type;
+    typedef typename func_traits<FUNC_ON_REJECTED>::ret_type reject_ret_type;
 
     struct {
         void *buf[(sizeof(FUNC_ON_RESOLVED) + sizeof(void *) - 1)/ sizeof(void *)];
@@ -629,13 +782,15 @@ struct PromiseEx
     
     virtual Defer call_resolve(Defer &self, Promise *caller) {
         const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(Promise::on_resolved_);
-        Defer d = ResolveChecker<PromiseEx, resolve_ret_type, FUNC_ON_RESOLVED, resolve_arg_type>::call(on_resolved, self, caller);
+        Defer d = ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self, caller);
+        caller->any_.clear();
         clear_func();
         return d;
     }
     virtual Defer call_reject(Defer &self, Promise *caller) {
         const FUNC_ON_REJECTED &on_rejected = *reinterpret_cast<FUNC_ON_REJECTED *>(Promise::on_rejected_);
-        Defer d = RejectChecker<PromiseEx, reject_ret_type, FUNC_ON_REJECTED, reject_arg_type>::call(on_rejected, self, caller);
+        Defer d = RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected, self, caller);
+        caller->any_.clear();
         clear_func();
         return d;
     }
@@ -681,11 +836,6 @@ struct Promise {
         }
     }
     
-    void prepare_resolve() {
-        if (status_ != kInit) return;
-        status_ = kResolved;
-        any_.clear();
-    }
     template <typename RET_ARG>
     void prepare_resolve(const RET_ARG &ret_arg) {
         if (status_ != kInit) return;
@@ -693,37 +843,25 @@ struct Promise {
         any_ = ret_arg;
     }
 
-    void resolve() {
-        prepare_resolve();
-        if(status_ == kResolved)
-            call_next();
-    }
-    template <typename RET_ARG>
-    void resolve(const RET_ARG &ret_arg) {
-        prepare_resolve(ret_arg);
+    template <typename ...RET_ARG>
+    void resolve(const RET_ARG &... ret_arg) {
+        typedef typename remove_reference_tuple<std::tuple<RET_ARG...>>::type arg_type;
+        prepare_resolve(arg_type(ret_arg...));
         if(status_ == kResolved)
             call_next();
     }
 
-    void prepare_reject() {
-        if (status_ != kInit) return;
-        status_ = kRejected;
-        any_.clear();
-    }
     template <typename RET_ARG>
     void prepare_reject(const RET_ARG &ret_arg) {
         if (status_ != kInit) return;
         status_ = kRejected;
         any_ = ret_arg;
     }
-    void reject() {
-        prepare_reject();
-        if(status_ == kRejected)
-            call_next();
-    }
-    template <typename RET_ARG>
-    void reject(const RET_ARG &ret_arg) {
-        prepare_reject(ret_arg);
+
+    template <typename ...RET_ARG>
+    void reject(const RET_ARG &...ret_arg) {
+        typedef typename remove_reference_tuple<std::tuple<RET_ARG...>>::type arg_type;
+        prepare_reject(arg_type(ret_arg...));
         if(status_ == kRejected)
             call_next();
     }
@@ -822,305 +960,155 @@ inline void joinDeferObject(Defer &self, Defer &next){
     next->prev_ = self.operator->();
 }
 
-template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
+template <typename RET, typename FUNC>
 struct ResolveChecker {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
-            self->prepare_resolve(func(any_cast<RET_ARG>(caller->any_)));
-            caller->any_.clear();
+            self->prepare_resolve(call_func(func, caller->any_));
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
         } catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
     }
 };
 
-template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
-struct ResolveChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
+template <typename FUNC>
+struct ResolveChecker<Defer, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
-            func(any_cast<RET_ARG>(caller->any_));
-            self->prepare_resolve();
-            caller->any_.clear();
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename RET, typename FUNC>
-struct ResolveChecker<PROMISE_EX, RET, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            self->prepare_resolve(func());
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename FUNC>
-struct ResolveChecker<PROMISE_EX, Void, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            func();
-            self->prepare_resolve();
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
-struct ResolveChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            Defer ret = func(any_cast<RET_ARG>(caller->any_));
-            joinDeferObject(self, ret);
-            caller->any_.clear();
-            return ret;
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename FUNC>
-struct ResolveChecker<PROMISE_EX, Defer, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            Defer ret = func();
+            Defer ret = std::get<0>(call_func(func, caller->any_));
             joinDeferObject(self, ret);
             return ret;
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
         } catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
     }
 };
 
-template <typename PROMISE_EX>
-struct ResolveChecker<PROMISE_EX, Void, FnSimple, Void> {
+
+template <typename RET>
+struct ResolveChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
-            caller->any_.clear();
-            if(func != nullptr)
-                (*func)();
-            self->prepare_resolve();
+            if (func != nullptr)
+                self->prepare_resolve(call_func(func, caller->any_));
+            else {
+                self->prepare_resolve(caller->any_);
+            }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
         } catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
     }
 };
 
+template<std::size_t ARG_SIZE, typename FUNC>
+struct ExCheck {
+    static void call(const FUNC &func, Defer &self, Promise *caller) {
+        std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+        throw eptr;
+    }
+};
 
-template <typename PROMISE_EX, typename RET, typename FUNC, typename RET_ARG>
+template <typename FUNC>
+struct ExCheck<0, FUNC> {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+        any arg = std::tuple<>();
+        caller->any_.clear();
+        return call_func(func, arg);
+    }
+};
+
+template <typename FUNC>
+struct ExCheck<1, FUNC> {
+    typedef typename func_traits<FUNC>::arg_type arg_type;
+    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+        std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+        try {
+            std::rethrow_exception(eptr);
+        }
+        catch (const typename std::tuple_element<0, arg_type>::type &ret_arg) {
+            any arg = arg_type(ret_arg);
+            caller->any_.clear();
+            return call_func(func, arg);
+        }
+
+        /* Will never run to here, just make the compile satisfied! */
+        any arg;
+        return call_func(func, arg);
+    }
+};
+
+template <typename RET, typename FUNC>
 struct RejectChecker {
+    typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
-                std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
-                caller->any_.clear();
-                try{
-                    std::rethrow_exception(eptr);
-                }catch(const RET_ARG &ret_arg){
-                    self->prepare_resolve(func(ret_arg));
-                }
+                self->prepare_resolve(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
             }
             else {
-                self->prepare_resolve(func(any_cast<RET_ARG>(caller->any_)));
-                caller->any_.clear();
+                self->prepare_resolve(call_func(func, caller->any_));
             }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
         } catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
     }
 };
 
-template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
-struct RejectChecker<PROMISE_EX, Void, FUNC, RET_ARG> {
+template <typename FUNC>
+struct RejectChecker<Defer, FUNC> {
+    typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
-                std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
-                caller->any_.clear();
-                try{
-                    std::rethrow_exception(eptr);
-                }catch(const RET_ARG &ret_arg){
-                    func(ret_arg);
-                    self->prepare_resolve();
-                }
-            }
-            else{
-                func(any_cast<RET_ARG>(caller->any_));
-                self->prepare_resolve();
-                caller->any_.clear();
-            }
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename RET, typename FUNC>
-struct RejectChecker<PROMISE_EX, RET, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            self->prepare_resolve(func());
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX, typename FUNC>
-struct RejectChecker<PROMISE_EX, Void, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            func();
-            self->prepare_resolve();
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        } catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-
-template <typename PROMISE_EX, typename FUNC, typename RET_ARG>
-struct RejectChecker<PROMISE_EX, Defer, FUNC, RET_ARG> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            if(caller->any_.type() == typeid(std::exception_ptr)){
-                std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
-                caller->any_.clear();
-                try{
-                    std::rethrow_exception(eptr);
-                }catch(const RET_ARG &ret_arg){
-                    Defer ret = func(ret_arg);
-                    joinDeferObject(self, ret);
-                    return ret;
-                }
-            }
-            else{
-                Defer ret = func(any_cast<RET_ARG>(caller->any_));
+                Defer ret = std::get<0>(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
                 joinDeferObject(self, ret);
-                caller->any_.clear();
+                return ret;
+            }
+            else{
+                Defer ret = std::get<0>(call_func(func, caller->any_));
+                joinDeferObject(self, ret);
                 return ret;
             }
         }
         catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
         }
         catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
         }
         return self;
     }
 };
 
-template <typename PROMISE_EX, typename FUNC>
-struct RejectChecker<PROMISE_EX, Defer, FUNC, Void> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        try {
-            caller->any_.clear();
-            Defer ret = func();
-            joinDeferObject(self, ret);
-            return ret;
-        }
-        catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            caller->any_.clear();
-        }
-        catch(...) {
-            caller->any_.clear();
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-    }
-};
-
-template <typename PROMISE_EX>
-struct RejectChecker<PROMISE_EX, Void, FnSimple, Void> {
+template <typename RET>
+struct RejectChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
         try {
-            caller->any_.clear();
             if (func != nullptr) {
-                (*func)();
-                self->prepare_resolve();
+                self->prepare_resolve(call_func(func, caller->any_));
                 return self;
             }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
-            caller->any_.clear();
             return self;
         } catch(...) {
-            caller->any_.clear();
             self->prepare_reject(std::current_exception());
             return self;
         }
 
-        self->any_.swap(caller->any_);
-        self->prepare_reject();
+        self->prepare_reject(caller->any_);
         return self;
     }
 };
