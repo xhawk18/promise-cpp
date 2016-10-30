@@ -730,32 +730,32 @@ public:
 
     template <typename ...RET_ARG>
     void resolve(const RET_ARG &... ret_arg) const {
-        object_->resolve<RET_ARG...>(ret_arg...);
+        object_->template resolve<RET_ARG...>(ret_arg...);
     }
 
     template <typename ...RET_ARG>
     void reject(const RET_ARG &... ret_arg) const {
-        object_->reject<RET_ARG...>(ret_arg...);
+        object_->template reject<RET_ARG...>(ret_arg...);
     }
 
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
-        return object_->then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
+        return object_->template then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
     }
 
     template <typename FUNC_ON_RESOLVED>
     Defer then(FUNC_ON_RESOLVED on_resolved) const {
-        return object_->then<FUNC_ON_RESOLVED>(on_resolved);
+        return object_->template then<FUNC_ON_RESOLVED>(on_resolved);
     }
 
     template <typename FUNC_ON_REJECTED>
     Defer fail(FUNC_ON_REJECTED on_rejected) const {
-        return object_->fail<FUNC_ON_REJECTED>(on_rejected);
+        return object_->template fail<FUNC_ON_REJECTED>(on_rejected);
     }
     
     template <typename FUNC_ON_ALWAYS>
     Defer always(FUNC_ON_ALWAYS on_always) const {
-        return object_->always<FUNC_ON_ALWAYS>(on_always);
+        return object_->template always<FUNC_ON_ALWAYS>(on_always);
     }   
 private:
     void add_ref() {
