@@ -227,6 +227,22 @@ struct allocator {
 // where: tested with BCC 5.5, MSVC 6.0, and g++ 2.95
 
 template<typename T>
+struct remove_rcv {
+    typedef typename std::remove_reference<T>::type r_type;
+    typedef typename std::remove_cv<r_type>::type type;
+};
+
+template<typename T>
+struct remove_rcv<const T *> {
+    typedef typename remove_rcv<T *>::type type;
+};
+
+template<typename T>
+struct remove_rcv<const T &> {
+    typedef typename remove_rcv<T &>::type type;
+};
+
+template<typename T>
 struct void_ptr_type {
     static void *cast(const T &t) {
         return reinterpret_cast<void *>(const_cast<char *>(&reinterpret_cast<const char &>(t)));
@@ -302,10 +318,12 @@ template<typename TUPLE, std::size_t SIZE>
 struct type_tuple_impl {
     template<size_t I_SIZE, std::size_t... I>
     struct type_index_array {
-        std::type_index types1_[I_SIZE];
+        std::type_index types_[I_SIZE];
+        std::type_index types_rcv_[I_SIZE];
 
         type_index_array()
-            : types1_{ std::type_index(typeid(typename std::tuple_element<I, TUPLE>::type))... } {
+            : types_{ std::type_index(typeid(typename std::tuple_element<I, TUPLE>::type))... }
+            , types_rcv_{ std::type_index(typeid(typename remove_rcv<typename std::tuple_element<I, TUPLE>::type>::type))... } {
         }
     };
 
@@ -321,7 +339,11 @@ struct type_tuple_impl {
     }
 
     const std::type_index tuple_type(size_t i) const {
-        return value_.types1_[i];
+        return value_.types_[i];
+    }
+
+    const std::type_index tuple_rcv_type(size_t i) const {
+        return value_.types_rcv_[i];
     }
 };
 
@@ -329,6 +351,9 @@ template<typename TUPLE>
 struct type_tuple_impl<TUPLE, 0> {
     static const std::size_t size_ = 0;
     const std::type_index tuple_type(size_t i) const {
+        return std::type_index(typeid(void));
+    }
+    const std::type_index tuple_rcv_type(size_t i) const {
         return std::type_index(typeid(void));
     }
 };
@@ -345,6 +370,16 @@ struct type_tuple<std::tuple<T...>> :
     static const std::size_t size_ = std::tuple_size<std::tuple<T...>>::value;
 };
 
+template<typename T>
+struct tuple_remove_reference {
+    typedef typename std::remove_reference<T>::type r_type;
+    typedef typename std::remove_cv<r_type>::type type;
+};
+
+template<typename T, std::size_t SIZE>
+struct tuple_remove_reference<T[SIZE]> {
+    typedef typename tuple_remove_reference<const T *>::type type;
+};
 
 template<typename TUPLE>
 struct remove_reference_tuple {
@@ -352,7 +387,7 @@ struct remove_reference_tuple {
 
     template<size_t SIZE, std::size_t... I>
     struct converted {
-        typedef std::tuple<typename std::remove_reference<typename std::tuple_element<I, TUPLE>::type>::type...> type;
+        typedef std::tuple<typename tuple_remove_reference<typename std::tuple_element<I, TUPLE>::type>::type...> type;
     };
 
     template<std::size_t... I>
@@ -363,7 +398,6 @@ struct remove_reference_tuple {
     typedef decltype(get_type(std::make_index_sequence<size_>())) converted_type;
     typedef typename converted_type::type type;
 };
-
 
 template<typename FUNC>
 struct func_traits_impl {
@@ -527,6 +561,12 @@ public: // representation (public so any_cast can be non-friend)
 
 class bad_any_cast : public std::bad_cast {
 public:
+    std::type_index from_;
+    std::type_index to_;
+    bad_any_cast(const std::type_index &from, const std::type_index &to)
+        : from_(from)
+        , to_(to) {
+    }
     virtual const char * what() const throw() {
         return "bad_any_cast: "
             "failed conversion using any_cast";
@@ -553,7 +593,7 @@ ValueType any_cast(any & operand) {
 
     nonref * result = any_cast<nonref>(&operand);
     if (!result)
-        throw(bad_any_cast());
+        throw bad_any_cast(std::type_index(operand.type()), std::type_index(typeid(ValueType)));
     return *result;
 }
 
@@ -608,11 +648,14 @@ inline auto call_func(const FUNC &func, any &arg) {
     type_tuple<func_arg_type> tuple_func;
 
     if (arg.tuple_size() < tuple_func.size_)
-        throw bad_any_cast();
+        throw bad_any_cast(std::type_index(arg.type()), std::type_index(typeid(func_arg_type)));
 
     for (size_t i = tuple_func.size_; i-- != 0; ) {
-        if (arg.tuple_type(i) != tuple_func.tuple_type(i))
-            throw bad_any_cast();
+        if (arg.tuple_type(i) != tuple_func.tuple_type(i)
+            && arg.tuple_type(i) != tuple_func.tuple_rcv_type(i)) {
+            //printf("== %s ==> %s\n", arg.tuple_type(i).name(), tuple_func.tuple_type(i).name());
+            throw bad_any_cast(arg.tuple_type(i), tuple_func.tuple_type(i));
+        }
     }
 
     return call_tuple_as_argument(func, arg, std::make_index_sequence<tuple_func.size_>());
