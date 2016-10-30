@@ -8,65 +8,66 @@
 ```cpp
 #include <stdio.h>
 #include <string>
-
 #include "promise.hpp"
+
 using namespace promise;
 
-#define PRINT_FUNC_INFO() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
+#define output_func_name() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
 
 void test1() {
-    PRINT_FUNC_INFO();
+    output_func_name();
 }
 
 int test2() {
-    PRINT_FUNC_INFO();
+    output_func_name();
     return 5;
 }
 
 void test3(int n) {
-    PRINT_FUNC_INFO();
+    output_func_name();
     printf("n = %d\n", n);
 }
 
 Defer run(Defer &next){
+
     return newPromise([](Defer d){
-        PRINT_FUNC_INFO();
-        d->resolve();
-    }).then([]() {
-        PRINT_FUNC_INFO();
-        //throw 33;
+        output_func_name();
+        d.resolve(3, 5, 6);
+    }).then([](const int &a, int b, int c) {
+        printf("%d %d %d\n", a, b, c);
+        output_func_name();
     }).then([](){
-        PRINT_FUNC_INFO();
+        output_func_name();
     }).then([&next](){
-        PRINT_FUNC_INFO();
+        output_func_name();
         next = newPromise([](Defer d) {
-            PRINT_FUNC_INFO();
+            output_func_name();
         });
         //Will call next.resole() or next.reject() later
         return next;
-    }).then([](int n) {
-        PRINT_FUNC_INFO();
-        printf("n = %d\n", (int)n);
+    }).then([](int n, char c) {
+        output_func_name();
+        printf("n = %d, c = %c\n", (int)n, c);
     }).fail([](char n){
-        PRINT_FUNC_INFO();
+        output_func_name();
         printf("n = %d\n", (int)n);
     }).fail([](short n) {
-        PRINT_FUNC_INFO();
+        output_func_name();
         printf("n = %d\n", (int)n);
     }).fail([](int &n) {
-        PRINT_FUNC_INFO();
+        output_func_name();
         printf("n = %d\n", (int)n);
     }).fail([](const std::string &str) {
-        PRINT_FUNC_INFO();
+        output_func_name();
         printf("str = %s\n", str.c_str());
     }).fail([](uint64_t n) {
-        PRINT_FUNC_INFO();
+        output_func_name();
         printf("n = %d\n", (int)n);
     }).then(test1)
     .then(test2)
     .then(test3)
     .always([]() {
-        PRINT_FUNC_INFO();
+        output_func_name();
     });
 }
 
@@ -76,7 +77,7 @@ int main(int argc, char **argv) {
     run(next);
     printf("======  after call run ======\n");
 
-    next.resolve(123);
+    next.resolve(123, 'a');
     //next.reject('c');
     //next.reject(std::string("xhchen"));
     //next.reject(45);
@@ -97,39 +98,25 @@ return newPromise([](Defer d){
 })
 ```
 
-### Defer::resolve();
-Resolve the promise object.
+### Defer::resolve(const RET_ARG... &ret_arg);
+Resolve the promise object with arguments, where you can put any number of ret_arg with any type.
 for example --
 ```cpp
 return newPromise([](Defer d){
-    d.resolve();
-})
-```
-
-### Defer::resolve(const RET_ARG &ret_arg);
-Resolve the promise object with an argument, where ret_arg can be any types of arguments.
-for example --
-```cpp
-return newPromise([](Defer d){
+    //d.resolve();
+    //d.resolve(3, '2', std::string("abcd"));
     d.resolve(9567);
 })
 ```
 
-### Defer::reject();
-Reject the promise object.
-for example --
-```cpp
-return newPromise([](Defer d){
-    d.reject();
-})
-```
-
 ### Defer::reject(const RET_ARG &ret_arg);
-Reject the promise object with an argument, where ret_arg can be any types of arguments.
+Reject the promise object with arguments, where you can put any number of ret_arg with any type.
 for example --
 ```cpp
 return newPromise([](Defer d){
-    d.reject(std::string("oh, no!"));
+    //d.reject();
+    //d.reject(std::string("oh, no!"));
+    d.reject(-1, std::string("oh, no!"))
 })
 ```
 
@@ -140,10 +127,10 @@ when previous promise object calls function reject.
 for example --
 ```cpp
 return newPromise([](Defer d){
-    d.resolve(9567);
+    d.resolve(9567, 'A');
 }).then(
-    /* function on_resolved */ [](int n){
-        printf("%d\n", n);   //will print 9567 here
+    /* function on_resolved */ [](int n, char ch){
+        printf("%d %c\n", n, ch);   //will print 9567 here
     },
     /* function on_rejected */ [](){
          
@@ -168,9 +155,9 @@ previous promise object calls function reject.
 for example --
 ```cpp
 return newPromise([](Defer d){
-    d.reject(std::string("oh, no!"));
-}).fail([](string &str){
-    printf("%s\n", str.c_str());   //will print "oh, no!" here
+    d.reject(-1, std::string("oh, no!"));
+}).fail([](int err, string &str){
+    printf("%d, %s\n", err, str.c_str());   //will print "-1, oh, no!" here
 });
 ```
 
