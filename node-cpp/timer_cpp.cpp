@@ -18,11 +18,11 @@ struct UvTimer : public uv_timer_t {
     }
 
     void* operator new(size_t size){
-        return allocator<UvTimer>::obtain(size);
+        return pm_allocator<UvTimer>::obtain(size);
     }
 
     void operator delete(void *ptr) {
-        allocator<UvTimer>::release(ptr);
+        pm_allocator<UvTimer>::release(ptr);
     }
 };
 

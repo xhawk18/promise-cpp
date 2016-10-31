@@ -9,7 +9,7 @@ Defer cuv_read(
     unsigned int nbufs) {
 
     return newPromise([stream, buf, nbufs](Defer d) {
-        UvRead r({ shared_ptr<UvReadArg>(new UvReadArg(buf, nbufs, stream)),
+        UvRead r({ pm_shared_ptr<UvReadArg>(new UvReadArg(buf, nbufs, stream)),
             0 });
         d->any_ = r;
         stream->read_arg = d.obtain_rawptr();
@@ -78,10 +78,10 @@ Defer cuv_write(
         Defer d_;
         uv_write_t uv_write_;
         void* operator new(size_t size){
-            return allocator<UvWrite>::obtain(size);
+            return pm_allocator<UvWrite>::obtain(size);
         }
             void operator delete(void *ptr) {
-            allocator<UvWrite>::release(ptr);
+            pm_allocator<UvWrite>::release(ptr);
         }
     };
 

@@ -48,86 +48,69 @@ inline P* pm_container_of(M* ptr, const M P::*member) {
 }
 
 //List
-struct list_t {
-    struct list_t *next_;
-    struct list_t *prev_;
-};
+struct pm_list {
+    struct pm_list *prev_;
+    struct pm_list *next_;
+    
+    pm_list()
+        : prev_(this)
+        , next_(this) {
+    }
 
-inline list_t *listGetPrev (list_t *list) {
-    return list->prev_;
-}
+    /* Connect or disconnect two lists. */
+    static void toggleConnect(pm_list *list1, pm_list *list2) {
+        pm_list *prev1 = list1->prev_;
+        pm_list *prev2 = list2->prev_;
+        prev1->next_ = list2;
+        prev2->next_ = list1;
+        list1->prev_ = prev2;
+        list2->prev_ = prev1;
+    }
 
-inline list_t *listGetNext (list_t *list) {
-    return list->next_;
-}
+    /* Connect two lists. */
+    static void connect (pm_list *list1, pm_list *list2) {
+        toggleConnect (list1, list2);
+    }
 
-inline void listSetPrev (list_t *list, list_t *other) {
-    list->prev_ = other;
-}
+    /* Disconnect tow lists. */
+    static void disconnect (pm_list *list1, pm_list *list2) {
+        toggleConnect (list1, list2);
+    }
 
-inline void listSetNext (list_t *list, list_t *other) {
-    list->next_ = other;
-}
+    /* Same as listConnect */
+    void attach (pm_list *node) {
+        connect (this, node);
+    }
 
-/* Initilization a list */
-inline void listInit(list_t *list) {
-    listSetPrev(list, list);
-    listSetNext(list, list);
-}
+    /* Make node in detach mode */
+    void detach () {
+        disconnect (this, this->next_);
+    }
 
-/* Connect or disconnect two lists. */
-inline void listToggleConnect(list_t *list1, list_t *list2) {
-    list_t *prev1 = listGetPrev(list1);
-    list_t *prev2 = listGetPrev(list2);
-    listSetNext(prev1, list2);
-    listSetNext(prev2, list1);
-    listSetPrev(list1, prev2);
-    listSetPrev(list2, prev1);
-}
-
-/* Connect two lists. */
-inline void listConnect (list_t *list1, list_t *list2) {
-    listToggleConnect (list1, list2);
-}
-
-/* Disconnect tow lists. */
-inline void listDisconnect (list_t *list1, list_t *list2) {
-    listToggleConnect (list1, list2);
-}
-
-/* Same as listConnect */
-inline void listAttach (list_t *node1, list_t *node2) {
-    listConnect (node1, node2);
-}
-
-/* Make node in detach mode */
-inline void listDetach (list_t *node) {
-    listDisconnect (node, listGetNext(node));
-}
-
-/* Move node to list, after moving,
-   node->next == list
-   list->prev == node
- */
-inline void listMove(list_t *list, list_t *node) {
+    /* Move node to list, after moving,
+       node->next == this
+       this->prev == node
+     */
+    void move(pm_list *node) {
 #if 1
-    node->prev_->next_ = node->next_;
-    node->next_->prev_ = node->prev_;
+        node->prev_->next_ = node->next_;
+        node->next_->prev_ = node->prev_;
 
-    node->next_ = list;
-    node->prev_ = list->prev_;
-    list->prev_->next_ = node;
-    list->prev_ = node;
+        node->next_ = this;
+        node->prev_ = this->prev_;
+        this->prev_->next_ = node;
+        this->prev_ = node;
 #else
-    listDetach(node);
-    listAttach(list, node);
+        detach(node);
+        attach(this, node);
 #endif
-}
+    }
 
-/* Check if list is empty */
-inline int listIsEmpty (list_t *list) {
-    return (listGetNext(list) == list);
-}
+    /* Check if list is empty */
+    int empty() {
+        return (this->next_ == this);
+    }
+};
 
 
 //allocator
@@ -139,24 +122,21 @@ struct memory_pool_buf {
     };
 
     memory_pool_buf() {
-        listInit(&list_);
     }
     buf_t buf_;
-    list_t list_;
+    pm_list list_;
 };
 
 template <size_t SIZE>
 struct memory_pool {
-    list_t used_;
-    list_t free_;
+    pm_list used_;
+    pm_list free_;
     memory_pool(){
-        listInit(&used_);
-        listInit(&free_);
     }
 };
 
 template <size_t SIZE>
-struct size_allocator {
+struct pm_size_allocator {
     static inline memory_pool<SIZE> *get_memory_pool() {
         static memory_pool<SIZE> *pool_ = nullptr;
         if(pool_ == nullptr)
@@ -166,7 +146,7 @@ struct size_allocator {
 };
 
 template <typename T>
-struct allocator {
+struct pm_allocator {
     enum allocator_type_t {
         kNew,
         kMalloc,
@@ -181,16 +161,16 @@ struct allocator {
         else if(allocator_type == kMalloc)
             return malloc(size);
         else if(allocator_type == kListPool){
-            memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
-            if (listIsEmpty(&pool->free_)) {
+            memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
+            if (pool->free_.empty()) {
                 memory_pool_buf<sizeof(T)> *pool_buf = new memory_pool_buf<sizeof(T)>;
-                listAttach(&pool->used_, &pool_buf->list_);
+                pool->used_.attach(&pool_buf->list_);
                 return (void *)&pool_buf->buf_;
             }
             else {
-                list_t *node = listGetNext(&pool->free_);
-                listMove(&pool->used_, node);
-                memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, list_t>
+                pm_list *node = pool->free_.next_;
+                pool->used_.move(node);
+                memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, pm_list>
                     (node, &memory_pool_buf<sizeof(T)>::list_);
                 return (void *)&pool_buf->buf_;
             }
@@ -208,10 +188,10 @@ struct allocator {
             return;
         }
         else if(allocator_type == kListPool){
-            memory_pool<sizeof(T)> *pool = size_allocator<sizeof(T)>::get_memory_pool();
+            memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
             memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, typename memory_pool_buf<sizeof(T)>::buf_t>
                 ((typename memory_pool_buf<sizeof(T)>::buf_t *)ptr, &memory_pool_buf<sizeof(T)>::buf_);
-            listMove(&pool->free_, &pool_buf->list_);
+            pool->free_.move(&pool_buf->list_);
         }
     }
 };
@@ -431,40 +411,40 @@ struct func_traits {
 };
 
 
-class any {
+class pm_any {
 public: // structors
-    any()
+    pm_any()
         : content(0) {
     }
 
     template<typename ValueType>
-    any(const ValueType & value)
+    pm_any(const ValueType & value)
         : content(new holder<ValueType>(value)) {
     }
 
-    any(const any & other)
+    pm_any(const pm_any & other)
         : content(other.content ? other.content->clone() : 0) {
     }
 
-    ~any() {
+    ~pm_any() {
         delete content;
     }
 
 public: // modifiers
 
-    any & swap(any & rhs) {
+    pm_any & swap(pm_any & rhs) {
         std::swap(content, rhs.content);
         return *this;
     }
 
     template<typename ValueType>
-    any & operator=(const ValueType & rhs) {
-        any(rhs).swap(*this);
+    pm_any & operator=(const ValueType & rhs) {
+        pm_any(rhs).swap(*this);
         return *this;
     }
 
-    any & operator=(const any & rhs) {
-        any(rhs).swap(*this);
+    pm_any & operator=(const pm_any & rhs) {
+        pm_any(rhs).swap(*this);
         return *this;
     }
 
@@ -474,7 +454,7 @@ public: // queries
     }
     
     void clear() {
-        any().swap(*this);
+        pm_any().swap(*this);
     }
 
     const std::type_info & type() const {
@@ -513,11 +493,11 @@ public: // types (public so any_cast can be non-friend)
     public: // structors
 #if 1
         void* operator new(size_t size) {
-            return allocator<holder>::obtain(size);
+            return pm_allocator<holder>::obtain(size);
         }
 
         void operator delete(void *ptr) {
-            allocator<holder>::release(ptr);
+            pm_allocator<holder>::release(ptr);
         }
 #endif
 
@@ -574,8 +554,8 @@ public:
 };
 
 template<typename ValueType>
-ValueType * any_cast(any *operand) {
-    typedef typename any::template holder<ValueType> holder_t;
+ValueType * any_cast(pm_any *operand) {
+    typedef typename pm_any::template holder<ValueType> holder_t;
     return operand &&
         operand->type() == typeid(ValueType)
         ? &static_cast<holder_t *>(operand->content)->held
@@ -583,12 +563,12 @@ ValueType * any_cast(any *operand) {
 }
 
 template<typename ValueType>
-inline const ValueType * any_cast(const any *operand) {
-    return any_cast<ValueType>(const_cast<any *>(operand));
+inline const ValueType * any_cast(const pm_any *operand) {
+    return any_cast<ValueType>(const_cast<pm_any *>(operand));
 }
 
 template<typename ValueType>
-ValueType any_cast(any & operand) {
+ValueType any_cast(pm_any & operand) {
     typedef typename std::remove_reference<ValueType>::type nonref;
 
     nonref * result = any_cast<nonref>(&operand);
@@ -598,9 +578,9 @@ ValueType any_cast(any & operand) {
 }
 
 template<typename ValueType>
-inline ValueType any_cast(const any &operand) {
+inline ValueType any_cast(const pm_any &operand) {
     typedef typename std::remove_reference<ValueType>::type nonref;
-    return any_cast<const nonref &>(const_cast<any &>(operand));
+    return any_cast<const nonref &>(const_cast<pm_any &>(operand));
 }
 
 // Copyright Kevlin Henney, 2000, 2001, 2002. All rights reserved.
@@ -616,7 +596,7 @@ struct call_tuple_t {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     typedef typename remove_reference_tuple<std::tuple<RET>>::type ret_type;
     
-    static ret_type call(const FUNC &func, any &arg) {
+    static ret_type call(const FUNC &func, pm_any &arg) {
         func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
         arg.clear();
         return ret_type(func(std::get<I>(new_arg)...));
@@ -627,7 +607,7 @@ template<typename FUNC, std::size_t ...I>
 struct call_tuple_t<void, FUNC, I...> {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
 
-    static std::tuple<> call(const FUNC &func, any &arg) {
+    static std::tuple<> call(const FUNC &func, pm_any &arg) {
         func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
         arg.clear();
         func(std::get<I>(new_arg)...);
@@ -636,14 +616,14 @@ struct call_tuple_t<void, FUNC, I...> {
 };
 
 template<typename FUNC, std::size_t ...I>
-inline auto call_tuple_as_argument(const FUNC &func, any &arg, const std::index_sequence<I...> &) {
+inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::index_sequence<I...> &) {
     typedef typename func_traits<FUNC>::ret_type ret_type;
 
     return call_tuple_t<ret_type, FUNC, I...>::call(func, arg);
 }
 
 template<typename FUNC>
-inline auto call_func(const FUNC &func, any &arg) {
+inline auto call_func(const FUNC &func, pm_any &arg) {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     type_tuple<func_arg_type> tuple_func;
 
@@ -665,37 +645,37 @@ inline auto call_func(const FUNC &func, any &arg) {
 struct Promise;
 
 template< class T >
-class shared_ptr {
-    typedef shared_ptr<Promise> Defer;
+class pm_shared_ptr {
+    typedef pm_shared_ptr<Promise> Defer;
 public:
-    virtual ~shared_ptr() {
+    virtual ~pm_shared_ptr() {
         dec_ref();
     }
 
-    explicit shared_ptr(T *object)
+    explicit pm_shared_ptr(T *object)
         : object_(object) {
         add_ref();
     }
     
-    explicit shared_ptr()
+    explicit pm_shared_ptr()
         : object_(nullptr) {
     }
 
-    shared_ptr(shared_ptr const &ptr)
+    pm_shared_ptr(pm_shared_ptr const &ptr)
         : object_(ptr.object_) {
         add_ref();
     }
 
-    shared_ptr &operator=(shared_ptr const &ptr) {
-        shared_ptr(ptr).swap(*this);
+    pm_shared_ptr &operator=(pm_shared_ptr const &ptr) {
+        pm_shared_ptr(ptr).swap(*this);
         return *this;
     }
 
-    bool operator==(shared_ptr const &ptr) const {
+    bool operator==(pm_shared_ptr const &ptr) const {
         return object_ == ptr.object_;
     }
 
-    bool operator!=(shared_ptr const &ptr) const {
+    bool operator!=(pm_shared_ptr const &ptr) const {
         return !( *this == ptr );
     }
 
@@ -725,7 +705,7 @@ public:
     }
     
     void clear() {
-        shared_ptr().swap(*this);
+        pm_shared_ptr().swap(*this);
     }
 
     template <typename ...RET_ARG>
@@ -774,14 +754,14 @@ private:
         }
     }
 
-    inline void swap(shared_ptr &ptr) {
+    inline void swap(pm_shared_ptr &ptr) {
         std::swap(object_, ptr.object_);
     }
 
     T *object_;
 };
 
-typedef shared_ptr<Promise> Defer;
+typedef pm_shared_ptr<Promise> Defer;
 
 typedef void(*FnSimple)();
 
@@ -839,11 +819,11 @@ struct PromiseEx
     }
 
     void* operator new(size_t size) {
-        return allocator<PromiseEx>::obtain(size);
+        return pm_allocator<PromiseEx>::obtain(size);
     }
     
     void operator delete(void *ptr) {
-        allocator<PromiseEx>::release(ptr);
+        pm_allocator<PromiseEx>::release(ptr);
     }
 };
 
@@ -851,7 +831,7 @@ struct Promise {
     int ref_count_;
     Promise *prev_;
     Defer next_;
-    any any_;
+    pm_any any_;
     void *on_resolved_;
     void *on_rejected_;
     
@@ -1063,7 +1043,7 @@ struct ExCheck {
 template <typename FUNC>
 struct ExCheck<0, FUNC> {
     static auto call(const FUNC &func, Defer &self, Promise *caller) {
-        any arg = std::tuple<>();
+        pm_any arg = std::tuple<>();
         caller->any_.clear();
         return call_func(func, arg);
     }
@@ -1078,13 +1058,13 @@ struct ExCheck<1, FUNC> {
             std::rethrow_exception(eptr);
         }
         catch (const typename std::tuple_element<0, arg_type>::type &ret_arg) {
-            any arg = arg_type(ret_arg);
+            pm_any arg = arg_type(ret_arg);
             caller->any_.clear();
             return call_func(func, arg);
         }
 
         /* Will never run to here, just make the compile satisfied! */
-        any arg;
+        pm_any arg;
         return call_func(func, arg);
     }
 };
@@ -1156,14 +1136,20 @@ struct RejectChecker<RET, FnSimple> {
     }
 };
 
-
+/* Create new promise object */
 template <typename FUNC>
 Defer newPromise(FUNC func) {
-    /* Here func in PromiseEx will never be called.
-       To save func in PromiseEx is just to keep reference of the object */
     Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(nullptr, nullptr));
     promise->run(func, promise);
     return promise;
+}
+
+/* Loop while func call resolved */
+template <typename FUNC>
+Defer While(FUNC func) {
+    return newPromise(func).then([func]() {
+        return While(func);
+    });
 }
 
 

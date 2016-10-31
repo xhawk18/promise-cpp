@@ -32,15 +32,15 @@ struct UvReadArg {
     }
 
     void* operator new(size_t size){
-        return allocator<UvReadArg>::obtain(size);
+        return pm_allocator<UvReadArg>::obtain(size);
     }
         void operator delete(void *ptr) {
-        allocator<UvReadArg>::release(ptr);
+        pm_allocator<UvReadArg>::release(ptr);
     }
 };
 
 struct UvRead {
-    shared_ptr<UvReadArg> r_;
+    pm_shared_ptr<UvReadArg> r_;
     ssize_t nread_;
 };
 

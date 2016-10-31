@@ -85,11 +85,31 @@ Defer testPerformance() {
     });
 }
 
+void testWhile(){
+    std::shared_ptr<int> i(new int(0));
+    While([i](Defer d){
+        if(*i >= 10){
+            d.reject();
+            return;
+        }
+        
+        ++(*i);
+        printf("in %s\n", __func__);
+        delay(1000).then([=](){
+            d.resolve();
+        });
+    }).always([](){
+        printf("over\n");;
+    });
+}
+
 int main() {
     uv_loop_t *loop = uv_default_loop();
 
     testTimer();
     testPerformance();
+    
+    testWhile();
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }
