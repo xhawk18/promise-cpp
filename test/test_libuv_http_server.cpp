@@ -1,11 +1,6 @@
 #include <time.h>
 #include <string.h>
-#include "uv.h"
-#include "promise.hpp"
-#include "buffer.hpp"
-#include "stream.hpp"
-#include "uv_types.hpp"
-#include "timer.hpp"
+#include "node.hpp"
 using namespace promise;
 
 #if 1
@@ -144,8 +139,16 @@ void testTimeout() {
 int main() {
     uv_loop_t *loop = uv_default_loop();
     srand(time(0));
-    tinyweb_start(loop, "127.0.0.1", 8080);
+    //tinyweb_start(loop, "127.0.0.1", 8080);
     //testTimeout();
+
+    int res = fs::accessSync("F:\\Work\\promise_cpp\\node-cpp\\dns.js", fs::F_OK);
+    fs::access("F:\\Work\\promise_cpp\\node-cpp\\dns.js", fs::F_OK).then([]() {
+        printf("found!");
+    }).fail([](ssize_t ret) {
+        printf("ret = %d\n", (int)ret);
+    });
+
     return uv_run(loop, UV_RUN_DEFAULT);
 }
 #endif

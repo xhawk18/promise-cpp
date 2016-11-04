@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INC_TIMER_HPP_
 #define INC_TIMER_HPP_
 

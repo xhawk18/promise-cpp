@@ -189,6 +189,7 @@
     <ClCompile Include="..\..\..\libuv\src\win\util.c" />
     <ClCompile Include="..\..\..\libuv\src\win\winapi.c" />
     <ClCompile Include="..\..\..\libuv\src\win\winsock.c" />
+    <ClCompile Include="..\..\..\node-cpp\fs_cpp.cpp" />
     <ClCompile Include="..\..\..\node-cpp\stream_cpp.cpp" />
     <ClCompile Include="..\..\..\node-cpp\timer_cpp.cpp" />
     <ClCompile Include="..\..\..\test\test_libuv_http_server.cpp" />
@@ -220,8 +221,11 @@
     <ClInclude Include="..\..\..\libuv\src\win\winapi.h" />
     <ClInclude Include="..\..\..\libuv\src\win\winsock.h" />
     <ClInclude Include="..\..\..\node-cpp\buffer.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\fs.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\node.hpp" />
     <ClInclude Include="..\..\..\node-cpp\stream.hpp" />
     <ClInclude Include="..\..\..\node-cpp\timer.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\uv_defer.hpp" />
     <ClInclude Include="..\..\..\node-cpp\uv_types.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

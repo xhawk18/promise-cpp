@@ -132,6 +132,9 @@
     <ClCompile Include="..\..\..\test\test_libuv_http_server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\node-cpp\fs_cpp.cpp">
+      <Filter>node</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\libuv\include\android-ifaddrs.h">
@@ -219,6 +222,15 @@
       <Filter>node</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\node-cpp\uv_types.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\fs.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\node.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\uv_defer.hpp">
       <Filter>node</Filter>
     </ClInclude>
   </ItemGroup>

@@ -85,21 +85,20 @@ Defer testPerformance() {
     });
 }
 
-void testWhile(){
-    std::shared_ptr<int> i(new int(0));
-    While([i](Defer d){
-        if(*i >= 10){
+void testWhile(int loop, uint64_t delay_ms){
+    std::shared_ptr<int> i(new int(loop));
+    While([=](Defer d){
+        if((*i)-- <= 0){
             d.reject();
             return;
         }
-        
-        ++(*i);
-        printf("in %s\n", __func__);
-        delay(1000).then([=](){
+
+        printf("in %s, i = %d -> %d, delay_ms = %u\n", __func__, *i, loop, (uint32_t)delay_ms);
+        delay(delay_ms).then([=](){
             d.resolve();
         });
-    }).always([](){
-        printf("over\n");;
+    }).always([=](){
+        printf("loop = %d, delay_ms = %u, over!\n", loop, (uint32_t)delay_ms);
     });
 }
 
@@ -107,9 +106,11 @@ int main() {
     uv_loop_t *loop = uv_default_loop();
 
     testTimer();
-    testPerformance();
+    //testPerformance();
     
-    testWhile();
+    testWhile(10, 500);
+    testWhile(30, 100);
+    testWhile(5, 2000);
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INC_STREAM_HPP_
 #define INC_STREAM_HPP_
 

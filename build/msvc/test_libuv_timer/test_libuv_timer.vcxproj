@@ -228,6 +228,9 @@
     <ClInclude Include="..\..\..\libuv\src\win\winapi.h" />
     <ClInclude Include="..\..\..\libuv\src\win\winsock.h" />
     <ClInclude Include="..\..\..\node-cpp\buffer.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\fs.hpp" />
+    <ClInclude Include="..\..\..\node-cpp\fs_cpp.cpp" />
+    <ClInclude Include="..\..\..\node-cpp\node.hpp" />
     <ClInclude Include="..\..\..\node-cpp\stream.hpp" />
     <ClInclude Include="..\..\..\node-cpp\timer.hpp" />
     <ClInclude Include="..\..\..\node-cpp\uv_types.hpp" />

@@ -1,3 +1,7 @@
+#pragma once
+#ifndef INC_PROMISE_HPP_
+#define INC_PROMISE_HPP_
+
 /*
  * Promise API implemented by cpp as Javascript promise style 
  *
@@ -24,8 +28,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef INC_PROMISE_HPP_
-#define INC_PROMISE_HPP_
 
 #include <exception>
 #include <memory>

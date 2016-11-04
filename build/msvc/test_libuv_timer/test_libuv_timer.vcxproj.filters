@@ -221,5 +221,14 @@
     <ClInclude Include="..\..\..\node-cpp\timer.hpp">
       <Filter>node</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\fs.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\node.hpp">
+      <Filter>node</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\node-cpp\fs_cpp.cpp">
+      <Filter>node</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

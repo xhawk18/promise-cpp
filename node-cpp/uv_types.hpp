@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INC_UV_TYPES_HPP_
 #define INC_UV_TYPES_HPP_
 
