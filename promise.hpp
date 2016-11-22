@@ -29,12 +29,18 @@
  * THE SOFTWARE.
  */
 
-#include <exception>
+//#define PM_EMBED
+#define PM_EMBED_MEMORY 4096
+
 #include <memory>
 #include <tuple>
 #include <typeinfo>
 #include <typeindex>
 #include <type_traits>
+
+#ifndef PM_EMBED
+#include <exception>
+#endif
 
 namespace promise {
 
@@ -47,6 +53,15 @@ inline size_t pm_offsetof(const M P::*member) {
 template<class P, class M>
 inline P* pm_container_of(M* ptr, const M P::*member) {
     return reinterpret_cast<P*>(reinterpret_cast<char*>(ptr) - pm_offsetof(member));
+}
+
+template<typename T>
+inline void pm_throw(const T &t){
+#ifndef PM_EMBED
+    throw t;
+#else
+    while(1);
+#endif
 }
 
 //List
@@ -116,33 +131,54 @@ struct pm_list {
 
 
 //allocator
+#ifdef PM_EMBED_MEMORY
+struct pm_memory {
+    static inline void *allocate(size_t size){
+        static void *buf_[(PM_EMBED_MEMORY + sizeof(void *) - 1) / sizeof(void *)];
+        static char *top_ = (char *)buf_;
+        size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
+        if((char *)buf_ + sizeof(buf_) < top_ + size)
+            pm_throw("no_mem");
+
+        void *ret = (void *)top_;
+        top_ += size;
+        //printf("mem ======= %d\n", top_ - (char *)buf_);
+        return ret;
+    }
+};
+#endif
+
 template <size_t SIZE>
-struct memory_pool_buf {
+struct pm_memory_pool_buf {
     struct buf_t {
         buf_t(){}
         void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
     };
 
-    memory_pool_buf() {
+    pm_memory_pool_buf() {
     }
     buf_t buf_;
     pm_list list_;
 };
 
 template <size_t SIZE>
-struct memory_pool {
+struct pm_memory_pool {
     pm_list used_;
     pm_list free_;
-    memory_pool(){
+    pm_memory_pool(){
     }
 };
 
 template <size_t SIZE>
 struct pm_size_allocator {
-    static inline memory_pool<SIZE> *get_memory_pool() {
-        static memory_pool<SIZE> *pool_ = nullptr;
+    static inline pm_memory_pool<SIZE> *get_memory_pool() {
+        static pm_memory_pool<SIZE> *pool_ = nullptr;
         if(pool_ == nullptr)
-            pool_ = new memory_pool<SIZE>();
+            pool_ = new
+#ifdef PM_EMBED_MEMORY
+                (pm_memory::allocate(sizeof(*pool_)))
+#endif
+                pm_memory_pool<SIZE>();
         return pool_;
     }
 };
@@ -158,31 +194,40 @@ struct pm_allocator {
     static const allocator_type_t allocator_type = kListPool;
 
     static inline void *obtain(size_t size) {
+#ifndef PM_EMBED
         if(allocator_type == kNew)
-            return new typename memory_pool_buf<sizeof(T)>::buf_t;
+            return new typename pm_memory_pool_buf<sizeof(T)>::buf_t;
         else if(allocator_type == kMalloc)
             return malloc(size);
         else if(allocator_type == kListPool){
-            memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
+#endif
+            pm_memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
             if (pool->free_.empty()) {
-                memory_pool_buf<sizeof(T)> *pool_buf = new memory_pool_buf<sizeof(T)>;
+                pm_memory_pool_buf<sizeof(T)> *pool_buf = new
+#ifdef PM_EMBED_MEMORY
+                    (pm_memory::allocate(sizeof(*pool_buf)))
+#endif
+                    pm_memory_pool_buf<sizeof(T)>;
                 pool->used_.attach(&pool_buf->list_);
                 return (void *)&pool_buf->buf_;
             }
             else {
                 pm_list *node = pool->free_.next_;
                 pool->used_.move(node);
-                memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, pm_list>
-                    (node, &memory_pool_buf<sizeof(T)>::list_);
+                pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<pm_memory_pool_buf<sizeof(T)>, pm_list>
+                    (node, &pm_memory_pool_buf<sizeof(T)>::list_);
                 return (void *)&pool_buf->buf_;
             }
+#ifndef PM_EMBED
         }
         else return NULL;
+#endif
     }
     
     static inline void release(void *ptr) {
+#ifndef PM_EMBED
         if(allocator_type == kNew){
-            delete reinterpret_cast<typename memory_pool_buf<sizeof(T)>::buf_t *>(ptr);
+            delete reinterpret_cast<typename pm_memory_pool_buf<sizeof(T)>::buf_t *>(ptr);
             return;
         }
         else if(allocator_type == kMalloc){
@@ -190,11 +235,14 @@ struct pm_allocator {
             return;
         }
         else if(allocator_type == kListPool){
-            memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
-            memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<memory_pool_buf<sizeof(T)>, typename memory_pool_buf<sizeof(T)>::buf_t>
-                ((typename memory_pool_buf<sizeof(T)>::buf_t *)ptr, &memory_pool_buf<sizeof(T)>::buf_);
+#endif
+            pm_memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
+            pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<pm_memory_pool_buf<sizeof(T)>, typename pm_memory_pool_buf<sizeof(T)>::buf_t>
+                ((typename pm_memory_pool_buf<sizeof(T)>::buf_t *)ptr, &pm_memory_pool_buf<sizeof(T)>::buf_);
             pool->free_.move(&pool_buf->list_);
+#ifndef PM_EMBED
         }
+#endif
     }
 };
 
@@ -550,8 +598,7 @@ public:
         , to_(to) {
     }
     virtual const char * what() const throw() {
-        return "bad_any_cast: "
-            "failed conversion using any_cast";
+        return "bad_any_cast";
     }
 };
 
@@ -575,7 +622,7 @@ ValueType any_cast(pm_any & operand) {
 
     nonref * result = any_cast<nonref>(&operand);
     if (!result)
-        throw bad_any_cast(std::type_index(operand.type()), std::type_index(typeid(ValueType)));
+        pm_throw(bad_any_cast(std::type_index(operand.type()), std::type_index(typeid(ValueType))));
     return *result;
 }
 
@@ -630,13 +677,13 @@ inline auto call_func(const FUNC &func, pm_any &arg) {
     type_tuple<func_arg_type> tuple_func;
 
     if (arg.tuple_size() < tuple_func.size_)
-        throw bad_any_cast(std::type_index(arg.type()), std::type_index(typeid(func_arg_type)));
+        pm_throw(bad_any_cast(std::type_index(arg.type()), std::type_index(typeid(func_arg_type))));
 
     for (size_t i = tuple_func.size_; i-- != 0; ) {
         if (arg.tuple_type(i) != tuple_func.tuple_type(i)
             && arg.tuple_type(i) != tuple_func.tuple_rcv_type(i)) {
             //printf("== %s ==> %s\n", arg.tuple_type(i).name(), tuple_func.tuple_type(i).name());
-            throw bad_any_cast(arg.tuple_type(i), tuple_func.tuple_type(i));
+            pm_throw(bad_any_cast(arg.tuple_type(i), tuple_func.tuple_type(i)));
         }
     }
 
@@ -896,6 +943,7 @@ struct Promise {
 
     template <typename FUNC>
     void run(FUNC func, Defer d) {
+#ifndef PM_EMBED
         try {
             func(d);
         } catch(const bad_any_cast &ex) {
@@ -903,6 +951,9 @@ struct Promise {
         } catch(...) {
             d->reject(std::current_exception());
         }
+#else
+        func(d);
+#endif
     }
     
     Defer call_next() {
@@ -988,6 +1039,7 @@ inline void joinDeferObject(Defer &self, Defer &next){
 template <typename RET, typename FUNC>
 struct ResolveChecker {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             self->prepare_resolve(call_func(func, caller->any_));
         } catch(const bad_any_cast &) {
@@ -995,6 +1047,9 @@ struct ResolveChecker {
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
+#else
+        self->prepare_resolve(call_func(func, caller->any_));
+#endif
         return self;
     }
 };
@@ -1002,6 +1057,7 @@ struct ResolveChecker {
 template <typename FUNC>
 struct ResolveChecker<Defer, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             Defer ret = std::get<0>(call_func(func, caller->any_));
             joinDeferObject(self, ret);
@@ -1012,6 +1068,11 @@ struct ResolveChecker<Defer, FUNC> {
             self->prepare_reject(std::current_exception());
         }
         return self;
+#else
+        Defer ret = std::get<0>(call_func(func, caller->any_));
+        joinDeferObject(self, ret);
+        return ret;
+#endif
     }
 };
 
@@ -1019,21 +1080,28 @@ struct ResolveChecker<Defer, FUNC> {
 template <typename RET>
 struct ResolveChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             if (func != nullptr)
                 self->prepare_resolve(call_func(func, caller->any_));
-            else {
+            else
                 self->prepare_resolve(caller->any_);
-            }
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
+#else
+        if (func != nullptr)
+            self->prepare_resolve(call_func(func, caller->any_));
+        else
+            self->prepare_resolve(caller->any_);
+#endif
         return self;
     }
 };
 
+#ifndef PM_EMBED
 template<std::size_t ARG_SIZE, typename FUNC>
 struct ExCheck {
     static void call(const FUNC &func, Defer &self, Promise *caller) {
@@ -1070,11 +1138,13 @@ struct ExCheck<1, FUNC> {
         return call_func(func, arg);
     }
 };
+#endif
 
 template <typename RET, typename FUNC>
 struct RejectChecker {
     typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 self->prepare_resolve(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
@@ -1087,6 +1157,9 @@ struct RejectChecker {
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
+#else
+        self->prepare_resolve(call_func(func, caller->any_));
+#endif
         return self;
     }
 };
@@ -1095,6 +1168,7 @@ template <typename FUNC>
 struct RejectChecker<Defer, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 Defer ret = std::get<0>(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
@@ -1114,12 +1188,18 @@ struct RejectChecker<Defer, FUNC> {
             self->prepare_reject(std::current_exception());
         }
         return self;
+#else
+        Defer ret = std::get<0>(call_func(func, caller->any_));
+        joinDeferObject(self, ret);
+        return ret;
+#endif
     }
 };
 
 template <typename RET>
 struct RejectChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
         try {
             if (func != nullptr) {
                 self->prepare_resolve(call_func(func, caller->any_));
@@ -1132,7 +1212,12 @@ struct RejectChecker<RET, FnSimple> {
             self->prepare_reject(std::current_exception());
             return self;
         }
-
+#else
+        if (func != nullptr) {
+            self->prepare_resolve(call_func(func, caller->any_));
+            return self;
+        }
+#endif
         self->prepare_reject(caller->any_);
         return self;
     }
