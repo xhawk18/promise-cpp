@@ -30,7 +30,7 @@
  */
 
 //#define PM_EMBED
-#define PM_EMBED_MEMORY 4096
+//#define PM_EMBED_STACK 4096
 
 #include <memory>
 #include <tuple>
@@ -64,44 +64,106 @@ inline void pm_throw(const T &t){
 #endif
 }
 
+//allocator
+#ifdef PM_EMBED_STACK
+struct pm_stack {
+    static inline void *start() {
+        static void *buf_[(PM_EMBED_STACK + sizeof(void *) - 1) / sizeof(void *)];
+        return buf_;
+    }
+
+    static inline void *allocate(size_t size) {
+        static char *top_ = (char *)start();
+        void *start_ = start();
+        size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
+        if ((char *)start_ + PM_EMBED_STACK < top_ + size)
+            pm_throw("no_mem");
+
+        void *ret = (void *)top_;
+        top_ += size;
+        //printf("mem ======= %d %d\n", top_ - (char *)start_, sizeof(void *));
+        return ret;
+    }
+};
+#endif
+
 //List
 struct pm_list {
-    struct pm_list *prev_;
-    struct pm_list *next_;
+#ifdef PM_EMBED_STACK
+    typedef uint16_t ptr_t;
+    static const int PTR_IGNORE_BIT = 2;
     
+    inline ptr_t list_to_ptr(pm_list *list) {
+        return (ptr_t)(((char *)list - (char *)pm_stack::start()) >> PTR_IGNORE_BIT);
+    }
+
+    inline pm_list *ptr_to_list(ptr_t ptr) {
+        return (pm_list *)((char *)pm_stack::start() + ((ptrdiff_t)ptr << PTR_IGNORE_BIT));
+    }
+#else
+    typedef pm_list *ptr_t;
+
+    inline ptr_t list_to_ptr(pm_list *list) {
+        return list;
+    }
+
+    inline pm_list *ptr_to_list(ptr_t ptr) {
+        return ptr;
+    }
+
+#endif
+    ptr_t prev_;
+    ptr_t next_;
+
     pm_list()
-        : prev_(this)
-        , next_(this) {
+        : prev_(list_to_ptr(this))
+        , next_(list_to_ptr(this)) {
+    }
+
+    inline pm_list *prev() {
+        return ptr_to_list(prev_);
+    }
+
+    inline pm_list *next() {
+        return ptr_to_list(next_);
+    }
+
+    inline void prev(pm_list *other) {
+        prev_ = list_to_ptr(other);
+    }
+
+    inline void next(pm_list *other) {
+        next_ = list_to_ptr(other);
     }
 
     /* Connect or disconnect two lists. */
     static void toggleConnect(pm_list *list1, pm_list *list2) {
-        pm_list *prev1 = list1->prev_;
-        pm_list *prev2 = list2->prev_;
-        prev1->next_ = list2;
-        prev2->next_ = list1;
-        list1->prev_ = prev2;
-        list2->prev_ = prev1;
+        pm_list *prev1 = list1->prev();
+        pm_list *prev2 = list2->prev();
+        prev1->next(list2);
+        prev2->next(list1);
+        list1->prev(prev2);
+        list2->prev(prev1);
     }
 
     /* Connect two lists. */
-    static void connect (pm_list *list1, pm_list *list2) {
-        toggleConnect (list1, list2);
+    static void connect(pm_list *list1, pm_list *list2) {
+        toggleConnect(list1, list2);
     }
 
     /* Disconnect tow lists. */
-    static void disconnect (pm_list *list1, pm_list *list2) {
-        toggleConnect (list1, list2);
+    static void disconnect(pm_list *list1, pm_list *list2) {
+        toggleConnect(list1, list2);
     }
 
     /* Same as listConnect */
-    void attach (pm_list *node) {
-        connect (this, node);
+    void attach(pm_list *node) {
+        connect(this, node);
     }
 
     /* Make node in detach mode */
     void detach () {
-        disconnect (this, this->next_);
+        disconnect(this, this->next());
     }
 
     /* Move node to list, after moving,
@@ -110,13 +172,13 @@ struct pm_list {
      */
     void move(pm_list *node) {
 #if 1
-        node->prev_->next_ = node->next_;
-        node->next_->prev_ = node->prev_;
+        node->prev()->next(node->next());
+        node->next()->prev(node->prev());
 
-        node->next_ = this;
-        node->prev_ = this->prev_;
-        this->prev_->next_ = node;
-        this->prev_ = node;
+        node->next(this);
+        node->prev(this->prev());
+        this->prev()->next(node);
+        this->prev(node);
 #else
         detach(node);
         attach(this, node);
@@ -125,29 +187,12 @@ struct pm_list {
 
     /* Check if list is empty */
     int empty() {
-        return (this->next_ == this);
+        return (this->next() == this);
     }
 };
 
 
 //allocator
-#ifdef PM_EMBED_MEMORY
-struct pm_memory {
-    static inline void *allocate(size_t size){
-        static void *buf_[(PM_EMBED_MEMORY + sizeof(void *) - 1) / sizeof(void *)];
-        static char *top_ = (char *)buf_;
-        size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
-        if((char *)buf_ + sizeof(buf_) < top_ + size)
-            pm_throw("no_mem");
-
-        void *ret = (void *)top_;
-        top_ += size;
-        //printf("mem ======= %d\n", top_ - (char *)buf_);
-        return ret;
-    }
-};
-#endif
-
 template <size_t SIZE>
 struct pm_memory_pool_buf {
     struct buf_t {
@@ -175,8 +220,8 @@ struct pm_size_allocator {
         static pm_memory_pool<SIZE> *pool_ = nullptr;
         if(pool_ == nullptr)
             pool_ = new
-#ifdef PM_EMBED_MEMORY
-                (pm_memory::allocate(sizeof(*pool_)))
+#ifdef PM_EMBED_STACK
+                (pm_stack::allocate(sizeof(*pool_)))
 #endif
                 pm_memory_pool<SIZE>();
         return pool_;
@@ -204,15 +249,15 @@ struct pm_allocator {
             pm_memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
             if (pool->free_.empty()) {
                 pm_memory_pool_buf<sizeof(T)> *pool_buf = new
-#ifdef PM_EMBED_MEMORY
-                    (pm_memory::allocate(sizeof(*pool_buf)))
+#ifdef PM_EMBED_STACK
+                    (pm_stack::allocate(sizeof(*pool_buf)))
 #endif
                     pm_memory_pool_buf<sizeof(T)>;
                 pool->used_.attach(&pool_buf->list_);
                 return (void *)&pool_buf->buf_;
             }
             else {
-                pm_list *node = pool->free_.next_;
+                pm_list *node = pool->free_.next();
                 pool->used_.move(node);
                 pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<pm_memory_pool_buf<sizeof(T)>, pm_list>
                     (node, &pm_memory_pool_buf<sizeof(T)>::list_);
