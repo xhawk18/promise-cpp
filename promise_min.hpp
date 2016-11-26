@@ -1,6 +1,6 @@
 #pragma once
-#ifndef INC_PROMISE_HPP_
-#define INC_PROMISE_HPP_
+#ifndef INC_PROMISE_MIN_HPP_
+#define INC_PROMISE_MIN_HPP_
 
 /*
  * Promise API implemented by cpp as Javascript promise style 
