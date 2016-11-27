@@ -46,11 +46,15 @@ void test3() {
 }
 
 Defer run(Defer &next){
-
+    struct {
+        int n[1];
+    } n;
+    //= 3;
     return newPromise([](Defer d){
         output_func_name();
         d.resolve();
-    }).then([]() {
+    }).then([n]() {
+        printf("n = %d\n", n.n[5]);
         output_func_name();
     }).then([](){
         output_func_name();
