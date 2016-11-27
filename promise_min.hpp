@@ -75,17 +75,17 @@ struct pm_offset_impl<false, false, true> {
 
 
 
-template<size_t SIZE>
+template<size_t SIZE, size_t ADDR_ALIGN>
 struct pm_offset {
     typedef typename pm_offset_impl<
-        ((SIZE + sizeof(void *) - 1) / sizeof(void *) <= 0x100),
-        ((SIZE + sizeof(void *) - 1) / sizeof(void *) <= 0x10000UL),
-        ((SIZE + sizeof(void *) - 1) / sizeof(void *) <= 0x100000000ULL) >::type type;
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x100),
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x10000UL),
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x100000000ULL) >::type type;
 };
 
 //allocator
-#ifdef PM_EMBED_STACK
 struct pm_stack {
+#ifdef PM_EMBED_STACK
     static inline void *start() {
         static void *buf_[(PM_EMBED_STACK + sizeof(void *) - 1) / sizeof(void *)];
         return buf_;
@@ -100,68 +100,60 @@ struct pm_stack {
 
         void *ret = (void *)top_;
         top_ += size;
-        //printf("mem ======= %d %d, size = %d, %d, %d\n", (int)(top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(offset_t));
+        //printf("mem ======= %d %d, size = %d, %d, %d\n", (int)(top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t));
         return ret;
     }
 
-    static const size_t OFFSET_IGNORE_BIT = pm_log(sizeof(void *));
-    typedef pm_offset<PM_EMBED_STACK>::type offset_t;
+    //static const size_t OFFSET_IGNORE_BIT = pm_log(sizeof(void *));
+    //typedef pm_offset<PM_EMBED_STACK, sizeof(void *)>::type itr_t;
+    static const size_t OFFSET_IGNORE_BIT = 0;
+    typedef pm_offset<PM_EMBED_STACK, 1>::type itr_t;
 
-    static inline offset_t ptr_to_offset(void *ptr) {
-        return (offset_t)(((char *)ptr - (char *)pm_stack::start()) >> OFFSET_IGNORE_BIT);
+    static inline itr_t ptr_to_itr(void *ptr) {
+        return (itr_t)(((char *)ptr - (char *)pm_stack::start()) >> OFFSET_IGNORE_BIT);
     }
 
-    static inline void *offset_to_ptr(offset_t offset) {
-        return (void *)((char *)pm_stack::start() + ((ptrdiff_t)offset << OFFSET_IGNORE_BIT));
-    }
-};
-#endif
-
-//List
-struct pm_list {
-#ifdef PM_EMBED_STACK
-    typedef pm_stack::offset_t iterator_t;
-    static inline iterator_t ptr_to_iterator(pm_list *list) {
-        return pm_stack::ptr_to_offset(reinterpret_cast<void *>(list));
-    }
-
-    static inline pm_list *iterator_to_ptr(iterator_t ptr) {
-        return reinterpret_cast<pm_list *>(pm_stack::offset_to_ptr(ptr));
+    static inline void *itr_to_ptr(itr_t itr) {
+        return (void *)((char *)pm_stack::start() + ((ptrdiff_t)itr << OFFSET_IGNORE_BIT));
     }
 #else
-    typedef pm_list *iterator_t;
-
-    static inline iterator_t ptr_to_iterator(pm_list *list) {
-        return list;
-    }
-
-    static inline pm_list *iterator_to_ptr(iterator_t ptr) {
+    static const size_t OFFSET_IGNORE_BIT = 1;
+    typedef void *itr_t;
+    static inline itr_t ptr_to_itr(void *ptr) {
         return ptr;
     }
 
+    static inline void *itr_to_ptr(itr_t itr) {
+        return itr;
+    }
 #endif
-    iterator_t prev_;
-    iterator_t next_;
+};
+
+//List
+struct pm_list {
+    typedef pm_stack::itr_t itr_t;
+    itr_t prev_;
+    itr_t next_;
 
     pm_list()
-        : prev_(ptr_to_iterator(this))
-        , next_(ptr_to_iterator(this)) {
+        : prev_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(this)))
+        , next_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(this))) {
     }
 
     inline pm_list *prev() {
-        return iterator_to_ptr(prev_);
+        return reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(prev_));
     }
 
     inline pm_list *next() {
-        return iterator_to_ptr(next_);
+        return reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(next_));
     }
 
     inline void prev(pm_list *other) {
-        prev_ = ptr_to_iterator(other);
+        prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(other));
     }
 
     inline void next(pm_list *other) {
-        next_ = ptr_to_iterator(other);
+        next_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(other));
     }
 
     /* Connect or disconnect two lists. */
@@ -242,20 +234,12 @@ struct pm_memory_pool {
 
 struct pm_memory_pool_buf_header {
     pm_memory_pool_buf_header(pm_memory_pool *pool)
-#ifdef PM_EMBED_STACK
-        : pool_(pm_stack::ptr_to_offset(reinterpret_cast<void *>(pool)))
-#else
-        : pool_(pool)
-#endif
+        : pool_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(pool)))
         , ref_count_(0){
     }
 
     pm_list list_;
-#ifdef PM_EMBED_STACK
-    pm_stack::offset_t pool_;
-#else
-    pm_memory_pool *pool_;
-#endif
+    pm_stack::itr_t pool_;
     uint16_t ref_count_;
 
     static inline void *to_ptr(pm_memory_pool_buf_header *header) {
@@ -313,15 +297,15 @@ struct pm_size_allocator {
 };
 
 struct pm_allocator {
-    template <typename T>
-    static inline void *obtain() {
-        pm_memory_pool *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
+    template <size_t SIZE_T>
+    static void *obtain_impl() {
+        pm_memory_pool *pool = pm_size_allocator<SIZE_T>::get_memory_pool();
         if (pool->free_.free_.empty()) {
-            pm_memory_pool_buf<sizeof(T)> *pool_buf = new
+            pm_memory_pool_buf<SIZE_T> *pool_buf = new
 #ifdef PM_EMBED_STACK
                 (pm_stack::allocate(sizeof(*pool_buf)))
 #endif
-                pm_memory_pool_buf<sizeof(T)>(pool);
+                pm_memory_pool_buf<SIZE_T>(pool);
             pool->used_.used_.attach(&pool_buf->header_.list_);
             //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
             return (void *)&pool_buf->buf_;
@@ -330,21 +314,22 @@ struct pm_allocator {
             pm_list *node = pool->free_.free_.next();
             pool->used_.used_.move(node);
             pm_memory_pool_buf_header *header = pm_container_of(node, &pm_memory_pool_buf_header::list_);
-            pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of
-                (header, &pm_memory_pool_buf<sizeof(T)>::header_);
+            pm_memory_pool_buf<SIZE_T> *pool_buf = pm_container_of
+                (header, &pm_memory_pool_buf<SIZE_T>::header_);
             //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
             return (void *)&pool_buf->buf_;
         }
     }
-    
-    static inline void release(void *ptr) {
+
+    template <typename T>
+    static inline void *obtain() {
+        return obtain_impl<sizeof(T)>();
+    }
+
+    static void release(void *ptr) {
         //printf("--- release = %p\n", ptr);
         pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(ptr);
-#ifdef PM_EMBED_STACK
-        pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::offset_to_ptr(header->pool_));
-#else
-        pm_memory_pool *pool = header->pool_;
-#endif
+        pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::itr_to_ptr(header->pool_));
         pool->free_.free_.move(&header->list_);
     }
 
@@ -594,64 +579,42 @@ struct PromiseEx
     }
 
     virtual ~PromiseEx() {
-        clear_func();
+        Promise::clear_func();
     }
     
-    void clear_func() {
-        if(!Promise::func_cleared) {
-            Promise::func_cleared = 1;
-            reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_)->~FUNC_ON_RESOLVED();
-            reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_)->~FUNC_ON_REJECTED();
-        }
+    virtual void clear_func_impl() {
+        reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_)->~FUNC_ON_RESOLVED();
+        reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_)->~FUNC_ON_REJECTED();
     }
     
     virtual Defer call_resolve(Defer &self) {
         const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_);
-        Defer d = ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self);
-        clear_func();
-        return d;
+        return ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self);
     }
     virtual Defer call_reject(Defer &self) {
         const FUNC_ON_REJECTED &on_rejected = *reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_);
-        Defer d = RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected, self);
-        clear_func();
-        return d;
+        return RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected, self);
     }
 };
 
 struct Promise {
     Defer next_;
 
-#ifdef PM_EMBED_STACK
-    pm_stack::offset_t prev_;
-    static inline pm_stack::offset_t ptr_to_iterator(Promise *ptr) {
-        return pm_stack::ptr_to_offset(reinterpret_cast<void *>(ptr));
-    }
-    static inline Promise *iterator_to_ptr(pm_stack::offset_t iterator) {
-        return reinterpret_cast<Promise *>(pm_stack::offset_to_ptr(iterator));
-    }
-#else
-    Promise *prev_;
-    static inline Promise *ptr_to_iterator(Promise *ptr) {
-        return ptr;
-    }
-    static inline Promise *iterator_to_ptr(Promise *ptr) {
-        return ptr;
-    }
-#endif
+    pm_stack::itr_t prev_;
+
     enum status_t {
         kInit       = 0,
         kResolved   = 1,
         kRejected   = 2,
         kFinished   = 3
     };
-    uint8_t status_      : 2;
-    uint8_t func_cleared : 1;
+    uint8_t status_      ;//: 2;
+    uint8_t func_cleared ;//: 1;
     
     Promise(const Promise &) = delete;
     explicit Promise()
         : next_(nullptr)
-        , prev_(ptr_to_iterator(nullptr))
+        , prev_(pm_stack::ptr_to_itr(nullptr))
         , status_(kInit)
         , func_cleared(0){
         //printf("size promise = %d %d %d\n", (int)sizeof(*this), (int)sizeof(prev_), (int)sizeof(next_));
@@ -659,7 +622,7 @@ struct Promise {
     
     virtual ~Promise() {
         if (next_.operator->()) {
-            next_->prev_ = ptr_to_iterator(nullptr);
+            next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
     }
     
@@ -687,6 +650,14 @@ struct Promise {
 
     virtual Defer call_resolve(Defer &self) = 0;
     virtual Defer call_reject(Defer &self) = 0;
+    virtual void clear_func_impl() = 0;
+
+    void clear_func() {
+        if(!func_cleared) {
+            func_cleared = 1;
+            clear_func_impl();
+        }
+    }
 
     template <typename FUNC>
     void run(FUNC func, Defer d) {
@@ -698,6 +669,7 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d = next_->call_resolve(next_);
+                next_->clear_func();
                 if(d.operator->())
                     d->call_next();
                 return d;
@@ -707,6 +679,7 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d =  next_->call_reject(next_);
+                next_->clear_func();
                 if (d.operator->())
                     d->call_next();
                 return d;
@@ -720,7 +693,7 @@ struct Promise {
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) {
         Defer promise = pm_make_shared2<PromiseEx<Promise, FUNC_ON_RESOLVED, FUNC_ON_REJECTED>, Promise>(on_resolved, on_rejected);
         next_ = promise;
-        promise->prev_ = Promise::ptr_to_iterator(this);
+        promise->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(this));
         return call_next();
     }
 
@@ -742,12 +715,12 @@ struct Promise {
     Defer find_pending() {
         if (status_ == kInit) {
             Promise *p = this;
-            Promise *prev = static_cast<Promise *>(iterator_to_ptr(p->prev_));
+            Promise *prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
             while (prev != nullptr) {
                 if (prev->status_ != kInit)
                     return prev->next_;
                 p = prev;
-                prev = static_cast<Promise *>(iterator_to_ptr(p->prev_));
+                prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
             }
             return Defer(p);
         }
@@ -763,15 +736,17 @@ struct Promise {
             return Defer();
         }
     }
+
+    static inline void joinDeferObject(Defer &self, Defer &next){
+        if(self->next_.operator->())
+            self->next_->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>((next.operator->())));
+        next->next_ = self->next_;
+        self->next_ = next;
+        next->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>((self.operator->())));
+    }
+
 };
 
-inline void joinDeferObject(Defer &self, Defer &next){
-    if(self->next_.operator->())
-        self->next_->prev_ = Promise::ptr_to_iterator(next.operator->());
-    next->next_ = self->next_;
-    self->next_ = next;
-    next->prev_ = Promise::ptr_to_iterator(self.operator->());
-}
 
 template <typename RET, typename FUNC>
 struct ResolveChecker {
@@ -786,7 +761,7 @@ template <typename FUNC>
 struct ResolveChecker<Defer, FUNC> {
     static Defer call(const FUNC &func, Defer &self) {
         Defer ret = func();
-        joinDeferObject(self, ret);
+        Promise::joinDeferObject(self, ret);
         return ret;
     }
 };
@@ -816,7 +791,7 @@ template <typename FUNC>
 struct RejectChecker<Defer, FUNC> {
     static Defer call(const FUNC &func, Defer &self) {
         Defer ret = func();
-        joinDeferObject(self, ret);
+        Promise::joinDeferObject(self, ret);
         return ret;
     }
 };
@@ -836,7 +811,7 @@ struct RejectChecker<RET, FnSimple> {
 
 /* Create new promise object */
 template <typename FUNC>
-Defer newPromise(FUNC func) {
+inline Defer newPromise(FUNC func) {
     Defer promise = pm_make_shared2<PromiseEx<Promise, FnSimple, FnSimple>, Promise>(nullptr, nullptr);
     promise->run(func, promise);
     return promise;
@@ -844,7 +819,7 @@ Defer newPromise(FUNC func) {
 
 /* Loop while func call resolved */
 template <typename FUNC>
-Defer While(FUNC func) {
+inline Defer While(FUNC func) {
     return newPromise(func).then([func]() {
         return While(func);
     });
