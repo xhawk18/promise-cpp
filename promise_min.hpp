@@ -579,7 +579,8 @@ struct PromiseEx
     }
 
     virtual ~PromiseEx() {
-        Promise::clear_func();
+        if(!Promise::func_cleared)
+            clear_func_impl();
     }
     
     virtual void clear_func_impl() {
