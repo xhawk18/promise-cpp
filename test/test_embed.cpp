@@ -74,12 +74,20 @@ Defer run(Defer &next){
 }
 
 int main(int argc, char **argv) {
+#if 1
     Defer next;
 
     run(next);
     printf("======  after call run ======\n");
 
     next.resolve();
+#endif
+
+    {auto i = pm_make_shared<int>(3); }
+    {auto i1 = pm_make_shared<int>(3); }
+    {auto i2 = pm_make_shared<int>(3); }
+    while(1)
+    {auto i3 = pm_make_shared<int>(3); }
 
     return 0;
 }
