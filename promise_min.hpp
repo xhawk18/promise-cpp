@@ -214,21 +214,7 @@ struct pm_list {
 
 //allocator
 struct pm_memory_pool {
-    union used_t{
-        pm_list used_;
-        void *dummy;
-        used_t()
-            : used_() {}
-    } used_;
-
-    union free_t {
-        pm_list free_;
-        void *dummy;
-        free_t()
-            : free_() {}
-    } free_;
-    pm_memory_pool() {
-    }
+    pm_list free_;
 };
 
 
@@ -252,6 +238,11 @@ struct pm_memory_pool_buf_header {
         dummy_pool_buf *buf = reinterpret_cast<dummy_pool_buf *>(
             reinterpret_cast<char *>(header) - pm_offsetof(&dummy_pool_buf::header_));
         return (void *)&buf->buf_;
+    }
+
+    static inline void *to_ptr(pm_list *list){
+        pm_memory_pool_buf_header *header = pm_container_of(list, &pm_memory_pool_buf_header::list_);
+        return pm_memory_pool_buf_header::to_ptr(header);
     }
 
     static inline pm_memory_pool_buf_header *from_ptr(void *ptr) {
@@ -300,19 +291,18 @@ struct pm_allocator {
     template <size_t SIZE_T>
     static void *obtain_impl() {
         pm_memory_pool *pool = pm_size_allocator<SIZE_T>::get_memory_pool();
-        if (pool->free_.free_.empty()) {
+        if (pool->free_.empty()) {
             pm_memory_pool_buf<SIZE_T> *pool_buf = new
 #ifdef PM_EMBED_STACK
                 (pm_stack::allocate(sizeof(*pool_buf)))
 #endif
                 pm_memory_pool_buf<SIZE_T>(pool);
-            pool->used_.used_.attach(&pool_buf->header_.list_);
             //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
             return (void *)&pool_buf->buf_;
         }
         else {
-            pm_list *node = pool->free_.free_.next();
-            pool->used_.used_.move(node);
+            pm_list *node = pool->free_.next();
+            node->detach();
             pm_memory_pool_buf_header *header = pm_container_of(node, &pm_memory_pool_buf_header::list_);
             pm_memory_pool_buf<SIZE_T> *pool_buf = pm_container_of
                 (header, &pm_memory_pool_buf<SIZE_T>::header_);
@@ -330,7 +320,7 @@ struct pm_allocator {
         //printf("--- release = %p\n", ptr);
         pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(ptr);
         pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::itr_to_ptr(header->pool_));
-        pool->free_.free_.move(&header->list_);
+        pool->free_.move(&header->list_);
     }
 
     template<typename T>
