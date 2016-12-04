@@ -1,6 +1,6 @@
 #pragma once
-#ifndef INC_PROMISE_HPP_
-#define INC_PROMISE_HPP_
+#ifndef INC_PROMISE_FULL_HPP_
+#define INC_PROMISE_FULL_HPP_
 
 /*
  * Promise API implemented by cpp as Javascript promise style 
@@ -29,8 +29,8 @@
  * THE SOFTWARE.
  */
 
-//#define PM_EMBED
-//#define PM_EMBED_STACK 4096
+#define PM_EMBED
+#define PM_EMBED_STACK 4096
 
 #include <memory>
 #include <tuple>
@@ -50,8 +50,8 @@ inline size_t pm_offsetof(const M P::*member) {
     return (size_t)&reinterpret_cast<char const&>((reinterpret_cast<P*>(0)->*member));
 }
 
-template<class P, class M>
-inline P* pm_container_of(M* ptr, const M P::*member) {
+template<class P, class M, class T>
+inline P* pm_container_of(T* ptr, const M P::*member) {
     return reinterpret_cast<P*>(reinterpret_cast<char*>(ptr) - pm_offsetof(member));
 }
 
@@ -64,76 +64,122 @@ inline void pm_throw(const T &t){
 #endif
 }
 
+
+inline constexpr size_t pm_log(size_t n) {
+    return (n <= 1 ? 0 : 1 + pm_log(n >> 1));
+}
+
+template<bool match_uint8, bool match_uint16, bool match_uint32>
+struct pm_offset_impl {
+    typedef uint64_t type;
+};
+template<bool match_uint16, bool match_uint32>
+struct pm_offset_impl<true, match_uint16, match_uint32> {
+    typedef uint8_t type;
+};
+template<bool match_uint32>
+struct pm_offset_impl<false, true, match_uint32> {
+    typedef uint16_t type;
+};
+template<>
+struct pm_offset_impl<false, false, true> {
+    typedef uint32_t type;
+};
+
+
+
+template<size_t SIZE, size_t ADDR_ALIGN>
+struct pm_offset {
+    typedef typename pm_offset_impl<
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x100),
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x10000UL),
+        ((SIZE + ADDR_ALIGN - 1) / ADDR_ALIGN <= 0x100000000ULL) >::type type;
+};
+
 //allocator
-#ifdef PM_EMBED_STACK
 struct pm_stack {
-    static inline void *start() {
+#ifdef PM_EMBED_STACK
+    static inline char *start() {
         static void *buf_[(PM_EMBED_STACK + sizeof(void *) - 1) / sizeof(void *)];
-        return buf_;
+        return (char *)buf_;
+    }
+    
+    static inline char **top() {
+        static char *top_ = start();
+        return &top_;
     }
 
     static inline void *allocate(size_t size) {
-        static char *top_ = (char *)start();
-        void *start_ = start();
+        char **top_ = top();
+        char *start_ = start();
         size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
-        if ((char *)start_ + PM_EMBED_STACK < top_ + size)
+        if (start_ + PM_EMBED_STACK < *top_ + size)
             pm_throw("no_mem");
 
-        void *ret = (void *)top_;
-        top_ += size;
-        //printf("mem ======= %d %d\n", top_ - (char *)start_, sizeof(void *));
+        void *ret = (char *)(*top_);
+        *top_ += size;
+        printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(*top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
         return ret;
     }
-};
-#endif
 
-//List
-struct pm_list {
-#ifdef PM_EMBED_STACK
-    typedef uint16_t ptr_t;
-    static const int PTR_IGNORE_BIT = 2;
-    
-    inline ptr_t list_to_ptr(pm_list *list) {
-        return (ptr_t)(((char *)list - (char *)pm_stack::start()) >> PTR_IGNORE_BIT);
+    static const size_t OFFSET_IGNORE_BIT = pm_log(sizeof(void *));
+    typedef pm_offset<PM_EMBED_STACK, sizeof(void *)>::type itr_t;
+    //static const size_t OFFSET_IGNORE_BIT = 0;
+    //typedef pm_offset<PM_EMBED_STACK, 1>::type itr_t;
+
+    static inline itr_t ptr_to_itr(void *ptr) {
+        return (itr_t)(((char *)ptr - (char *)pm_stack::start()) >> OFFSET_IGNORE_BIT);
     }
 
-    inline pm_list *ptr_to_list(ptr_t ptr) {
-        return (pm_list *)((char *)pm_stack::start() + ((ptrdiff_t)ptr << PTR_IGNORE_BIT));
+    static inline void *itr_to_ptr(itr_t itr) {
+        return (void *)((char *)pm_stack::start() + ((ptrdiff_t)itr << OFFSET_IGNORE_BIT));
     }
 #else
-    typedef pm_list *ptr_t;
-
-    inline ptr_t list_to_ptr(pm_list *list) {
-        return list;
-    }
-
-    inline pm_list *ptr_to_list(ptr_t ptr) {
+    static const size_t OFFSET_IGNORE_BIT = 0;
+    typedef void *itr_t;
+    static inline itr_t ptr_to_itr(void *ptr) {
         return ptr;
     }
 
+    static inline void *itr_to_ptr(itr_t itr) {
+        return itr;
+    }
 #endif
-    ptr_t prev_;
-    ptr_t next_;
+};
+
+template< class T, class... Args >
+inline T *pm_stack_new(Args&&... args) {
+    return new
+#ifdef PM_EMBED_STACK
+        (pm_stack::allocate(sizeof(T)))
+#endif
+        T(args...);
+}
+
+
+//List
+struct pm_list {
+    typedef pm_stack::itr_t itr_t;
 
     pm_list()
-        : prev_(list_to_ptr(this))
-        , next_(list_to_ptr(this)) {
+        : prev_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(this)))
+        , next_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(this))) {
     }
 
     inline pm_list *prev() {
-        return ptr_to_list(prev_);
+        return reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(prev_));
     }
 
     inline pm_list *next() {
-        return ptr_to_list(next_);
+        return reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(next_));
     }
 
     inline void prev(pm_list *other) {
-        prev_ = list_to_ptr(other);
+        prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(other));
     }
 
     inline void next(pm_list *other) {
-        next_ = list_to_ptr(other);
+        next_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(other));
     }
 
     /* Connect or disconnect two lists. */
@@ -189,108 +235,157 @@ struct pm_list {
     int empty() {
         return (this->next() == this);
     }
+
+private:
+    itr_t prev_;
+    itr_t next_;
 };
 
 
 //allocator
+struct pm_memory_pool_buf_header {
+    pm_memory_pool_buf_header(pm_list *pool)
+        : pool_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(pool)))
+        , ref_count_(0){
+    }
+
+    pm_list list_;
+    pm_stack::itr_t pool_;
+    uint16_t ref_count_;
+
+    static inline void *to_ptr(pm_memory_pool_buf_header *header) {
+        struct dummy_pool_buf {
+            pm_memory_pool_buf_header header_;
+            struct {
+                void *buf_[1];
+            } buf_;
+        };
+        dummy_pool_buf *buf = reinterpret_cast<dummy_pool_buf *>(
+            reinterpret_cast<char *>(header) - pm_offsetof(&dummy_pool_buf::header_));
+        return (void *)&buf->buf_;
+    }
+
+    static inline void *to_ptr(pm_list *list){
+        pm_memory_pool_buf_header *header = pm_container_of(list, &pm_memory_pool_buf_header::list_);
+        return pm_memory_pool_buf_header::to_ptr(header);
+    }
+
+    static inline pm_memory_pool_buf_header *from_ptr(void *ptr) {
+        struct dummy_pool_buf {
+            pm_memory_pool_buf_header header_;
+            struct {
+                void *buf_[1];
+            } buf_;
+        };
+        dummy_pool_buf *buf = pm_container_of(ptr, &dummy_pool_buf::buf_);
+        return &buf->header_;
+    }
+};
+
 template <size_t SIZE>
 struct pm_memory_pool_buf {
     struct buf_t {
-        buf_t(){}
+        buf_t() {}
         void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
     };
 
-    pm_memory_pool_buf() {
+    pm_memory_pool_buf(pm_list *pool)
+        : header_(pool) {
     }
+
+    pm_memory_pool_buf_header header_;
     buf_t buf_;
-    pm_list list_;
 };
 
-template <size_t SIZE>
-struct pm_memory_pool {
-    pm_list used_;
-    pm_list free_;
-    pm_memory_pool(){
-    }
-};
 
 template <size_t SIZE>
 struct pm_size_allocator {
-    static inline pm_memory_pool<SIZE> *get_memory_pool() {
-        static pm_memory_pool<SIZE> *pool_ = nullptr;
+    static inline pm_list *get_memory_pool() {
+        static pm_list *pool_ = nullptr;
         if(pool_ == nullptr)
-            pool_ = new
-#ifdef PM_EMBED_STACK
-                (pm_stack::allocate(sizeof(*pool_)))
-#endif
-                pm_memory_pool<SIZE>();
+            pool_ = pm_stack_new<pm_list>();
         return pool_;
     }
 };
 
-template <typename T>
 struct pm_allocator {
-    enum allocator_type_t {
-        kNew,
-        kMalloc,
-        kListPool
-    };
-
-    static const allocator_type_t allocator_type = kListPool;
-
-    static inline void *obtain(size_t size) {
-#ifndef PM_EMBED
-        if(allocator_type == kNew)
-            return new typename pm_memory_pool_buf<sizeof(T)>::buf_t;
-        else if(allocator_type == kMalloc)
-            return malloc(size);
-        else if(allocator_type == kListPool){
-#endif
-            pm_memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
-            if (pool->free_.empty()) {
-                pm_memory_pool_buf<sizeof(T)> *pool_buf = new
-#ifdef PM_EMBED_STACK
-                    (pm_stack::allocate(sizeof(*pool_buf)))
-#endif
-                    pm_memory_pool_buf<sizeof(T)>;
-                pool->used_.attach(&pool_buf->list_);
-                return (void *)&pool_buf->buf_;
-            }
-            else {
-                pm_list *node = pool->free_.next();
-                pool->used_.move(node);
-                pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<pm_memory_pool_buf<sizeof(T)>, pm_list>
-                    (node, &pm_memory_pool_buf<sizeof(T)>::list_);
-                return (void *)&pool_buf->buf_;
-            }
-#ifndef PM_EMBED
+    template <size_t SIZE_T>
+    static void *obtain_impl() {
+        pm_list *pool = pm_size_allocator<SIZE_T>::get_memory_pool();
+        if (pool->empty()) {
+            pm_memory_pool_buf<SIZE_T> *pool_buf = 
+                pm_stack_new<pm_memory_pool_buf<SIZE_T>>(pool);
+            //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
+            return (void *)&pool_buf->buf_;
         }
-        else return NULL;
-#endif
+        else {
+            pm_list *node = pool->next();
+            node->detach();
+            pm_memory_pool_buf_header *header = pm_container_of(node, &pm_memory_pool_buf_header::list_);
+            pm_memory_pool_buf<SIZE_T> *pool_buf = pm_container_of
+                (header, &pm_memory_pool_buf<SIZE_T>::header_);
+            //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
+            return (void *)&pool_buf->buf_;
+        }
     }
-    
-    static inline void release(void *ptr) {
-#ifndef PM_EMBED
-        if(allocator_type == kNew){
-            delete reinterpret_cast<typename pm_memory_pool_buf<sizeof(T)>::buf_t *>(ptr);
-            return;
+
+    template <typename T>
+    static inline void *obtain() {
+        return obtain_impl<sizeof(T)>();
+    }
+
+    static void release(void *ptr) {
+        //printf("--- release = %p\n", ptr);
+        pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(ptr);
+        pm_list *pool = reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(header->pool_));
+        pool->move(&header->list_);
+    }
+
+    static void add_ref_impl(void *object) {
+        //printf("add_ref %p\n", object);
+        if (object != nullptr) {
+            pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
+            //printf("++ %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ + 1);
+            ++header->ref_count_;
         }
-        else if(allocator_type == kMalloc){
-            free(ptr);
-            return;
+    }
+    template<typename T>
+    static void add_ref(T *object) {
+        add_ref_impl(reinterpret_cast<void *>(const_cast<T *>(object)));
+    }
+
+    static bool dec_ref_impl(void *object) {
+        //printf("dec_ref %p\n", object);
+        if (object != nullptr) {
+            pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
+            //printf("-- %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ - 1);
+            --header->ref_count_;
+            if (header->ref_count_ == 0) {
+                pm_allocator::release(object);
+                return true;
+            }
         }
-        else if(allocator_type == kListPool){
-#endif
-            pm_memory_pool<sizeof(T)> *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
-            pm_memory_pool_buf<sizeof(T)> *pool_buf = pm_container_of<pm_memory_pool_buf<sizeof(T)>, typename pm_memory_pool_buf<sizeof(T)>::buf_t>
-                ((typename pm_memory_pool_buf<sizeof(T)>::buf_t *)ptr, &pm_memory_pool_buf<sizeof(T)>::buf_);
-            pool->free_.move(&pool_buf->list_);
-#ifndef PM_EMBED
-        }
-#endif
+        return false;
+    }
+
+    template<typename T>
+    static void dec_ref(T *object) {
+        if(dec_ref_impl(reinterpret_cast<void *>(const_cast<T *>(object))))
+            object->~T();
     }
 };
 
+template< class T, class... Args >
+inline T *pm_new(Args&&... args) {
+    T *object = new(pm_allocator::template obtain<T>()) T(args...);
+    pm_allocator::add_ref(object);
+    return object;
+}
+
+template< class T >
+inline void pm_delete(T *object){
+    pm_allocator::dec_ref(object);
+}
 
 // Any library
 // See http://www.boost.org/libs/any for Documentation.
@@ -514,7 +609,7 @@ public: // structors
 
     template<typename ValueType>
     pm_any(const ValueType & value)
-        : content(new holder<ValueType>(value)) {
+        : content(pm_new<holder<ValueType>>(value)) {
     }
 
     pm_any(const pm_any & other)
@@ -522,7 +617,10 @@ public: // structors
     }
 
     ~pm_any() {
-        delete content;
+        if (content != nullptr) {
+            pm_allocator::release(content);
+            content->~placeholder();
+        }
     }
 
 public: // modifiers
@@ -586,16 +684,6 @@ public: // types (public so any_cast can be non-friend)
     template<typename ValueType>
     class holder : public placeholder {
     public: // structors
-#if 1
-        void* operator new(size_t size) {
-            return pm_allocator<holder>::obtain(size);
-        }
-
-        void operator delete(void *ptr) {
-            pm_allocator<holder>::release(ptr);
-        }
-#endif
-
         holder(const ValueType & value)
             : held(value)
             , type_tuple_()
@@ -620,7 +708,7 @@ public: // types (public so any_cast can be non-friend)
         }
 
         virtual placeholder * clone() const {
-            return new holder(held);
+            return pm_new<holder>(held);
         }
     public: // representation
         ValueType held;
@@ -740,24 +828,22 @@ struct Promise;
 
 template< class T >
 class pm_shared_ptr {
-    typedef pm_shared_ptr<Promise> Defer;
 public:
-    virtual ~pm_shared_ptr() {
-        dec_ref();
+    ~pm_shared_ptr() {
+        pm_allocator::dec_ref(object_);
     }
 
     explicit pm_shared_ptr(T *object)
         : object_(object) {
-        add_ref();
     }
-    
+
     explicit pm_shared_ptr()
         : object_(nullptr) {
     }
 
     pm_shared_ptr(pm_shared_ptr const &ptr)
         : object_(ptr.object_) {
-        add_ref();
+        pm_allocator::add_ref(object_);
     }
 
     pm_shared_ptr &operator=(pm_shared_ptr const &ptr) {
@@ -770,7 +856,7 @@ public:
     }
 
     bool operator!=(pm_shared_ptr const &ptr) const {
-        return !( *this == ptr );
+        return !(*this == ptr);
     }
 
     bool operator==(T const *ptr) const {
@@ -778,28 +864,113 @@ public:
     }
 
     bool operator!=(T const *ptr) const {
-        return !( *this == ptr );
+        return !(*this == ptr);
     }
 
     inline T *operator->() const {
         return object_;
     }
-    
-    inline T *obtain_rawptr(){
-        add_ref();
+
+    inline T *obtain_rawptr() {
+        pm_allocator::add_ref(object_);
         return object_;
     }
-    
-    inline void release_rawptr(){
-        dec_ref();
+
+    inline void release_rawptr() {
+        pm_allocator::dec_ref(object_);
+    }
+
+    void clear() {
+        pm_shared_ptr().swap(*this);
+    }
+
+//private:
+
+    inline void swap(pm_shared_ptr &ptr) {
+        std::swap(object_, ptr.object_);
+    }
+
+    T *object_;
+};
+
+template< class T, class... Args >
+inline pm_shared_ptr<T> pm_make_shared(Args&&... args) {
+    return pm_shared_ptr<T>(pm_new<T>(args...));
+}
+
+template< class T, class B, class... Args >
+inline pm_shared_ptr<B> pm_make_shared2(Args&&... args) {
+    return pm_shared_ptr<B>(pm_new<T>(args...));
+}
+
+struct Promise;
+
+template<typename T>
+class pm_shared_ptr_promise {
+    typedef pm_shared_ptr_promise Defer;
+public:
+    ~pm_shared_ptr_promise() {
+        pm_allocator::dec_ref(object_);
+    }
+
+    explicit pm_shared_ptr_promise(T *object)
+        : object_(object) {
+    }
+
+    explicit pm_shared_ptr_promise()
+        : object_(nullptr) {
+    }
+
+    pm_shared_ptr_promise(pm_shared_ptr_promise const &ptr)
+        : object_(ptr.object_) {
+        pm_allocator::add_ref(object_);
+    }
+
+    pm_shared_ptr_promise(pm_shared_ptr<T> const &ptr)
+        : object_(ptr.object_) {
+        pm_allocator::add_ref(object_);
+    }
+
+    Defer &operator=(Defer const &ptr) {
+        Defer(ptr).swap(*this);
+        return *this;
+    }
+
+    bool operator==(Defer const &ptr) const {
+        return object_ == ptr.object_;
+    }
+
+    bool operator!=(Defer const &ptr) const {
+        return !(*this == ptr);
+    }
+
+    bool operator==(T const *ptr) const {
+        return object_ == ptr;
+    }
+
+    bool operator!=(T const *ptr) const {
+        return !(*this == ptr);
+    }
+
+    inline T *operator->() const {
+        return object_;
+    }
+
+    inline T *obtain_rawptr() {
+        pm_allocator::add_ref(object_);
+        return object_;
+    }
+
+    inline void release_rawptr() {
+        pm_allocator::dec_ref(object_);
     }
 
     Defer find_pending() const {
         return object_->find_pending();
     }
-    
+
     void clear() {
-        pm_shared_ptr().swap(*this);
+        Defer().swap(*this);
     }
 
     template <typename ...RET_ARG>
@@ -826,36 +997,20 @@ public:
     Defer fail(FUNC_ON_REJECTED on_rejected) const {
         return object_->template fail<FUNC_ON_REJECTED>(on_rejected);
     }
-    
+
     template <typename FUNC_ON_ALWAYS>
     Defer always(FUNC_ON_ALWAYS on_always) const {
         return object_->template always<FUNC_ON_ALWAYS>(on_always);
-    }   
+    }
 private:
-    void add_ref() {
-        if (object_ != nullptr) {
-            //printf("++ %p %d -> %d\n", object_, object_->ref_count_, object_->ref_count_ + 1);
-            ++object_->ref_count_;
-        }
-    }
-    
-    void dec_ref() {
-        if(object_ != nullptr) {
-            //printf("-- %p %d -> %d\n", object_, object_->ref_count_, object_->ref_count_ - 1);
-            --object_->ref_count_;
-            if(object_->ref_count_ == 0)
-                delete object_;
-        }
-    }
-
-    inline void swap(pm_shared_ptr &ptr) {
+    inline void swap(Defer &ptr) {
         std::swap(object_, ptr.object_);
     }
 
     T *object_;
 };
 
-typedef pm_shared_ptr<Promise> Defer;
+typedef pm_shared_ptr_promise<Promise> Defer;
 
 typedef void(*FnSimple)();
 
@@ -872,87 +1027,67 @@ struct PromiseEx
 
     struct {
         void *buf[(sizeof(FUNC_ON_RESOLVED) + sizeof(void *) - 1)/ sizeof(void *)];
-    } func_buf0_t;
+    } on_resolved_;
     struct {
         void *buf[(sizeof(FUNC_ON_REJECTED) + sizeof(void *) - 1) / sizeof(void *)];
-    } func_buf1_t;
+    } on_rejected_;
 
     PromiseEx(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected)
-        : Promise(reinterpret_cast<void *>(new(&func_buf0_t) FUNC_ON_RESOLVED(on_resolved)),
-            reinterpret_cast<void *>(new(&func_buf1_t) FUNC_ON_REJECTED(on_rejected))) {
+        : Promise() {
+        //printf("self = %d, %d %d\n", (int)sizeof(*this), (int)sizeof(on_resolved_), (int)sizeof(on_rejected_));
+        reinterpret_cast<void *>(new(&on_resolved_) FUNC_ON_RESOLVED(on_resolved));
+        reinterpret_cast<void *>(new(&on_rejected_) FUNC_ON_REJECTED(on_rejected));
     }
 
     virtual ~PromiseEx() {
-        clear_func();
+        if(!Promise::func_cleared)
+            clear_func_impl();
     }
-    
-    void clear_func() {
-        if(Promise::on_resolved_ != nullptr) {
-            reinterpret_cast<FUNC_ON_RESOLVED *>(Promise::on_resolved_)->~FUNC_ON_RESOLVED();
-            Promise::on_resolved_ = nullptr;
-        }
-        if(Promise::on_rejected_ != nullptr) {
-            reinterpret_cast<FUNC_ON_REJECTED *>(Promise::on_rejected_)->~FUNC_ON_REJECTED();
-            Promise::on_rejected_ = nullptr;
-        }
+
+    virtual void clear_func_impl() {
+        reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_)->~FUNC_ON_RESOLVED();
+        reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_)->~FUNC_ON_REJECTED();
     }
     
     virtual Defer call_resolve(Defer &self, Promise *caller) {
-        const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(Promise::on_resolved_);
-        Defer d = ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self, caller);
-        caller->any_.clear();
-        clear_func();
-        return d;
+        const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_);
+        return ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self, caller);
     }
     virtual Defer call_reject(Defer &self, Promise *caller) {
-        const FUNC_ON_REJECTED &on_rejected = *reinterpret_cast<FUNC_ON_REJECTED *>(Promise::on_rejected_);
-        Defer d = RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected, self, caller);
-        caller->any_.clear();
-        clear_func();
-        return d;
-    }
-
-    void* operator new(size_t size) {
-        return pm_allocator<PromiseEx>::obtain(size);
-    }
-    
-    void operator delete(void *ptr) {
-        pm_allocator<PromiseEx>::release(ptr);
+        const FUNC_ON_REJECTED &on_rejected = *reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_);
+        return RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected, self, caller);
     }
 };
 
 struct Promise {
-    int ref_count_;
-    Promise *prev_;
     Defer next_;
+    pm_stack::itr_t prev_;
     pm_any any_;
-    void *on_resolved_;
-    void *on_rejected_;
-    
+
     enum status_t {
-        kInit,
-        kResolved,
-        kRejected,
-        kFinished
+        kInit       = 0,
+        kResolved   = 1,
+        kRejected   = 2,
+        kFinished   = 3
     };
-    status_t status_;
-    
+    uint8_t status_      ;//: 2;
+    uint8_t func_cleared ;//: 1;
+
     Promise(const Promise &) = delete;
-    explicit Promise(void *on_resolved, void *on_rejected)
-        : ref_count_(0)
-        , prev_(nullptr)
-        , next_(nullptr)
-        , on_resolved_(on_resolved)
-        , on_rejected_(on_rejected)
-        , status_(kInit) {
+    explicit Promise()
+        : next_(nullptr)
+        , prev_(pm_stack::ptr_to_itr(nullptr))
+        , status_(kInit)
+        , func_cleared(0){
+        //printf("size promise = %d %d %d\n", (int)sizeof(*this), (int)sizeof(prev_), (int)sizeof(next_));
     }
-    
+
     virtual ~Promise() {
         if (next_.operator->()) {
-            next_->prev_ = nullptr;
+            next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
     }
-    
+
     template <typename RET_ARG>
     void prepare_resolve(const RET_ARG &ret_arg) {
         if (status_ != kInit) return;
@@ -985,6 +1120,14 @@ struct Promise {
 
     virtual Defer call_resolve(Defer &self, Promise *caller) = 0;
     virtual Defer call_reject(Defer &self, Promise *caller) = 0;
+    virtual void clear_func_impl() = 0;
+
+    void clear_func() {
+        if(!func_cleared) {
+            func_cleared = 1;
+            clear_func_impl();
+        }
+    }
 
     template <typename FUNC>
     void run(FUNC func, Defer d) {
@@ -1006,6 +1149,8 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d = next_->call_resolve(next_, this);
+                this->any_.clear();
+                next_->clear_func();
                 if(d.operator->())
                     d->call_next();
                 return d;
@@ -1015,6 +1160,8 @@ struct Promise {
             if(next_.operator->()){
                 status_ = kFinished;
                 Defer d =  next_->call_reject(next_, this);
+                this->any_.clear();
+                next_->clear_func();
                 if (d.operator->())
                     d->call_next();
                 return d;
@@ -1026,9 +1173,9 @@ struct Promise {
 
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) {
-        Defer promise(new PromiseEx<Promise, FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected));
+        Defer promise = pm_make_shared2<PromiseEx<Promise, FUNC_ON_RESOLVED, FUNC_ON_REJECTED>, Promise>(on_resolved, on_rejected);
         next_ = promise;
-        promise->prev_ = this;
+        promise->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(this));
         return call_next();
     }
 
@@ -1041,7 +1188,7 @@ struct Promise {
     Defer fail(FUNC_ON_REJECTED on_rejected) {
         return then<FnSimple, FUNC_ON_REJECTED>(nullptr, on_rejected);
     }
-    
+
     template <typename FUNC_ON_ALWAYS>
     Defer always(FUNC_ON_ALWAYS on_always) {
         return then<FUNC_ON_ALWAYS, FUNC_ON_ALWAYS>(on_always, on_always);
@@ -1050,12 +1197,12 @@ struct Promise {
     Defer find_pending() {
         if (status_ == kInit) {
             Promise *p = this;
-            Promise *prev = p->prev_;
+            Promise *prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
             while (prev != nullptr) {
                 if (prev->status_ != kInit)
                     return prev->next_;
                 p = prev;
-                prev = p->prev_;
+                prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
             }
             return Defer(p);
         }
@@ -1071,15 +1218,16 @@ struct Promise {
             return Defer();
         }
     }
+
+    static inline void joinDeferObject(Defer &self, Defer &next){
+        if(self->next_.operator->())
+            self->next_->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>((next.operator->())));
+        next->next_ = self->next_;
+        self->next_ = next;
+        next->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>((self.operator->())));
+    }
 };
 
-inline void joinDeferObject(Defer &self, Defer &next){
-    if(self->next_.operator->())
-        self->next_->prev_ = next.operator->();
-    next->next_ = self->next_;
-    self->next_ = next;
-    next->prev_ = self.operator->();
-}
 
 template <typename RET, typename FUNC>
 struct ResolveChecker {
@@ -1105,7 +1253,7 @@ struct ResolveChecker<Defer, FUNC> {
 #ifndef PM_EMBED
         try {
             Defer ret = std::get<0>(call_func(func, caller->any_));
-            joinDeferObject(self, ret);
+            Promise::joinDeferObject(self, ret);
             return ret;
         } catch(const bad_any_cast &) {
             self->prepare_reject(caller->any_);
@@ -1115,7 +1263,7 @@ struct ResolveChecker<Defer, FUNC> {
         return self;
 #else
         Defer ret = std::get<0>(call_func(func, caller->any_));
-        joinDeferObject(self, ret);
+        Promise::joinDeferObject(self, ret);
         return ret;
 #endif
     }
@@ -1217,12 +1365,12 @@ struct RejectChecker<Defer, FUNC> {
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 Defer ret = std::get<0>(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
-                joinDeferObject(self, ret);
+                Promise::joinDeferObject(self, ret);
                 return ret;
             }
             else{
                 Defer ret = std::get<0>(call_func(func, caller->any_));
-                joinDeferObject(self, ret);
+                Promise::joinDeferObject(self, ret);
                 return ret;
             }
         }
@@ -1235,7 +1383,7 @@ struct RejectChecker<Defer, FUNC> {
         return self;
 #else
         Defer ret = std::get<0>(call_func(func, caller->any_));
-        joinDeferObject(self, ret);
+        Promise::joinDeferObject(self, ret);
         return ret;
 #endif
     }
@@ -1270,15 +1418,15 @@ struct RejectChecker<RET, FnSimple> {
 
 /* Create new promise object */
 template <typename FUNC>
-Defer newPromise(FUNC func) {
-    Defer promise(new PromiseEx<Promise, FnSimple, FnSimple>(nullptr, nullptr));
+inline Defer newPromise(FUNC func) {
+    Defer promise = pm_make_shared2<PromiseEx<Promise, FnSimple, FnSimple>, Promise>(nullptr, nullptr);
     promise->run(func, promise);
     return promise;
 }
 
 /* Loop while func call resolved */
 template <typename FUNC>
-Defer While(FUNC func) {
+inline Defer While(FUNC func) {
     return newPromise(func).then([func]() {
         return While(func);
     });
@@ -1286,4 +1434,9 @@ Defer While(FUNC func) {
 
 
 }
+
+//#include "defer_list.hpp"
+//#include "timer.hpp"
+//#include "irq.hpp"
+
 #endif

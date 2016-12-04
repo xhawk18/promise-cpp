@@ -33,6 +33,7 @@
 
 #include <memory>
 #include <typeinfo>
+#include <algorithm>
 #include <stdint.h>
 
 namespace promise {
@@ -86,28 +87,33 @@ struct pm_offset {
 //allocator
 struct pm_stack {
 #ifdef PM_EMBED_STACK
-    static inline void *start() {
+    static inline char *start() {
         static void *buf_[(PM_EMBED_STACK + sizeof(void *) - 1) / sizeof(void *)];
-        return buf_;
+        return (char *)buf_;
+    }
+    
+    static inline char **top() {
+        static char *top_ = start();
+        return &top_;
     }
 
     static inline void *allocate(size_t size) {
-        static char *top_ = (char *)start();
-        void *start_ = start();
+        char **top_ = top();
+        char *start_ = start();
         size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
-        if ((char *)start_ + PM_EMBED_STACK < top_ + size)
+        if (start_ + PM_EMBED_STACK < *top_ + size)
             pm_throw("no_mem");
 
-        void *ret = (void *)top_;
-        top_ += size;
-        //printf("mem ======= %d %d, size = %d, %d, %d\n", (int)(top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t));
+        void *ret = (char *)(*top_);
+        *top_ += size;
+        printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(*top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
         return ret;
     }
 
-    //static const size_t OFFSET_IGNORE_BIT = pm_log(sizeof(void *));
-    //typedef pm_offset<PM_EMBED_STACK, sizeof(void *)>::type itr_t;
-    static const size_t OFFSET_IGNORE_BIT = 0;
-    typedef pm_offset<PM_EMBED_STACK, 1>::type itr_t;
+    static const size_t OFFSET_IGNORE_BIT = pm_log(sizeof(void *));
+    typedef pm_offset<PM_EMBED_STACK, sizeof(void *)>::type itr_t;
+    //static const size_t OFFSET_IGNORE_BIT = 0;
+    //typedef pm_offset<PM_EMBED_STACK, 1>::type itr_t;
 
     static inline itr_t ptr_to_itr(void *ptr) {
         return (itr_t)(((char *)ptr - (char *)pm_stack::start()) >> OFFSET_IGNORE_BIT);
@@ -117,7 +123,7 @@ struct pm_stack {
         return (void *)((char *)pm_stack::start() + ((ptrdiff_t)itr << OFFSET_IGNORE_BIT));
     }
 #else
-    static const size_t OFFSET_IGNORE_BIT = 1;
+    static const size_t OFFSET_IGNORE_BIT = 0;
     typedef void *itr_t;
     static inline itr_t ptr_to_itr(void *ptr) {
         return ptr;
@@ -129,11 +135,19 @@ struct pm_stack {
 #endif
 };
 
+template< class T, class... Args >
+inline T *pm_stack_new(Args&&... args) {
+    return new
+#ifdef PM_EMBED_STACK
+        (pm_stack::allocate(sizeof(T)))
+#endif
+        T(args...);
+}
+
+
 //List
 struct pm_list {
     typedef pm_stack::itr_t itr_t;
-    itr_t prev_;
-    itr_t next_;
 
     pm_list()
         : prev_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(this)))
@@ -209,17 +223,16 @@ struct pm_list {
     int empty() {
         return (this->next() == this);
     }
+
+private:
+    itr_t prev_;
+    itr_t next_;
 };
 
 
 //allocator
-struct pm_memory_pool {
-    pm_list free_;
-};
-
-
 struct pm_memory_pool_buf_header {
-    pm_memory_pool_buf_header(pm_memory_pool *pool)
+    pm_memory_pool_buf_header(pm_list *pool)
         : pool_(pm_stack::ptr_to_itr(reinterpret_cast<void *>(pool)))
         , ref_count_(0){
     }
@@ -264,7 +277,7 @@ struct pm_memory_pool_buf {
         void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
     };
 
-    pm_memory_pool_buf(pm_memory_pool *pool)
+    pm_memory_pool_buf(pm_list *pool)
         : header_(pool) {
     }
 
@@ -275,14 +288,10 @@ struct pm_memory_pool_buf {
 
 template <size_t SIZE>
 struct pm_size_allocator {
-    static inline pm_memory_pool *get_memory_pool() {
-        static pm_memory_pool *pool_ = nullptr;
+    static inline pm_list *get_memory_pool() {
+        static pm_list *pool_ = nullptr;
         if(pool_ == nullptr)
-            pool_ = new
-#ifdef PM_EMBED_STACK
-                (pm_stack::allocate(sizeof(*pool_)))
-#endif
-                pm_memory_pool();
+            pool_ = pm_stack_new<pm_list>();
         return pool_;
     }
 };
@@ -290,18 +299,15 @@ struct pm_size_allocator {
 struct pm_allocator {
     template <size_t SIZE_T>
     static void *obtain_impl() {
-        pm_memory_pool *pool = pm_size_allocator<SIZE_T>::get_memory_pool();
-        if (pool->free_.empty()) {
-            pm_memory_pool_buf<SIZE_T> *pool_buf = new
-#ifdef PM_EMBED_STACK
-                (pm_stack::allocate(sizeof(*pool_buf)))
-#endif
-                pm_memory_pool_buf<SIZE_T>(pool);
+        pm_list *pool = pm_size_allocator<SIZE_T>::get_memory_pool();
+        if (pool->empty()) {
+            pm_memory_pool_buf<SIZE_T> *pool_buf = 
+                pm_stack_new<pm_memory_pool_buf<SIZE_T>>(pool);
             //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
             return (void *)&pool_buf->buf_;
         }
         else {
-            pm_list *node = pool->free_.next();
+            pm_list *node = pool->next();
             node->detach();
             pm_memory_pool_buf_header *header = pm_container_of(node, &pm_memory_pool_buf_header::list_);
             pm_memory_pool_buf<SIZE_T> *pool_buf = pm_container_of
@@ -319,12 +325,11 @@ struct pm_allocator {
     static void release(void *ptr) {
         //printf("--- release = %p\n", ptr);
         pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(ptr);
-        pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::itr_to_ptr(header->pool_));
-        pool->free_.move(&header->list_);
+        pm_list *pool = reinterpret_cast<pm_list *>(pm_stack::itr_to_ptr(header->pool_));
+        pool->move(&header->list_);
     }
 
-    template<typename T>
-    static void add_ref(T *object) {
+    static void add_ref_impl(void *object) {
         //printf("add_ref %p\n", object);
         if (object != nullptr) {
             pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
@@ -332,22 +337,43 @@ struct pm_allocator {
             ++header->ref_count_;
         }
     }
-
     template<typename T>
-    static void dec_ref(T *object) {
+    static void add_ref(T *object) {
+        add_ref_impl(reinterpret_cast<void *>(const_cast<T *>(object)));
+    }
+
+    static bool dec_ref_impl(void *object) {
         //printf("dec_ref %p\n", object);
         if (object != nullptr) {
             pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
             //printf("-- %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ - 1);
             --header->ref_count_;
             if (header->ref_count_ == 0) {
-                object->~T();
-                pm_allocator::release(reinterpret_cast<void *>(const_cast<T *>(object)));
+                pm_allocator::release(object);
+                return true;
             }
         }
+        return false;
+    }
+
+    template<typename T>
+    static void dec_ref(T *object) {
+        if(dec_ref_impl(reinterpret_cast<void *>(const_cast<T *>(object))))
+            object->~T();
     }
 };
 
+template< class T, class... Args >
+inline T *pm_new(Args&&... args) {
+    T *object = new(pm_allocator::template obtain<T>()) T(args...);
+    pm_allocator::add_ref(object);
+    return object;
+}
+
+template< class T >
+inline void pm_delete(T *object){
+    pm_allocator::dec_ref(object);
+}
 
 template< class T >
 class pm_shared_ptr {
@@ -358,7 +384,6 @@ public:
 
     explicit pm_shared_ptr(T *object)
         : object_(object) {
-        pm_allocator::add_ref(object_);
     }
 
     explicit pm_shared_ptr()
@@ -419,12 +444,12 @@ public:
 
 template< class T, class... Args >
 inline pm_shared_ptr<T> pm_make_shared(Args&&... args) {
-    return pm_shared_ptr<T>(new(pm_allocator::template obtain<T>()) T(args...));
+    return pm_shared_ptr<T>(pm_new<T>(args...));
 }
 
 template< class T, class B, class... Args >
 inline pm_shared_ptr<B> pm_make_shared2(Args&&... args) {
-    return pm_shared_ptr<B>(new(pm_allocator::template obtain<T>()) T(args...));
+    return pm_shared_ptr<B>(pm_new<T>(args...));
 }
 
 template<typename FUNC>
@@ -445,7 +470,6 @@ public:
 
     explicit pm_shared_ptr_promise(T *object)
         : object_(object) {
-        pm_allocator::add_ref(object_);
     }
 
     explicit pm_shared_ptr_promise()
@@ -572,12 +596,12 @@ struct PromiseEx
         if(!Promise::func_cleared)
             clear_func_impl();
     }
-    
+
     virtual void clear_func_impl() {
         reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_)->~FUNC_ON_RESOLVED();
         reinterpret_cast<FUNC_ON_REJECTED *>(&on_rejected_)->~FUNC_ON_REJECTED();
     }
-    
+
     virtual Defer call_resolve(Defer &self) {
         const FUNC_ON_RESOLVED &on_resolved = *reinterpret_cast<FUNC_ON_RESOLVED *>(&on_resolved_);
         return ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved, self);
@@ -601,7 +625,7 @@ struct Promise {
     };
     uint8_t status_      ;//: 2;
     uint8_t func_cleared ;//: 1;
-    
+
     Promise(const Promise &) = delete;
     explicit Promise()
         : next_(nullptr)
@@ -610,13 +634,13 @@ struct Promise {
         , func_cleared(0){
         //printf("size promise = %d %d %d\n", (int)sizeof(*this), (int)sizeof(prev_), (int)sizeof(next_));
     }
-    
+
     virtual ~Promise() {
         if (next_.operator->()) {
             next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
     }
-    
+
     void prepare_resolve() {
         if (status_ != kInit) return;
         status_ = kResolved;
@@ -654,7 +678,7 @@ struct Promise {
     void run(FUNC func, Defer d) {
         func(d);
     }
-    
+
     Defer call_next() {
         if(status_ == kResolved) {
             if(next_.operator->()){
@@ -697,7 +721,7 @@ struct Promise {
     Defer fail(FUNC_ON_REJECTED on_rejected) {
         return then<FnSimple, FUNC_ON_REJECTED>(nullptr, on_rejected);
     }
-    
+
     template <typename FUNC_ON_ALWAYS>
     Defer always(FUNC_ON_ALWAYS on_always) {
         return then<FUNC_ON_ALWAYS, FUNC_ON_ALWAYS>(on_always, on_always);

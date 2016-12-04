@@ -31,13 +31,6 @@ struct UvReadArg {
             stream_ = nullptr;
         }
     }
-
-    void* operator new(size_t size){
-        return pm_allocator<UvReadArg>::obtain(size);
-    }
-        void operator delete(void *ptr) {
-        pm_allocator<UvReadArg>::release(ptr);
-    }
 };
 
 struct UvRead {

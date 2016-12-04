@@ -8,7 +8,7 @@ using UvFs = UvDefer<uv_fs_t>;
 
 Defer fs::access(const char *path, fs::mode_e mode){ 
     return newPromise([=](Defer &d) {
-        UvFs *req_ = new UvFs(d);
+        UvFs *req_ = pm_new<UvFs>(d);
         uv_loop_t *loop = uv_default_loop();
         uv_fs_access(loop,
             static_cast<uv_fs_t *>(req_),
@@ -19,7 +19,7 @@ Defer fs::access(const char *path, fs::mode_e mode){
                 UvFs *req_ = static_cast<UvFs *>(req);
                 Defer d = req_->d_;
                 ssize_t result = req->result;
-                delete req_;
+                pm_delete(req_);
 
                 if (result == 0)
                     d.resolve();
