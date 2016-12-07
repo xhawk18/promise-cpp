@@ -118,26 +118,22 @@ struct pm_stack {
         static void *buf_[(PM_EMBED_STACK + sizeof(void *) - 1) / sizeof(void *)];
         return (char *)buf_;
     }
-    
-    static inline char **top() {
-        static char *top_ = start();
-        return &top_;
-    }
 
     static inline void *allocate(size_t size) {
-        char **top_ = top();
+        static char *top = start();
         char *start_ = start();
+
         size = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
-        if (start_ + PM_EMBED_STACK < *top_ + size)
+        if (start_ + PM_EMBED_STACK < top + size)
             pm_throw("no_mem");
 
-        void *ret = (char *)(*top_);
-        *top_ += size;
+        void *ret = top;
+        top += size;
 
 #ifdef PM_DEBUG
-        g_stack_size = (uint32_t)(*pm_stack::top() - pm_stack::start());
+        g_stack_size = (uint32_t)(top - start_);
 #endif
-        printf("mem ======= %d %d, size = %d, %d, %d, %p\n", (int)(*top_ - (char *)start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
+        printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(top - start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
         return ret;
     }
 
