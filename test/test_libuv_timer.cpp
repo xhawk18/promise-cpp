@@ -102,11 +102,32 @@ void testWhile(int loop, uint64_t delay_ms){
     });
 }
 
+Defer testTimer3() {
+    printf("in testTimer3, line %d\n", __LINE__);
+    return setTimeout(2000).then([]() {
+        printf("in testTimer3, line %d\n", __LINE__);
+        return setTimeout(2000);
+    }).then([]() {
+        printf("in testTimer3, line %d\n", __LINE__);
+        return setTimeout(2000);
+    }).then([]() {
+        printf("in testTimer3, line %d\n", __LINE__);
+    });
+}
+
+void testTimer2() {
+    printf("in testTimer2 %d\n");
+    setTimeout(1000).then([]() {
+        return testTimer3();
+    });
+}
+
 int main() {
     uv_loop_t *loop = uv_default_loop();
 
+    testTimer2();
     testTimer();
-    //testPerformance();
+    testPerformance();
     
     testWhile(10, 500);
     testWhile(30, 100);
