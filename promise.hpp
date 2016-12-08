@@ -841,25 +841,36 @@ inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::ind
 }
 
 template<typename FUNC>
-inline auto call_func(const FUNC &func, pm_any &arg) {
+inline bool verify_func_arg(const FUNC &func, pm_any &arg) {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     type_tuple<func_arg_type> tuple_func;
 
-    if (arg.tuple_size() < tuple_func.size_)
-        pm_throw(bad_any_cast(std::type_index(arg.type()), std::type_index(typeid(func_arg_type))));
+    if (arg.tuple_size() < tuple_func.size_) {
+        return false;
+        //pm_throw(bad_any_cast(std::type_index(arg.type()), std::type_index(typeid(func_arg_type))));
+    }
 
     for (size_t i = tuple_func.size_; i-- != 0; ) {
         if (arg.tuple_type(i) != tuple_func.tuple_type(i)
             && arg.tuple_type(i) != tuple_func.tuple_rcv_type(i)) {
             //printf("== %s ==> %s\n", arg.tuple_type(i).name(), tuple_func.tuple_type(i).name());
-            pm_throw(bad_any_cast(arg.tuple_type(i), tuple_func.tuple_type(i)));
+            return false;
+            //pm_throw(bad_any_cast(arg.tuple_type(i), tuple_func.tuple_type(i)));
         }
     }
 
-    return call_tuple_as_argument(func, arg, std::make_index_sequence<tuple_func.size_>());
+    return true;
 }
 
+template<typename FUNC>
+inline auto call_func(const FUNC &func, pm_any &arg) {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+    //type_tuple<func_arg_type> tuple_func;
 
+    return call_tuple_as_argument(func, arg, std::make_index_sequence<type_tuple<func_arg_type>::size_>());
+}
+
+struct Bypass {};
 struct Promise;
 
 template< class T >
@@ -1047,6 +1058,12 @@ public:
     Defer always(FUNC_ON_ALWAYS on_always) const {
         return object_->template always<FUNC_ON_ALWAYS>(on_always);
     }
+
+    template <typename FUNC_ON_BYPASS>
+    Defer bypass(FUNC_ON_BYPASS on_bypass) const {
+        return object_->template bypass<FUNC_ON_BYPASS>(on_bypass);
+    }
+
 private:
     inline void swap(Defer &ptr) {
         std::swap(object_, ptr.object_);
@@ -1200,6 +1217,7 @@ struct Promise {
     Defer call_next() {
         if(status_ == kResolved) {
             if(next_.operator->()){
+                pm_allocator::add_ref(this);
                 status_ = kFinished;
                 Defer d = next_->call_resolve(next_, this);
                 this->any_.clear();
@@ -1207,11 +1225,13 @@ struct Promise {
                 if(d.operator->())
                     d->call_next();
                 //next_.clear();
+                pm_allocator::dec_ref(this);
                 return d;
             }
         }
         else if(status_ == kRejected ) {
             if(next_.operator->()){
+                pm_allocator::add_ref(this);
                 status_ = kFinished;
                 Defer d =  next_->call_reject(next_, this);
                 this->any_.clear();
@@ -1219,6 +1239,7 @@ struct Promise {
                 if (d.operator->())
                     d->call_next();
                 //next_.clear();
+                pm_allocator::dec_ref(this);
                 return d;
             }
         }
@@ -1252,6 +1273,31 @@ struct Promise {
     Defer always(FUNC_ON_ALWAYS on_always) {
         return then<FUNC_ON_ALWAYS, FUNC_ON_ALWAYS>(on_always, on_always);
     }
+
+    template <typename FUNC_ON_BYPASS>
+    Defer bypass(FUNC_ON_BYPASS on_bypass) {
+        typedef typename func_traits<FUNC_ON_BYPASS>::arg_type arg_type;
+        return then([on_bypass](Promise *caller) {
+            if(verify_func_arg(on_bypass, caller->any_))
+                call_func(on_bypass, caller->any_);
+            return Bypass();
+        }, [on_bypass](Defer &self, Promise *caller) {
+#ifndef PM_EMBED
+            if (caller->any_.type() == typeid(std::exception_ptr)) {
+                ExCheck<std::tuple_size<arg_type>::value, FUNC_ON_BYPASS>::call(on_bypass, self, caller);
+            }
+            else {
+                if (verify_func_arg(on_bypass, caller->any_))
+                    call_func(on_bypass, caller->any_);
+            }
+#else
+            if (verify_func_arg(on_bypass, caller->any_))
+                call_func(on_bypass, caller->any_);
+#endif
+            return Bypass();
+        });
+    }
+
 
     Defer find_pending() {
         if (status_ == kInit) {
@@ -1332,14 +1378,18 @@ struct ResolveChecker {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
-            self->prepare_resolve(call_func(func, caller->any_));
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
+            if (verify_func_arg(func, caller->any_))
+                self->prepare_resolve(call_func(func, caller->any_));
+            else
+                self->prepare_reject(caller->any_);
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
 #else
-        self->prepare_resolve(call_func(func, caller->any_));
+        if (verify_func_arg(func, caller->any_))
+            self->prepare_resolve(call_func(func, caller->any_));
+        else
+            self->prepare_reject(caller->any_);
 #endif
         return self;
     }
@@ -1350,43 +1400,76 @@ struct ResolveChecker<Defer, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
+            if (verify_func_arg(func, caller->any_)) {
+                Defer ret = std::get<0>(call_func(func, caller->any_));
+                Promise::joinDeferObject(self, ret);
+                return ret;
+            }
+            else {
+                self->prepare_reject(caller->any_);
+                return self;
+            }
+        } catch(...) {
+            self->prepare_reject(std::current_exception());
+            return self;
+        }
+#else
+        if (verify_func_arg(func, caller->any_)) {
             Defer ret = std::get<0>(call_func(func, caller->any_));
             Promise::joinDeferObject(self, ret);
             return ret;
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-        } catch(...) {
-            self->prepare_reject(std::current_exception());
         }
-        return self;
-#else
-        Defer ret = std::get<0>(call_func(func, caller->any_));
-        Promise::joinDeferObject(self, ret);
-        return ret;
+        else {
+            self->prepare_reject(caller->any_);
+            return self;
+        }
 #endif
     }
 };
 
+template <typename FUNC>
+struct ResolveChecker<Bypass, FUNC> {
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
+        try {
+            pm_any any = caller->any_;
+            func(caller);
+            self->prepare_resolve(any);
+        }
+        catch (...) {
+            self->prepare_reject(std::current_exception());
+        }
+        return self;
+#else
+        pm_any any = caller->any_;
+        func(caller);
+        self->prepare_resolve(any);
+        return self;
+#endif
+    }
+};
 
 template <typename RET>
 struct ResolveChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
-            if (func != nullptr)
+            if (func == nullptr)
+                self->prepare_resolve(caller->any_);
+            else if (verify_func_arg(func, caller->any_))
                 self->prepare_resolve(call_func(func, caller->any_));
             else
-                self->prepare_resolve(caller->any_);
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
+                self->prepare_reject(caller->any_);
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
 #else
-        if (func != nullptr)
+        if (func == nullptr)
+            self->prepare_resolve(caller->any_);
+        else if (verify_func_arg(func, caller->any_))
             self->prepare_resolve(call_func(func, caller->any_));
         else
-            self->prepare_resolve(caller->any_);
+            self->prepare_reject(caller->any_);
 #endif
         return self;
     }
@@ -1440,16 +1523,18 @@ struct RejectChecker {
             if(caller->any_.type() == typeid(std::exception_ptr)){
                 self->prepare_resolve(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
             }
-            else {
+            else if (verify_func_arg(func, caller->any_))
                 self->prepare_resolve(call_func(func, caller->any_));
-            }
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
+            else
+                self->prepare_reject(caller->any_);
         } catch(...) {
             self->prepare_reject(std::current_exception());
         }
 #else
-        self->prepare_resolve(call_func(func, caller->any_));
+        if (verify_func_arg(func, caller->any_))
+            self->prepare_resolve(call_func(func, caller->any_));
+        else
+            self->prepare_reject(caller->any_);
 #endif
         return self;
     }
@@ -1466,23 +1551,53 @@ struct RejectChecker<Defer, FUNC> {
                 Promise::joinDeferObject(self, ret);
                 return ret;
             }
-            else{
+            else if (verify_func_arg(func, caller->any_)) {
                 Defer ret = std::get<0>(call_func(func, caller->any_));
                 Promise::joinDeferObject(self, ret);
                 return ret;
             }
-        }
-        catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
+            else {
+                self->prepare_reject(caller->any_);
+                return self;
+            }
         }
         catch(...) {
             self->prepare_reject(std::current_exception());
         }
         return self;
 #else
-        Defer ret = std::get<0>(call_func(func, caller->any_));
-        Promise::joinDeferObject(self, ret);
-        return ret;
+        if (verify_func_arg(func, caller->any_)) {
+            Defer ret = std::get<0>(call_func(func, caller->any_));
+            Promise::joinDeferObject(self, ret);
+            return ret;
+        }
+        else {
+            self->prepare_reject(caller->any_);
+            return self;
+        }
+#endif
+    }
+};
+
+template <typename FUNC>
+struct RejectChecker<Bypass, FUNC> {
+    typedef typename func_traits<FUNC>::arg_type arg_type;
+    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
+#ifndef PM_EMBED
+        try {
+            pm_any any = caller->any_;
+            func(self, caller);
+            self->prepare_reject(any);
+        }
+        catch (...) {
+            self->prepare_reject(std::current_exception());
+        }
+        return self;
+#else
+        pm_any any = caller->any_;
+        func(self, caller);
+        self->prepare_reject(any);
+        return self;
 #endif
     }
 };
@@ -1492,24 +1607,23 @@ struct RejectChecker<RET, FnSimple> {
     static Defer call(const FnSimple &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
-            if (func != nullptr) {
+            if (func == nullptr)
+                self->prepare_reject(caller->any_);
+            else if (verify_func_arg(func, caller->any_))
                 self->prepare_resolve(call_func(func, caller->any_));
-                return self;
-            }
-        } catch(const bad_any_cast &) {
-            self->prepare_reject(caller->any_);
-            return self;
+            else
+                self->prepare_reject(caller->any_);
         } catch(...) {
             self->prepare_reject(std::current_exception());
-            return self;
         }
 #else
-        if (func != nullptr) {
+        if (func == nullptr)
+            self->prepare_reject(caller->any_);
+        else if (verify_func_arg(func, caller->any_))
             self->prepare_resolve(call_func(func, caller->any_));
-            return self;
-        }
+        else
+            self->prepare_reject(caller->any_);
 #endif
-        self->prepare_reject(caller->any_);
         return self;
     }
 };

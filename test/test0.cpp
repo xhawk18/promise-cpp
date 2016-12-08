@@ -62,11 +62,17 @@ Defer run(Defer &next){
             output_func_name();
         });
         //Will call next.resole() or next.reject() later
+        //throw 33;
         return next;
+    }).bypass([](int n) {
+        printf("bypass n == %d\n", n);
     }).then([](int n, char c) {
         output_func_name();
         printf("n = %d, c = %c\n", (int)n, c);
-    }).fail([](char n){
+    }).then([](char n) {
+        output_func_name();
+        printf("n = %d\n", (int)n);
+    }).fail([](char n) {
         output_func_name();
         printf("n = %d\n", (int)n);
     }).fail([](short n) {
@@ -95,8 +101,8 @@ int main(int argc, char **argv) {
     run(next);
     printf("======  after call run ======\n");
 
-    next.resolve(123, 'a');
-    //next.reject('c');
+    next.reject(123, 'a');
+    //next.resolve('b');
     //next.reject(std::string("xhchen"));
     //next.reject(45);
 
