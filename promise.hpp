@@ -1276,13 +1276,13 @@ struct Promise {
 
     template <typename FUNC_ON_BYPASS>
     Defer bypass(FUNC_ON_BYPASS on_bypass) {
-        typedef typename func_traits<FUNC_ON_BYPASS>::arg_type arg_type;
         return then([on_bypass](Promise *caller) {
             if(verify_func_arg(on_bypass, caller->any_))
                 call_func(on_bypass, caller->any_);
             return Bypass();
         }, [on_bypass](Defer &self, Promise *caller) {
 #ifndef PM_EMBED
+            typedef typename func_traits<FUNC_ON_BYPASS>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
                 ExCheck<std::tuple_size<arg_type>::value, FUNC_ON_BYPASS>::call(on_bypass, self, caller);
             }
