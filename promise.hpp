@@ -38,7 +38,9 @@
 #include <utility>
 #include <algorithm>
 
-#if !defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
+#if defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
+/* Missing headers for ARMCC */
+#else
 #include <tuple>
 #include <typeindex>
 #include <type_traits>
@@ -63,7 +65,7 @@ extern uint32_t g_stack_size;
 }
 #endif
 
-#if !defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
+#if defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
 /* Add on for std, used by arm cc */
 namespace std {
 
