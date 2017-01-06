@@ -104,7 +104,7 @@ for example --
 return resolve(3, '2');
 ```
 
-### Defer reject(const RET_ARG &ret_arg);
+### Defer reject(const RET_ARG... &ret_arg);
 Returns a promise that is rejected with the given arguments.
 for example --
 ```cpp
@@ -126,7 +126,7 @@ return newPromise([](Defer d){
 })
 ```
 
-### Defer::reject(const RET_ARG &ret_arg);
+### Defer::reject(const RET_ARG... &ret_arg);
 Reject the promise object with arguments, where you can put any number of ret_arg with any type.
 (Please be noted that it is a method of Defer object, which is different from the global resolve function.)
 for example --
