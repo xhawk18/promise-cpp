@@ -86,11 +86,10 @@ int main(int argc, char **argv) {
 }
 ```
 
-## Class Defer
-Defer object is the promise object itself.
+## Global functions
 
 ### Defer newPromise(FUNC func);
-Create a new Defer object with a user-defined function.
+Creates a new Defer object with a user-defined function.
 The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
 for example --
 ```cpp
@@ -98,8 +97,26 @@ return newPromise([](Defer d){
 })
 ```
 
+### Defer resolve(const RET_ARG... &ret_arg);
+Returns a promise that is resolved with the given value.
+for example --
+```cpp
+return resolve(3, '2');
+```
+
+### Defer reject(const RET_ARG &ret_arg);
+Returns a promise that is rejected with the given arguments.
+for example --
+```cpp
+return reject("some_error");
+```
+
+## Class Defer
+Defer object is the promise object itself.
+
 ### Defer::resolve(const RET_ARG... &ret_arg);
 Resolve the promise object with arguments, where you can put any number of ret_arg with any type.
+(Please be noted that it is a method of Defer object, which is different from the global resolve function.)
 for example --
 ```cpp
 return newPromise([](Defer d){
@@ -111,6 +128,7 @@ return newPromise([](Defer d){
 
 ### Defer::reject(const RET_ARG &ret_arg);
 Reject the promise object with arguments, where you can put any number of ret_arg with any type.
+(Please be noted that it is a method of Defer object, which is different from the global resolve function.)
 for example --
 ```cpp
 return newPromise([](Defer d){
@@ -161,9 +179,28 @@ return newPromise([](Defer d){
 });
 ```
 
+### Defer::finally(FUNC_ON_FINALLY on_finally)
+Return the chaining promise object, where on_finally is the function to be called whenever
+the previous promise object is be resolved or rejected.
+
+The returned promise object will keeps the resolved/rejected state of current promise object.
+
+for example --
+```cpp
+return newPromise([](Defer d){
+    d.reject(std::string("oh, no!"));
+}).finally([](){
+    printf("in finally\n");   //will print "in finally" here
+});
+```
+
 ### Defer::always(FUNC_ON_ALWAYS on_always)
 Return the chaining promise object, where on_always is the function to be called whenever
 the previous promise object is be resolved or rejected.
+
+The returned promise object will be in resolved state whenever current promise object is
+resolved or rejected.
+
 for example --
 ```cpp
 return newPromise([](Defer d){

@@ -64,8 +64,8 @@ Defer run(Defer &next){
         //Will call next.resole() or next.reject() later
         //throw 33;
         return next;
-    }).bypass([](int n) {
-        printf("bypass n == %d\n", n);
+    }).finally([](int n) {
+        printf("finally n == %d\n", n);
     }).then([](int n, char c) {
         output_func_name();
         printf("n = %d, c = %c\n", (int)n, c);

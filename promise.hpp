@@ -53,6 +53,7 @@
 #ifdef PM_DEBUG
 #define PM_TYPE_NONE    0
 #define PM_TYPE_TIMER   1
+#define PM_MAX_CALL_LEN 50
 #define pm_assert(x)    assert(x)
 #else
 #define pm_assert(x)    do{ } while(0)
@@ -62,6 +63,7 @@
 extern "C"{
 extern uint32_t g_alloc_size;
 extern uint32_t g_stack_size;
+extern uint32_t g_promise_call_len;
 }
 #endif
 
@@ -285,7 +287,7 @@ struct pm_stack {
 #ifdef PM_DEBUG
         g_stack_size = (uint32_t)(top - start_);
 #endif
-        printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(top - start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
+        //printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(top - start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
         return ret;
     }
 
@@ -1230,9 +1232,9 @@ public:
         return object_->template always<FUNC_ON_ALWAYS>(on_always);
     }
 
-    template <typename FUNC_ON_BYPASS>
-    Defer bypass(FUNC_ON_BYPASS on_bypass) const {
-        return object_->template bypass<FUNC_ON_BYPASS>(on_bypass);
+    template <typename FUNC_ON_FINALLY>
+    Defer finally(FUNC_ON_FINALLY on_finally) const {
+        return object_->template finally<FUNC_ON_FINALLY>(on_finally);
     }
 
 private:
@@ -1364,7 +1366,14 @@ struct Promise {
             self->prepare_resolve(caller->any_);
             return self;
         }
+#ifdef PM_MAX_CALL_LEN
+        ++g_promise_call_len;
+        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+#endif
         Defer ret = resolved_->call(self, caller);
+#ifdef PM_MAX_CALL_LEN
+        --g_promise_call_len;
+#endif
         if(ret != self)
             joinDeferObject(self, ret);
         return ret;
@@ -1375,7 +1384,14 @@ struct Promise {
             self->prepare_reject(caller->any_);
             return self;
         }
+#ifdef PM_MAX_CALL_LEN
+        ++g_promise_call_len;
+        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+#endif
         Defer ret = rejected_->call(self, caller);
+#ifdef PM_MAX_CALL_LEN
+        --g_promise_call_len;
+#endif
         if(ret != self)
             joinDeferObject(self, ret);
         return ret;
@@ -1451,47 +1467,47 @@ struct Promise {
     }
 
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
-    Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) {
+    Defer then(const FUNC_ON_RESOLVED &on_resolved, const FUNC_ON_REJECTED &on_rejected) {
         return then_impl(static_cast<PromiseCaller *>(pm_new<ResolvedCaller<FUNC_ON_RESOLVED>>(on_resolved)),
                          static_cast<PromiseCaller *>(pm_new<RejectedCaller<FUNC_ON_REJECTED>>(on_rejected)));
     }
 
     template <typename FUNC_ON_RESOLVED>
-    Defer then(FUNC_ON_RESOLVED on_resolved) {
+    Defer then(const FUNC_ON_RESOLVED &on_resolved) {
         return then_impl(static_cast<PromiseCaller *>(pm_new<ResolvedCaller<FUNC_ON_RESOLVED>>(on_resolved)),
                          static_cast<PromiseCaller *>(nullptr));
     }
 
     template <typename FUNC_ON_REJECTED>
-    Defer fail(FUNC_ON_REJECTED on_rejected) {
+    Defer fail(const FUNC_ON_REJECTED &on_rejected) {
         return then_impl(static_cast<PromiseCaller *>(nullptr),
                          static_cast<PromiseCaller *>(pm_new<RejectedCaller<FUNC_ON_REJECTED>>(on_rejected)));
     }
 
     template <typename FUNC_ON_ALWAYS>
-    Defer always(FUNC_ON_ALWAYS on_always) {
+    Defer always(const FUNC_ON_ALWAYS &on_always) {
         return then<FUNC_ON_ALWAYS, FUNC_ON_ALWAYS>(on_always, on_always);
     }
 
-    template <typename FUNC_ON_BYPASS>
-    Defer bypass(FUNC_ON_BYPASS on_bypass) {
-        return then([on_bypass](Promise *caller) -> Bypass {
-            if(verify_func_arg(on_bypass, caller->any_))
-                call_func(on_bypass, caller->any_);
+    template <typename FUNC_ON_FINALLY>
+    Defer finally(const FUNC_ON_FINALLY &on_finally) {
+        return then([on_finally](Promise *caller) -> Bypass {
+            if(verify_func_arg(on_finally, caller->any_))
+                call_func(on_finally, caller->any_);
             return Bypass();
-        }, [on_bypass](Defer &self, Promise *caller) -> Bypass {
+        }, [on_finally](Defer &self, Promise *caller) -> Bypass {
 #ifndef PM_EMBED
-            typedef typename func_traits<FUNC_ON_BYPASS>::arg_type arg_type;
+            typedef typename func_traits<FUNC_ON_FINALLY>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
-                ExCheck<std::tuple_size<arg_type>::value, FUNC_ON_BYPASS>::call(on_bypass, self, caller);
+                ExCheck<std::tuple_size<arg_type>::value, FUNC_ON_FINALLY>::call(on_finally, self, caller);
             }
             else {
-                if (verify_func_arg(on_bypass, caller->any_))
-                    call_func(on_bypass, caller->any_);
+                if (verify_func_arg(on_finally, caller->any_))
+                    call_func(on_finally, caller->any_);
             }
 #else
-            if (verify_func_arg(on_bypass, caller->any_))
-                call_func(on_bypass, caller->any_);
+            if (verify_func_arg(on_finally, caller->any_))
+                call_func(on_finally, caller->any_);
 #endif
             return Bypass();
         });
@@ -1843,6 +1859,16 @@ inline Defer While(FUNC func) {
     });
 }
 
+/* Return a rejected promise directly */
+template <typename ...RET_ARG>
+inline Defer reject(const RET_ARG &... ret_arg){
+    return newPromise([=](Defer &d){ d.reject(ret_arg...); });
+}
+/* Return a resolved promise directly */
+template <typename ...RET_ARG>
+inline Defer resolve(const RET_ARG &... ret_arg){
+    return newPromise([=](Defer &d){ d.resolve(ret_arg...); });
+}
 
 }
 
