@@ -172,7 +172,7 @@ Return the chaining promise object, where on_rejected is the function to be call
 previous promise object calls function reject.
 
 This function is usually named "catch" in most implements of Promise library. 
-https://www.promisejs.org/api/
+  https://www.promisejs.org/api/
 In promise_cpp, function name "fail" is used instead of "catch", since "catch" is a keyword of c++.
 
 for example --
