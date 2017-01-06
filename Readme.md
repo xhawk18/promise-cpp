@@ -1,4 +1,4 @@
-# C++ promise/A+ library with Javascript styles.
+# C++ promise/A+ library in Javascript styles.
 
 ## Usage
    promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
@@ -170,6 +170,11 @@ return newPromise([](Defer d){
 ### Defer::fail(FUNC_ON_REJECTED on_rejected)
 Return the chaining promise object, where on_rejected is the function to be called when
 previous promise object calls function reject.
+
+This function is usually named "catch" in most implements of Promise library. 
+https://www.promisejs.org/api/
+In promise_cpp, function name "fail" is used instead of "catch", since "catch" is a keyword of c++.
+
 for example --
 ```cpp
 return newPromise([](Defer d){
