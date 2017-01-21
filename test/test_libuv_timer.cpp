@@ -116,7 +116,7 @@ Defer testTimer3() {
 }
 
 void testTimer2() {
-    printf("in testTimer2 %d\n");
+    printf("in testTimer2\n");
     setTimeout(1000).then([]() {
         return testTimer3();
     });

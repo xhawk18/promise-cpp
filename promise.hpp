@@ -1253,8 +1253,10 @@ template <typename RET, typename FUNC>
 struct ResolveChecker;
 template <typename RET, typename FUNC>
 struct RejectChecker;
-
-
+#ifndef PM_EMBED
+template<std::size_t ARG_SIZE, typename FUNC>
+struct ExCheck;
+#endif
 
 inline Defer newHeadPromise(void);
 
