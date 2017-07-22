@@ -37,6 +37,7 @@
 #include <typeinfo>
 #include <utility>
 #include <algorithm>
+#include <iterator>
 
 #if defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
 /* Missing headers for ARMCC */
@@ -48,6 +49,7 @@
 
 #ifndef PM_EMBED
 #include <exception>
+#include <vector>
 #endif
 
 #ifdef PM_DEBUG
@@ -211,6 +213,14 @@ inline std::type_index get_type_index(const std::type_info &info){
 }
 #endif
 
+template <class C> 
+constexpr auto pm_size(const C& c) -> decltype(c.size()) {
+    return c.size();
+}
+template <class T, std::size_t N>
+constexpr std::size_t pm_size(const T (&array)[N]) noexcept {
+    return N;
+}
 
 namespace promise {
 
@@ -765,35 +775,55 @@ struct remove_reference_tuple {
     typedef typename converted_type::type type;
 };
 
+class pm_any;
+
+template<typename ...ARG>
+struct arg_traits {
+    typedef std::tuple<ARG...> type2;
+    typedef typename remove_reference_tuple<type2>::type type;
+    enum { direct_any = false };
+};
+
+template<>
+struct arg_traits<pm_any &> {
+    typedef pm_any type;
+    enum { direct_any = true };
+};
+
 template<typename FUNC>
 struct func_traits_impl {
     typedef decltype(&FUNC::operator()) func_type;
     typedef typename func_traits_impl<func_type>::ret_type ret_type;
     typedef typename func_traits_impl<func_type>::arg_type arg_type;
+    enum { direct_any = func_traits_impl<func_type>::direct_any };
 };
 
 template<typename RET, class T, typename ...ARG>
 struct func_traits_impl< RET(T::*)(ARG...) const > {
     typedef RET ret_type;
-    typedef std::tuple<ARG...> arg_type;
+    typedef typename arg_traits<ARG...>::type arg_type;
+    enum { direct_any = arg_traits<ARG...>::direct_any };
 };
 
 template<typename RET, typename ...ARG>
 struct func_traits_impl< RET(*)(ARG...) > {
     typedef RET ret_type;
-    typedef std::tuple<ARG...> arg_type;
+    typedef typename arg_traits<ARG...>::type arg_type;
+    enum { direct_any = arg_traits<ARG...>::direct_any };
 };
 
 template<typename RET, typename ...ARG>
 struct func_traits_impl< RET(ARG...) > {
     typedef RET ret_type;
-    typedef std::tuple<ARG...> arg_type;
+    typedef typename arg_traits<ARG...>::type arg_type;
+    enum { direct_any = arg_traits<ARG...>::direct_any };
 };
 
 template<typename FUNC>
 struct func_traits {
     typedef typename func_traits_impl<FUNC>::ret_type ret_type;
-    typedef typename remove_reference_tuple<typename func_traits_impl<FUNC>::arg_type>::type arg_type;
+    enum { direct_any = func_traits_impl<FUNC>::direct_any };
+    typedef typename func_traits_impl<FUNC>::arg_type arg_type;
 };
 
 
@@ -968,7 +998,7 @@ inline ValueType any_cast(const pm_any &operand) {
 
 
 
-template<typename RET, typename FUNC, std::size_t ...I>
+template<typename RET, typename FUNC, bool direct_any_arg, std::size_t ...I>
 struct call_tuple_t {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     typedef typename remove_reference_tuple<std::tuple<RET>>::type ret_type;
@@ -980,8 +1010,18 @@ struct call_tuple_t {
     }
 };
 
+template<typename RET, typename FUNC, std::size_t ...I>
+struct call_tuple_t<RET, FUNC, true, I...> {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+    typedef typename remove_reference_tuple<std::tuple<RET>>::type ret_type;
+
+    static ret_type call(const FUNC &func, pm_any &arg) {
+        return ret_type(func(arg));
+    }
+};
+
 template<typename FUNC, std::size_t ...I>
-struct call_tuple_t<void, FUNC, I...> {
+struct call_tuple_t<void, FUNC, false, I...> {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     typedef std::tuple<> ret_type;
 
@@ -992,6 +1032,18 @@ struct call_tuple_t<void, FUNC, I...> {
         return std::tuple<>();
     }
 };
+
+template<typename FUNC, std::size_t ...I>
+struct call_tuple_t<void, FUNC, true, I...> {
+    typedef typename func_traits<FUNC>::arg_type func_arg_type;
+    typedef std::tuple<> ret_type;
+
+    static std::tuple<> call(const FUNC &func, pm_any &arg) {
+        func(arg);
+        return std::tuple<>();
+    }
+};
+
 
 template<typename RET>
 struct call_tuple_ret_t {
@@ -1008,8 +1060,9 @@ inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::ind
     -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type
 {
     typedef typename func_traits<FUNC>::ret_type ret_type;
+    enum { direct_any = func_traits<FUNC>::direct_any };
 
-    return call_tuple_t<ret_type, FUNC, I...>::call(func, arg);
+    return call_tuple_t<ret_type, FUNC, (direct_any ? true : false), I...>::call(func, arg);
 }
 
 template<typename FUNC>
@@ -1254,7 +1307,7 @@ struct ResolveChecker;
 template <typename RET, typename FUNC>
 struct RejectChecker;
 #ifndef PM_EMBED
-template<std::size_t ARG_SIZE, typename FUNC>
+template<typename ARG_TYPE, typename FUNC>
 struct ExCheck;
 #endif
 
@@ -1501,7 +1554,7 @@ struct Promise {
 #ifndef PM_EMBED
             typedef typename func_traits<FUNC_ON_FINALLY>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
-                ExCheck<std::tuple_size<arg_type>::value, FUNC_ON_FINALLY>::call(on_finally, self, caller);
+                ExCheck<arg_type, FUNC_ON_FINALLY>::call(on_finally, self, caller);
             }
             else {
                 if (verify_func_arg(on_finally, caller->any_))
@@ -1693,7 +1746,7 @@ struct ResolveChecker<RET, FnSimple> {
 
 #ifndef PM_EMBED
 template<std::size_t ARG_SIZE, typename FUNC>
-struct ExCheck {
+struct ExCheckTuple {
     static void call(const FUNC &func, Defer &self, Promise *caller) {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         throw eptr;
@@ -1701,7 +1754,7 @@ struct ExCheck {
 };
 
 template <typename FUNC>
-struct ExCheck<0, FUNC> {
+struct ExCheckTuple<0, FUNC> {
     static auto call(const FUNC &func, Defer &self, Promise *caller) {
         pm_any arg = std::tuple<>();
         caller->any_.clear();
@@ -1710,7 +1763,7 @@ struct ExCheck<0, FUNC> {
 };
 
 template <typename FUNC>
-struct ExCheck<1, FUNC> {
+struct ExCheckTuple<1, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
     static auto call(const FUNC &func, Defer &self, Promise *caller) {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
@@ -1728,6 +1781,30 @@ struct ExCheck<1, FUNC> {
         return call_func(func, arg);
     }
 };
+
+template<typename ARG_TYPE, typename FUNC>
+struct ExCheck:
+    public ExCheckTuple<std::tuple_size<ARG_TYPE>::value, FUNC> {
+};
+
+template<typename FUNC>
+struct ExCheck<pm_any, FUNC> {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+        std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
+        try {
+            std::rethrow_exception(eptr);
+        }
+        catch (pm_any &arg) {
+            caller->any_.clear();
+            return call_func(func, arg);
+        }
+
+        /* Will never run to here, just make the compile satisfied! */
+        pm_any arg;
+        return call_func(func, arg);
+    }
+};
+
 #endif
 
 template <typename RET, typename FUNC>
@@ -1737,7 +1814,7 @@ struct RejectChecker {
 #ifndef PM_EMBED
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
-                self->prepare_resolve(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
+                self->prepare_resolve(ExCheck<arg_type, FUNC>::call(func, self, caller));
             }
             else if (verify_func_arg(func, caller->any_))
                 self->prepare_resolve(call_func(func, caller->any_));
@@ -1763,7 +1840,7 @@ struct RejectChecker<Defer, FUNC> {
 #ifndef PM_EMBED
         try {
             if(caller->any_.type() == typeid(std::exception_ptr)){
-                Defer ret = std::get<0>(ExCheck<std::tuple_size<arg_type>::value, FUNC>::call(func, self, caller));
+                Defer ret = std::get<0>(ExCheck<arg_type, FUNC>::call(func, self, caller));
                 return ret;
             }
             else if (verify_func_arg(func, caller->any_)) {
@@ -1866,10 +1943,43 @@ template <typename ...RET_ARG>
 inline Defer reject(const RET_ARG &... ret_arg){
     return newPromise([=](Defer &d){ d.reject(ret_arg...); });
 }
+
 /* Return a resolved promise directly */
 template <typename ...RET_ARG>
 inline Defer resolve(const RET_ARG &... ret_arg){
     return newPromise([=](Defer &d){ d.resolve(ret_arg...); });
+}
+
+/* Returns a promise that resolves when all of the promises in the iterable
+   argument have resolved, or rejects with the reason of the first passed
+   promise that rejects. */
+template <typename PROMISE_LIST>
+inline Defer all(const PROMISE_LIST &promise_list) {
+    if(pm_size(promise_list) == 0){
+        //return Promise::resolve<>()
+    }
+
+    size_t *size = pm_new<size_t>(pm_size(promise_list));
+    std::vector<pm_any> *ret_arr = pm_new<std::vector<pm_any>>();
+    ret_arr->reserve(*size);
+
+    return newPromise([=](Defer &d) {
+        for (auto &defer : promise_list) {
+            defer.then([=](pm_any &arg) {
+                ret_arr->push_back(arg);
+                if (ret_arr->size() >= *size) {
+                    std::vector<pm_any> ret = *ret_arr;
+                    pm_delete(size);
+                    pm_delete(ret_arr);
+                    d.resolve(ret);
+                }
+            }, [=](pm_any &arg) {
+                pm_delete(size);
+                pm_delete(ret_arr);
+                d.reject(arg);
+            });
+        }
+    });
 }
 
 }

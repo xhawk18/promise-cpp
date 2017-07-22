@@ -48,9 +48,12 @@ void test3(int n) {
 
 Defer run(Defer &next){
 
-    return newPromise([](Defer d){
+    return newPromise([](Defer d) {
         output_func_name();
         d.resolve(3, 5, 6);
+    }).then([](promise::pm_any &any){
+        output_func_name();
+        return promise::resolve(3, 5, 16);
     }).then([](const int &a, int b, int c) {
         printf("%d %d %d\n", a, b, c);
         output_func_name();
@@ -95,7 +98,29 @@ Defer run(Defer &next){
     });
 }
 
+void test_promise_all() {
+    std::vector<Defer> ds = {
+        newPromise([](Defer d) {
+            output_func_name();
+            d.resolve(1);
+            //d.reject(1);
+        }),
+        newPromise([](Defer d) {
+            output_func_name();
+            d.resolve(2);
+        })
+    };
+
+    all(ds).then([]() {
+        output_func_name();
+    }, []() {
+        output_func_name();
+    });
+}
+
 int main(int argc, char **argv) {
+    test_promise_all();
+
     Defer next;
 
     run(next);
