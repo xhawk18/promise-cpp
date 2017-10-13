@@ -88,9 +88,9 @@ struct TaskPool{
         std::list<Task> current;
         current.splice(current.begin(), tasks_, tasks_.begin());
 
-#ifndef _WIN32
+//#ifndef _WIN32
         Task *old_task = &current.front();
-#endif
+//#endif
         Task *new_task = &tasks_.front();
 
         if(rewind_current)
@@ -127,9 +127,10 @@ struct TaskPool{
 #endif
 
     Task *create_task(){
-        tasks_.emplace_back(id_++);
-        Task *task = &tasks_.back();
-        return task;
+        auto pos = tasks_.begin();
+        if(pos != tasks_.end())
+            ++pos;
+        return &*tasks_.emplace(pos, id_++);
     }
 
     Task *create_task(size_t stack_size, void (*func)(TaskPool *, void *), void *arg){
@@ -147,6 +148,7 @@ struct TaskPool{
         task->ucontext_.uc_link = &schedule_task_->ucontext_;
         makecontext(&task->ucontext_, (void (*)())task_main, 3, this, func, arg);
 #endif
+        run_next_task();
         return task;
     }
     

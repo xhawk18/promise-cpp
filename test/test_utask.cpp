@@ -17,7 +17,7 @@ void task2(TaskPool *task_pool, void *arg){
 
 void task3(TaskPool *task_pool, void *arg){
     unsigned int id = task_pool->current_task_id();
-    for(int k = 0; k < 100; ++k){
+    for(int k = 0; k < 2; ++k){
         printf("task id = %d, k = %d\n", id, k);
         task_pool->run_next_task();
     }
