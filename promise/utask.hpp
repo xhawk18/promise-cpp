@@ -30,8 +30,6 @@
  */
 
 
-#include <cassert>
-#include <stdio.h>
 #ifdef _WIN32
 #   include <windows.h>
 #else
@@ -39,7 +37,8 @@
 #   include <ucontext.h>
 #   include <unistd.h>
 #endif
-
+#include <stdio.h>
+#include <cassert>
 #include <list>
 #include <vector>
 
