@@ -50,11 +50,11 @@ Defer testTimer(io_service &io) {
 int main() {
     io_service io;
 
-    Defer d = testTimer(io);
+    Defer timer = testTimer(io);
 
     delay(io, 4500).then([=] {
         printf("clearTimeout\n");
-        clearTimeout(d);
+        clearTimeout(timer);
     });
 
     io.run();

@@ -21,8 +21,9 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>test_libuv_timer</RootNamespace>
+    <RootNamespace>test_timer</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <ProjectName>test_timer</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -171,7 +172,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\asio\timer_cpp.cpp" />
-    <ClCompile Include="..\..\..\test\test_libuv_timer.cpp" />
+    <ClCompile Include="..\..\..\test\test_timer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\asio\timer.hpp" />

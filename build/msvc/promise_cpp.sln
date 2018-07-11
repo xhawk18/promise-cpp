@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_libuv_timer", "test_libuv_timer\test_libuv_timer.vcxproj", "{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_timer", "test_timer\test_timer.vcxproj", "{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test0", "test0\test0.vcxproj", "{2DB01D3D-F09A-4E4C-AD0D-631301A32916}"
 EndProject

@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\test\test_libuv_timer.cpp">
+    <ClCompile Include="..\..\..\asio\timer_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\asio\timer_cpp.cpp">
+    <ClCompile Include="..\..\..\test\test_timer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
