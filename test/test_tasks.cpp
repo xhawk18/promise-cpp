@@ -27,23 +27,25 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-#include "uv.h"
 #include "timer.hpp"
+#include <boost/chrono.hpp>
 
 using namespace promise;
 using namespace std;
+using namespace boost::asio;
+using namespace boost::chrono;
 
 static const int N = 1000000;
 
-template <typename T>
-void dump(string name, int n, T start, T end)
+void dump(string name, int n,
+    steady_clock::time_point start,
+    steady_clock::time_point end)
 {
     cout << name << "    " << n << "      " << 
-        (end - start) / n << " ns/op" << endl;
+        (end - start) / n << "/op" << endl;
 }
 
-void task(int task_id, int count, int *pcoro, Defer d) {
-    //printf("count = %d, task_id = %d\n", count, task_id);
+void task(io_service &io, int task_id, int count, int *pcoro, Defer d) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
@@ -51,38 +53,43 @@ void task(int task_id, int count, int *pcoro, Defer d) {
         return;
     }
 
-    yield().then([=]() {
-        task(task_id, count - 1, pcoro, d);
+    yield(io).then([=, &io]() {
+        task(io, task_id, count - 1, pcoro, d);
     });
 };
 
 
-Defer test_switch(int coro)
+Defer test_switch(io_service &io, int coro)
 {
-    auto start = uv_hrtime();
+    steady_clock::time_point start = steady_clock::now();
+
     int *pcoro = new int(coro);
 
-    return newPromise([=](Defer d){
+    return newPromise([=, &io](Defer d){
         for (int task_id = 0; task_id < coro; ++task_id) {
-            task(task_id, N / coro, pcoro, d);
+            task(io, task_id, N / coro, pcoro, d);
         }
     }).then([=](){
         delete pcoro;
-        auto end = uv_hrtime();
+        steady_clock::time_point end = steady_clock::now();
         dump("BenchmarkSwitch_" + std::to_string(coro), N, start, end);
     });
 }
 
 int main() {
-    uv_loop_t *loop = uv_default_loop();
+    io_service io;
 
-    test_switch(1).then([](){
-        return test_switch(1000);
-    }).then([](){
-        return test_switch(10000);
-    }).then([](){
-        return test_switch(100000);
+    While([&](Defer d) {
+        printf("In while ...\n");
+        test_switch(io, 1).then([&]() {
+            return test_switch(io, 1000);
+        }).then([&]() {
+            return test_switch(io, 10000);
+        }).then([&]() {
+            return test_switch(io, 100000);
+        }).then(d);
     });
 
-    return uv_run(loop, UV_RUN_DEFAULT);
+    io.run();
+    return 0;
 }

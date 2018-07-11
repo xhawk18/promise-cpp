@@ -49,7 +49,11 @@ struct pm_memory_pool_buf_header {
 
     pm_list list_;
     pm_stack::itr_t pool_;
-    int16_t ref_count_;
+#ifndef PM_EMBED
+    size_t ref_count_;
+#else
+    uint16_t ref_count_;
+#endif
 
     static inline void *to_ptr(pm_memory_pool_buf_header *header) {
         struct dummy_pool_buf {
@@ -141,7 +145,7 @@ private:
         pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::itr_to_ptr(header->pool_));
         pool->free_.move(&header->list_);
 #ifdef PM_DEBUG
-        g_alloc_size -= pool->size_;
+        g_alloc_size -= (uint32_t)pool->size_;
 #endif
     }
 
@@ -151,6 +155,11 @@ private:
             pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
             //printf("++ %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ + 1);
             ++header->ref_count_;
+
+            //Check if ref_count_ must overflow£¡
+            if (header->ref_count_ <= 0) {
+                pm_throw("ref_count_ overflow");
+            }
         }
     }
 

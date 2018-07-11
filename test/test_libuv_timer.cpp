@@ -24,114 +24,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "uv.h"
+
 #include <stdio.h>
+#include <boost/asio.hpp>
 #include "timer.hpp"
+
 using namespace promise;
+using namespace boost::asio;
 
-void testTimer() {
-    delay(500).then([]() {
-        printf("In then 1\n");
-        return delay(1000);
-    }).then([]() {
-        printf("In then 2\n");
-        return delay(2000);
-    }).then([]() {
-        printf("In then 3\n");
-        return delay(3000);
-    }).then([]() {
-        printf("In last then\n");
-    });
-}
+Defer testTimer(io_service &io) {
 
-Defer testPerformance() {
-    static int i = 0;
-    static uint64_t count = 0;
-    static uint64_t hrtime;
-
-    if (count == 0) {
-        hrtime = uv_hrtime();
-    }
-
-    uint64_t interval = uv_hrtime() - hrtime;
-    if(interval >= 2e9) {
-        printf("time = %u, %u per seconds\n", (int)interval, (int)(uint64_t)(count / (interval / 1e9)));
-        count = 0;
-        hrtime = uv_hrtime();
-    }
-
-    ++count;
-    return newPromise([](Defer d) {
-        ++i;
-        d.resolve(12);
-    }).then([](int n) {
-        ++i;
-        return '3';
-    }).then([](char ch) {
-        ++i;
-    }).then([]() {
-        ++i;
-        return newPromise([](Defer d) {
-            ++i;
-            d.reject(66);
-        });
-    }).fail([](int n) {
-        ++i;
-    }).always([]() {
-        ++i;
-        delay(0).then([]() {
-            testPerformance();
-        });
-    });
-}
-
-void testWhile(int loop, uint64_t delay_ms){
-    std::shared_ptr<int> i(new int(loop));
-    While([=](Defer d){
-        if((*i)-- <= 0){
-            d.reject();
-            return;
-        }
-
-        printf("in %s, i = %d -> %d, delay_ms = %u\n", __func__, *i, loop, (uint32_t)delay_ms);
-        delay(delay_ms).then([=](){
-            d.resolve();
-        });
-    }).always([=](){
-        printf("loop = %d, delay_ms = %u, over!\n", loop, (uint32_t)delay_ms);
-    });
-}
-
-Defer testTimer3() {
-    printf("in testTimer3, line %d\n", __LINE__);
-    return setTimeout(2000).then([]() {
-        printf("in testTimer3, line %d\n", __LINE__);
-        return setTimeout(2000);
-    }).then([]() {
-        printf("in testTimer3, line %d\n", __LINE__);
-        return setTimeout(2000);
-    }).then([]() {
-        printf("in testTimer3, line %d\n", __LINE__);
-    });
-}
-
-void testTimer2() {
-    printf("in testTimer2\n");
-    setTimeout(1000).then([]() {
-        return testTimer3();
+    return delay(io, 3000).then([&] {
+        printf("timer after 3000 ms!\n");
+        return delay(io, 1000);
+    }).then([&] {
+        printf("timer after 1000 ms!\n");
+        return delay(io, 2000);
+    }).then([] {
+        printf("timer after 2000 ms!\n");
+    }).fail([] {
+        printf("timer cancelled!\n");
     });
 }
 
 int main() {
-    uv_loop_t *loop = uv_default_loop();
+    io_service io;
 
-    testTimer2();
-    testTimer();
-    testPerformance();
-    
-    testWhile(10, 500);
-    testWhile(30, 100);
-    testWhile(5, 2000);
+    Defer d = testTimer(io);
 
-    return uv_run(loop, UV_RUN_DEFAULT);
+    delay(io, 4500).then([=] {
+        printf("clearTimeout\n");
+        clearTimeout(d);
+    });
+
+    io.run();
+    return 0;
 }

@@ -30,6 +30,7 @@
  */
 
 #ifdef PM_DEBUG
+#include <cassert>
 #define PM_TYPE_NONE    0
 #define PM_TYPE_TIMER   1
 #define PM_MAX_CALL_LEN 50
