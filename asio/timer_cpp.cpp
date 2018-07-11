@@ -1,0 +1,51 @@
+#include "timer.hpp"
+
+namespace promise {
+
+Defer yield(boost::asio::io_service &io){
+    //return setTimeout(io, 0);
+    auto defer = newPromise([&io](Defer d) {
+        boost::asio::post(io, [d]() {
+            d.resolve();
+        });
+
+    });
+
+    pm_assert(defer->next_.operator->() == nullptr);
+    return defer;
+}
+
+Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
+    return setTimeout(io, time_ms);
+}
+
+Defer setTimeout(boost::asio::io_service &io, uint64_t time_ms) {
+    return newPromise([time_ms, &io](Defer &d) {
+        boost::asio::steady_timer *timer = 
+            pm_new<boost::asio::steady_timer>(io, boost::asio::chrono::milliseconds(time_ms));
+        d->any_ = timer;
+        timer->async_wait([d](const boost::system::error_code& error_code) {
+            if (!d->any_.empty()) {
+                boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(d->any_);
+                d->any_.clear();
+                pm_delete(timer);
+                d.resolve();
+            }
+        });
+    });
+}
+
+void clearTimeout(Defer d) {
+    d = d.find_pending();
+    if (d.operator->()) {
+        if(!d->any_.empty()){
+            boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(d->any_);
+            d->any_.clear();
+            timer->cancel();
+            pm_delete(timer);
+        }
+        d.reject();
+    }
+}
+
+}
