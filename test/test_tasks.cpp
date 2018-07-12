@@ -27,22 +27,23 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
-#include "timer.hpp"
-#include <boost/chrono.hpp>
+#include <chrono>
+#include "asio/timer.hpp"
 
 using namespace promise;
 using namespace std;
 using namespace boost::asio;
-using namespace boost::chrono;
 
 static const int N = 1000000;
 
 void dump(string name, int n,
-    steady_clock::time_point start,
-    steady_clock::time_point end)
+    std::chrono::steady_clock::time_point start,
+    std::chrono::steady_clock::time_point end)
 {
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     cout << name << "    " << n << "      " << 
-        (end - start) / n << "/op" << endl;
+        ns.count() / n << 
+        "ns/op" << endl;
 }
 
 void task(io_service &io, int task_id, int count, int *pcoro, Defer d) {
@@ -61,7 +62,7 @@ void task(io_service &io, int task_id, int count, int *pcoro, Defer d) {
 
 Defer test_switch(io_service &io, int coro)
 {
-    steady_clock::time_point start = steady_clock::now();
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
     int *pcoro = new int(coro);
 
@@ -71,7 +72,7 @@ Defer test_switch(io_service &io, int coro)
         }
     }).then([=](){
         delete pcoro;
-        steady_clock::time_point end = steady_clock::now();
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         dump("BenchmarkSwitch_" + std::to_string(coro), N, start, end);
     });
 }

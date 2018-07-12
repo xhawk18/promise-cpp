@@ -5,6 +5,50 @@
    With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
 ## Example
+
+### Example projects for linux
+
+> Projects: build\codelite_linux\codelite.workspace
+
+> Require: codelite, gcc 5 or higher
+
+### Example projects for windows
+
+> Projects: build\msvc\promise_cpp.sln
+
+> Require: Visual studio 2015 or higher
+
+or
+
+> Projects: build\codelite_mingw\codelite.workspace
+
+> Require: codelite, gcc 5 or higher
+
+
+### Build tips
+
+The example projects use boost::asio as io service. 
+You need to install boost libary to build the examples.
+
+On linux (ubuntu)
+
+```
+$ sudo apt-get install libboost-all-dev
+```
+
+On windows, you can build boost library manually.
+
+```
+> cd *boost_source_folder*
+> bootstrap.bat
+> b2.exe stage variant=release runtime-link=static threading=multi
+> b2.exe stage variant=debug runtime-link=static threading=multi
+```
+
+Please also modify the boost library path in the example's project file.
+
+### Example code
+
 ```cpp
 #include <stdio.h>
 #include <string>
@@ -245,8 +289,6 @@ To copy the promise object is allowed and effective, please do that when you nee
 Defer d = newPromise([](Defer d){});
 Defer d1 = d;  //It's safe and effective
 ```
-
-
 
 
 

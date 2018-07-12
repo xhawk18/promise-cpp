@@ -1,11 +1,12 @@
 #include "timer.hpp"
+#include <boost/asio/steady_timer.hpp>
+#include <chrono>
 
 namespace promise {
 
 Defer yield(boost::asio::io_service &io){
-    //return setTimeout(io, 0);
     auto defer = newPromise([&io](Defer d) {
-        boost::asio::post(io, [d]() {
+        boost::asio::defer(io, [d]() {
             d.resolve();
         });
 
@@ -22,7 +23,7 @@ Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
 Defer setTimeout(boost::asio::io_service &io, uint64_t time_ms) {
     return newPromise([time_ms, &io](Defer &d) {
         boost::asio::steady_timer *timer = 
-            pm_new<boost::asio::steady_timer>(io, boost::asio::chrono::milliseconds(time_ms));
+            pm_new<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
         d->any_ = timer;
         timer->async_wait([d](const boost::system::error_code& error_code) {
             if (!d->any_.empty()) {

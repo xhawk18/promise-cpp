@@ -5,80 +5,17 @@
       <![CDATA[00020001N0005Debug0000000000000001N0007Release000000000000]]>
     </Plugin>
   </Plugins>
-  <VirtualDirectory Name="libuv">
-    <VirtualDirectory Name="src">
-      <File Name="../../libuv/src/fs-poll.c"/>
-      <File Name="../../libuv/src/heap-inl.h"/>
-      <File Name="../../libuv/src/inet.c"/>
-      <File Name="../../libuv/src/queue.h"/>
-      <File Name="../../libuv/src/threadpool.c"/>
-      <File Name="../../libuv/src/uv-common.c"/>
-      <File Name="../../libuv/src/uv-common.h"/>
-      <File Name="../../libuv/src/version.c"/>
-      <VirtualDirectory Name="unix">
-        <File Name="../../libuv/src/unix/async.c"/>
-        <File Name="../../libuv/src/unix/atomic-ops.h"/>
-        <File Name="../../libuv/src/unix/core.c"/>
-        <File Name="../../libuv/src/unix/dl.c"/>
-        <File Name="../../libuv/src/unix/fs.c"/>
-        <File Name="../../libuv/src/unix/getaddrinfo.c"/>
-        <File Name="../../libuv/src/unix/getnameinfo.c"/>
-        <File Name="../../libuv/src/unix/internal.h"/>
-        <File Name="../../libuv/src/unix/linux-core.c"/>
-        <File Name="../../libuv/src/unix/linux-inotify.c"/>
-        <File Name="../../libuv/src/unix/linux-syscalls.c"/>
-        <File Name="../../libuv/src/unix/linux-syscalls.h"/>
-        <File Name="../../libuv/src/unix/loop-watcher.c"/>
-        <File Name="../../libuv/src/unix/loop.c"/>
-        <File Name="../../libuv/src/unix/pipe.c"/>
-        <File Name="../../libuv/src/unix/poll.c"/>
-        <File Name="../../libuv/src/unix/process.c"/>
-        <File Name="../../libuv/src/unix/proctitle.c"/>
-        <File Name="../../libuv/src/unix/pthread-fixes.c"/>
-        <File Name="../../libuv/src/unix/signal.c"/>
-        <File Name="../../libuv/src/unix/spinlock.h"/>
-        <File Name="../../libuv/src/unix/stream.c"/>
-        <File Name="../../libuv/src/unix/tcp.c"/>
-        <File Name="../../libuv/src/unix/thread.c"/>
-        <File Name="../../libuv/src/unix/timer.c"/>
-        <File Name="../../libuv/src/unix/tty.c"/>
-        <File Name="../../libuv/src/unix/udp.c"/>
-      </VirtualDirectory>
-    </VirtualDirectory>
-    <VirtualDirectory Name="include">
-      <File Name="../../libuv/include/pthread-barrier.h"/>
-      <File Name="../../libuv/include/stdint-msvc2008.h"/>
-      <File Name="../../libuv/include/tree.h"/>
-      <File Name="../../libuv/include/uv-aix.h"/>
-      <File Name="../../libuv/include/uv-bsd.h"/>
-      <File Name="../../libuv/include/uv-darwin.h"/>
-      <File Name="../../libuv/include/uv-errno.h"/>
-      <File Name="../../libuv/include/uv-linux.h"/>
-      <File Name="../../libuv/include/uv-sunos.h"/>
-      <File Name="../../libuv/include/uv-threadpool.h"/>
-      <File Name="../../libuv/include/uv-unix.h"/>
-      <File Name="../../libuv/include/uv-version.h"/>
-      <File Name="../../libuv/include/uv-win.h"/>
-      <File Name="../../libuv/include/uv.h"/>
-      <File Name="../../libuv/include/win-missing.h"/>
-    </VirtualDirectory>
-  </VirtualDirectory>
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="promise_cpp">
     <File Name="../../promise.hpp"/>
-  </VirtualDirectory>
-  <VirtualDirectory Name="node-cpp">
-    <File Name="../../node-cpp/buffer.hpp"/>
-    <File Name="../../node-cpp/stream.hpp"/>
-    <File Name="../../node-cpp/stream_cpp.cpp"/>
-    <File Name="../../node-cpp/timer.hpp"/>
-    <File Name="../../node-cpp/timer_cpp.cpp"/>
-    <File Name="../../node-cpp/uv_types.hpp"/>
+    <File Name="../../asio/timer_cpp.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
     <File Name="../../test/test_tasks.cpp"/>
   </VirtualDirectory>
+  <Dependencies Name="Debug"/>
+  <Dependencies Name="Release"/>
   <Settings Type="Executable">
     <GlobalSettings>
       <Compiler Options="" C_Options="" Assembler="">
@@ -89,16 +26,16 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="Debug" CompilerType="GCC ( 4.9 )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Debug" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-O0;-std=c++14;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
-        <IncludePath Value="../../node-cpp"/>
-        <IncludePath Value="../../libuv/include"/>
-        <IncludePath Value="../../libuv/src"/>
+        <IncludePath Value="../../asio"/>
       </Compiler>
       <Linker Options="-static" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
+        <Library Value="boost_system"/>
+        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
@@ -133,17 +70,17 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Release" CompilerType="GCC ( 4.9 )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Release" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-O3;-std=c++14;-Wall" C_Options="-O3;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
-        <IncludePath Value="../../node-cpp"/>
-        <IncludePath Value="../../libuv/include"/>
-        <IncludePath Value="../../libuv/src"/>
+        <IncludePath Value="../../asio"/>
         <Preprocessor Value="NDEBUG"/>
       </Compiler>
       <Linker Options="-s;-static" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
+        <Library Value="boost_system"/>
+        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Release" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
@@ -179,6 +116,4 @@
       </Completion>
     </Configuration>
   </Settings>
-  <Dependencies Name="Debug"/>
-  <Dependencies Name="Release"/>
 </CodeLite_Project>
