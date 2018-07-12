@@ -2,6 +2,9 @@
 #ifndef INC_TIMER_HPP_
 #define INC_TIMER_HPP_
 
+// It seems that disable IOCP is faster on windows
+#define BOOST_ASIO_DISABLE_IOCP
+
 #include "promise.hpp"
 #include <boost/asio.hpp>
 

@@ -25,9 +25,9 @@
  * THE SOFTWARE.
  */
 
+#include "asio/timer.hpp"
 #include <stdio.h>
 #include <boost/asio.hpp>
-#include "asio/timer.hpp"
 
 using namespace promise;
 using namespace boost::asio;
