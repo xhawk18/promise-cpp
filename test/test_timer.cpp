@@ -32,14 +32,27 @@
 using namespace promise;
 using namespace boost::asio;
 
+/* Convert callback to a promise (Defer) */
+Defer myDelay(boost::asio::io_service &io, uint64_t time_ms) {
+    return newPromise([&io, time_ms](Defer &d) {
+        setTimeout(io, [d](bool cancelled) {
+            if (cancelled)
+                d.reject();
+            else
+                d.resolve();
+        }, time_ms);
+    });
+}
+
+
 Defer testTimer(io_service &io) {
 
-    return delay(io, 3000).then([&] {
+    return myDelay(io, 3000).then([&] {
         printf("timer after 3000 ms!\n");
-        return delay(io, 1000);
+        return myDelay(io, 1000);
     }).then([&] {
         printf("timer after 1000 ms!\n");
-        return delay(io, 2000);
+        return myDelay(io, 2000);
     }).then([] {
         printf("timer after 2000 ms!\n");
     }).fail([] {

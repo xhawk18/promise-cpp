@@ -17,12 +17,8 @@ Defer yield(boost::asio::io_service &io){
 }
 
 Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
-    return setTimeout(io, time_ms);
-}
-
-Defer setTimeout(boost::asio::io_service &io, uint64_t time_ms) {
     return newPromise([time_ms, &io](Defer &d) {
-        boost::asio::steady_timer *timer = 
+        boost::asio::steady_timer *timer =
             pm_new<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
         d->any_ = timer;
         timer->async_wait([d](const boost::system::error_code& error_code) {
@@ -36,10 +32,10 @@ Defer setTimeout(boost::asio::io_service &io, uint64_t time_ms) {
     });
 }
 
-void clearTimeout(Defer d) {
+void cancelDelay(Defer d) {
     d = d.find_pending();
     if (d.operator->()) {
-        if(!d->any_.empty()){
+        if (!d->any_.empty()) {
             boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(d->any_);
             d->any_.clear();
             timer->cancel();
@@ -47,6 +43,20 @@ void clearTimeout(Defer d) {
         }
         d.reject();
     }
+}
+
+Defer setTimeout(boost::asio::io_service &io,
+                 const std::function<void(bool)> &func,
+                 uint64_t time_ms) {
+    return delay(io, time_ms).then([func]() {
+        func(false);
+    }, [func]() {
+        func(true);
+    });
+}
+
+void clearTimeout(Defer d) {
+    cancelDelay(d);
 }
 
 }

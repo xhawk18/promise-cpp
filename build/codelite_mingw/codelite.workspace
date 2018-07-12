@@ -2,9 +2,9 @@
 <CodeLite_Workspace Name="codelite" Database="" Version="10.0.0" SWTLW="Yes">
   <WorkspaceParserMacros/>
   <WorkspaceParserPaths/>
-  <Project Name="test_timer" Path="test_timer.project" Active="No"/>
+  <Project Name="test_timer" Path="test_timer.project" Active="Yes"/>
   <Project Name="test0" Path="test0.project" Active="No"/>
-  <Project Name="test_tasks" Path="test_tasks.project" Active="Yes"/>
+  <Project Name="test_tasks" Path="test_tasks.project" Active="No"/>
   <BuildMatrix>
     <WorkspaceConfiguration Name="Debug" Selected="no">
       <Environment/>

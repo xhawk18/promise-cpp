@@ -47,7 +47,64 @@ On windows, you can build boost library manually.
 
 Please also modify the boost library path in the example's project file.
 
-### Example code
+### Example 1
+
+This example shows converting a timer callback to promise object.
+
+```cpp
+#include <stdio.h>
+#include <boost/asio.hpp>
+#include "asio/timer.hpp"
+
+using namespace promise;
+using namespace boost::asio;
+
+/* Convert callback to a promise (Defer) */
+Defer myDelay(boost::asio::io_service &io, uint64_t time_ms) {
+    return newPromise([&io, time_ms](Defer &d) {
+        setTimeout(io, [d](bool cancelled) {
+            if (cancelled)
+                d.reject();
+            else
+                d.resolve();
+        }, time_ms);
+    });
+}
+
+
+Defer testTimer(io_service &io) {
+
+    return myDelay(io, 3000).then([&] {
+        printf("timer after 3000 ms!\n");
+        return myDelay(io, 1000);
+    }).then([&] {
+        printf("timer after 1000 ms!\n");
+        return myDelay(io, 2000);
+    }).then([] {
+        printf("timer after 2000 ms!\n");
+    }).fail([] {
+        printf("timer cancelled!\n");
+    });
+}
+
+int main() {
+    io_service io;
+
+    Defer timer = testTimer(io);
+
+    delay(io, 4500).then([=] {
+        printf("clearTimeout\n");
+        clearTimeout(timer);
+    });
+
+    io.run();
+    return 0;
+}
+```
+
+### Example 2
+
+This example shows promise resolve/reject flows.
 
 ```cpp
 #include <stdio.h>
@@ -136,6 +193,7 @@ int main(int argc, char **argv) {
 Creates a new Defer object with a user-defined function.
 The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
 for example --
+
 ```cpp
 return newPromise([](Defer d){
 })
@@ -144,6 +202,7 @@ return newPromise([](Defer d){
 ### Defer resolve(const RET_ARG... &ret_arg);
 Returns a promise that is resolved with the given value.
 for example --
+
 ```cpp
 return resolve(3, '2');
 ```
@@ -151,6 +210,7 @@ return resolve(3, '2');
 ### Defer reject(const RET_ARG... &ret_arg);
 Returns a promise that is rejected with the given arguments.
 for example --
+
 ```cpp
 return reject("some_error");
 ```
@@ -162,6 +222,7 @@ Defer object is the promise object itself.
 Resolve the promise object with arguments, where you can put any number of ret_arg with any type.
 (Please be noted that it is a method of Defer object, which is different from the global resolve function.)
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     //d.resolve();
@@ -174,6 +235,7 @@ return newPromise([](Defer d){
 Reject the promise object with arguments, where you can put any number of ret_arg with any type.
 (Please be noted that it is a method of Defer object, which is different from the global resolve function.)
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     //d.reject();
@@ -187,6 +249,7 @@ Return the chaining promise object, where on_resolved is the function to be call
 previous promise object calls function resolve, on_rejected is the function to be called
 when previous promise object calls function reject.
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     d.resolve(9567, 'A');
@@ -203,6 +266,7 @@ return newPromise([](Defer d){
 Return the chaining promise object, where on_resolved is the function to be called when 
 previous promise object calls function resolve.
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     d.resolve(9567);
@@ -221,6 +285,7 @@ This function is usually named "catch" in most implements of Promise library.
 In promise_cpp, function name "fail" is used instead of "catch", since "catch" is a keyword of c++.
 
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     d.reject(-1, std::string("oh, no!"));
@@ -236,6 +301,7 @@ the previous promise object is be resolved or rejected.
 The returned promise object will keeps the resolved/rejected state of current promise object.
 
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     d.reject(std::string("oh, no!"));
@@ -252,6 +318,7 @@ The returned promise object will be in resolved state whenever current promise o
 resolved or rejected.
 
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     d.reject(std::string("oh, no!"));
@@ -264,6 +331,7 @@ return newPromise([](Defer d){
 To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
 will same as d.reject(the_throwed_object) and returns immediately.
 for example --
+
 ```cpp
 return newPromise([](Defer d){
     throw std::string("oh, no!");
@@ -276,6 +344,7 @@ For the performance, we suggest to use function reject instead of throw.
 ### about the chaining parameter
 Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
 To use plain string or array as chaining parameters, we may wrap it into an object.
+
 ```cpp
 newPromise([](Defer d){
     // d.resolve("ok"); may cause a compiling error, use the following code instead.
@@ -285,6 +354,7 @@ newPromise([](Defer d){
 
 ### copy the promise object
 To copy the promise object is allowed and effective, please do that when you need.
+
 ```cpp
 Defer d = newPromise([](Defer d){});
 Defer d1 = d;  //It's safe and effective
