@@ -6,13 +6,18 @@ namespace promise {
 
 Defer yield(boost::asio::io_service &io){
     auto defer = newPromise([&io](Defer d) {
+#if BOOST_VERSION >= 106600
         boost::asio::defer(io, [d]() {
             d.resolve();
         });
-
+#else
+        io.post([d]() {
+            d.resolve();
+        });
+#endif
     });
 
-    pm_assert(defer->next_.operator->() == nullptr);
+    //pm_assert(defer->next_.operator->() == nullptr);
     return defer;
 }
 
