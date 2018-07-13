@@ -215,6 +215,27 @@ for example --
 return reject("some_error");
 ```
 
+### Defer all(const PROMISE_LIST &promise_list);
+Wait until all promise objects in "promise_list" are resolved or one of which is rejected.
+The "promise_list" can be any container that has Defer as element type.
+
+> for (Defer &defer : promise_list) { ... }
+
+for example --
+
+```cpp
+Defer d0 = newPromise([](Defer d){ /* ... */ });
+Defer d1 = newPromise([](Defer d){ /* ... */ });
+std::vector<Defer> promise_list = { d0, d1 };
+
+all(promise_list).then([](){
+    /* code here for all promise objects are resolved */
+}).fail([](){
+    /* code here for one of the promise objects is rejected */
+});
+```
+
+
 ## Class Defer
 Defer object is the promise object itself.
 

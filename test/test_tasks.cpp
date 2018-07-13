@@ -88,6 +88,8 @@ int main() {
             return test_switch(io, 10000);
         }).then([&]() {
             return test_switch(io, 100000);
+        }).then([&]() {
+            return test_switch(io, 1000000);
         }).then(d);
     });
 
