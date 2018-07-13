@@ -9,7 +9,6 @@
   <Dependencies/>
   <VirtualDirectory Name="promise_cpp">
     <File Name="../../promise.hpp"/>
-    <File Name="../../asio/timer_cpp.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
     <File Name="../../test/test_tasks.cpp"/>

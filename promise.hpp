@@ -1,10 +1,4 @@
-#pragma once
-#ifndef INC_PROMISE_FULL_HPP_
-#define INC_PROMISE_FULL_HPP_
-
 /*
- * Promise API implemented by cpp as Javascript promise style 
- *
  * Copyright (c) 2016, xhawk18
  * at gmail.com
  *
@@ -28,6 +22,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#pragma once
+#ifndef INC_PROMISE_FULL_HPP_
+#define INC_PROMISE_FULL_HPP_
+
+//
+// C++ promise/A+ library in Javascript styles.
+// See Readme.md for functions and detailed usage --
+//
 
 //#define PM_DEBUG
 //#define PM_EMBED

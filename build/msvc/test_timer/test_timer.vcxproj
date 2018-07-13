@@ -171,7 +171,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\asio\timer_cpp.cpp" />
     <ClCompile Include="..\..\..\test\test_timer.cpp" />
   </ItemGroup>
   <ItemGroup>

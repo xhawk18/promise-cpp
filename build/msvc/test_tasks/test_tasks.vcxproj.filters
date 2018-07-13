@@ -18,9 +18,6 @@
     <ClCompile Include="..\..\..\test\test_tasks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\asio\timer_cpp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\asio\timer.hpp">

@@ -8,7 +8,6 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="promise_cpp">
-    <File Name="../../asio/timer_cpp.cpp"/>
     <File Name="../../promise.hpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
