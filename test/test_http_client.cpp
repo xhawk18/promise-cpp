@@ -43,12 +43,12 @@ namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
 
 template<typename RESULT>
 void setPromise(Defer d,
-                boost::system::error_code ec,
+                boost::system::error_code err,
                 const char *errorString,
                 const RESULT &result) {
-    if (ec) {
-        std::cerr << errorString << ": " << ec.message() << "\n";
-        d.reject(ec);
+    if (err) {
+        std::cerr << errorString << ": " << err.message() << "\n";
+        d.reject(err);
     }
     else
         d.resolve(result);
@@ -61,9 +61,9 @@ Defer async_resolve(tcp::resolver &resolver, const std::string &host, const std:
         resolver.async_resolve(
             host,
             port,
-            [d](boost::system::error_code ec,
+            [d](boost::system::error_code err,
                 tcp::resolver::results_type results) {
-                setPromise(d, ec, "resolve", results);
+                setPromise(d, err, "resolve", results);
         });
     });
 }
@@ -75,8 +75,8 @@ Defer async_connect(tcp::socket &socket, const tcp::resolver::results_type &resu
             socket,
             results.begin(),
             results.end(),
-            [d](boost::system::error_code ec, tcp::resolver::iterator i) {
-                setPromise(d, ec, "connect", i);
+            [d](boost::system::error_code err, tcp::resolver::iterator i) {
+                setPromise(d, err, "connect", i);
         });
     });
 }
@@ -86,9 +86,9 @@ Defer async_write(tcp::socket &socket, http::request<http::empty_body> &req) {
         //write
         // Send the HTTP request to the remote host
         http::async_write(socket, req,
-            [d](boost::system::error_code ec,
+            [d](boost::system::error_code err,
                 std::size_t bytes_transferred) {
-                setPromise(d, ec, "write", bytes_transferred);
+                setPromise(d, err, "write", bytes_transferred);
         });
     });
 }
@@ -99,9 +99,9 @@ Defer async_read(tcp::socket &socket,
     //read
     return newPromise([&](Defer d) {
         http::async_read(socket, buffer, res,
-            [d](boost::system::error_code ec,
+            [d](boost::system::error_code err,
                 std::size_t bytes_transferred) {
-                setPromise(d, ec, "read", bytes_transferred);
+                setPromise(d, err, "read", bytes_transferred);
         });
     });
 }
@@ -161,13 +161,13 @@ void do_session(
     }).then([]() {
         //<6> success, return default error_code
         return boost::system::error_code();
-    }, [](const boost::system::error_code ec) {
+    }, [](const boost::system::error_code err) {
         //<6> failed, return the error_code
-        return ec;
+        return err;
 
-    }).then([=](boost::system::error_code &ec) {
+    }).then([=](boost::system::error_code &err) {
         //<7> Gracefully close the socket
-        session->socket_.shutdown(tcp::socket::shutdown_both, ec);
+        session->socket_.shutdown(tcp::socket::shutdown_both, err);
     });
 }
 
