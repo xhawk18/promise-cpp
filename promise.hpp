@@ -896,7 +896,8 @@ struct ExCheckTuple {
 
 template <typename FUNC>
 struct ExCheckTuple<0, FUNC> {
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) 
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         pm_any arg = std::tuple<>();
         caller->any_.clear();
         return call_func(func, arg);
@@ -906,7 +907,8 @@ struct ExCheckTuple<0, FUNC> {
 template <typename FUNC>
 struct ExCheckTuple<1, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller)
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         try {
             std::rethrow_exception(eptr);
@@ -930,7 +932,8 @@ struct ExCheck:
 
 template<typename FUNC>
 struct ExCheck<pm_any, FUNC> {
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) 
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         try {
             std::rethrow_exception(eptr);

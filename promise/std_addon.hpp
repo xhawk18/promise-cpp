@@ -136,6 +136,30 @@ inline typename tuple_element<I, TUPLE>::type &get(TUPLE &tuple) {
     return tuple_get<I, TUPLE>::get(tuple);
 }
 
+
+typedef const std::type_info *type_index;
+inline type_index get_type_index(const std::type_info &info){
+    return type_index(&info);
+}
+
+} //namespace std
+
+#else
+
+#include <tuple>
+#include <typeindex>
+#include <type_traits>
+
+inline std::type_index get_type_index(const std::type_info &info){
+    return std::type_index(info);
+}
+#endif
+
+
+
+#if __cplusplus < 201402L
+namespace std {
+
 template <size_t... Ints>
 struct index_sequence
 {
@@ -161,23 +185,8 @@ struct make_index_sequence
 template<> struct make_index_sequence<0> : index_sequence<> { };
 template<> struct make_index_sequence<1> : index_sequence<0> { };
 
-typedef const std::type_info *type_index;
-inline type_index get_type_index(const std::type_info &info){
-    return type_index(&info);
-}
-
-}
-
-#else
-
-#include <tuple>
-#include <typeindex>
-#include <type_traits>
-
-inline std::type_index get_type_index(const std::type_info &info){
-    return std::type_index(info);
-}
+} //namespace std
 #endif
 
-
+ 
 #endif
