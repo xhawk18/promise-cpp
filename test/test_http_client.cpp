@@ -107,76 +107,69 @@ Defer async_read(tcp::socket &socket,
 }
 
 // Performs an HTTP GET and prints the response
-class session : public std::enable_shared_from_this<session>
-{
-    tcp::resolver resolver_;
-    tcp::socket socket_;
-    boost::beast::flat_buffer buffer_; // (Must persist between reads)
-    http::request<http::empty_body> req_;
-    http::response<http::string_body> res_;
+void do_session(
+    std::string const& host,
+    std::string const& port,
+    std::string const& target,
+    int version,
+    boost::asio::io_context& ioc) {
 
-public:
-    // Resolver and socket require an io_context
-    explicit
-        session(boost::asio::io_context& ioc)
-        : resolver_(ioc)
-        , socket_(ioc)
-    {
-    }
+    struct Session {
+        tcp::resolver resolver_;
+        tcp::socket socket_;
+        boost::beast::flat_buffer buffer_;
+        http::request<http::empty_body> req_;
+        http::response<http::string_body> res_;
 
-    // Start the asynchronous operation
-    void
-        run(
-            char const* host,
-            char const* port,
-            char const* target,
-            int version)
-    {
-        // Set up an HTTP GET request message
-        req_.version(version);
-        req_.method(http::verb::get);
-        req_.target(target);
-        req_.set(http::field::host, host);
-        req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+        explicit Session(boost::asio::io_context& ioc)
+            : resolver_(ioc)
+            , socket_(ioc) {
+        }
+    };
 
-        auto thiz = shared_from_this();
+    // (Must persist in io_context ioc)
+    auto session = std::make_shared<Session>(ioc);
 
-        //<1> Resolve the host
-        async_resolve(resolver_, host, port)
+    // Set up an HTTP GET request message
+    session->req_.version(version);
+    session->req_.method(http::verb::get);
+    session->req_.target(target);
+    session->req_.set(http::field::host, host);
+    session->req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-        .then([thiz](tcp::resolver::results_type &results) {
-            //<2> Connect to the host
-            return async_connect(thiz->socket_, results);
+    //<1> Resolve the host
+    async_resolve(session->resolver_, host, port)
 
-        }).then([thiz]() {
-            //<3> Write the request
-            return async_write(thiz->socket_, thiz->req_);
+    .then([=](tcp::resolver::results_type &results) {
+        //<2> Connect to the host
+        return async_connect(session->socket_, results);
 
-        }).then([thiz](std::size_t bytes_transferred) {
-            boost::ignore_unused(bytes_transferred);
-            //<4> Read the response
-            return async_read(thiz->socket_, thiz->buffer_, thiz->res_);
+    }).then([=]() {
+        //<3> Write the request
+        return async_write(session->socket_, session->req_);
 
-        }).then([thiz](std::size_t bytes_transferred) {
-            boost::ignore_unused(bytes_transferred);
-            //<5> Write the message to standard out
-            std::cout << thiz->res_ << std::endl;
+    }).then([=](std::size_t bytes_transferred) {
+        boost::ignore_unused(bytes_transferred);
+        //<4> Read the response
+        return async_read(session->socket_, session->buffer_, session->res_);
 
-        }).then([]() {
-            //<6> success, return default error_code
-            return boost::system::error_code();
-        }, [](const boost::system::error_code ec) {
-            //<6> failed, return the error_code
-            return ec;
+    }).then([=](std::size_t bytes_transferred) {
+        boost::ignore_unused(bytes_transferred);
+        //<5> Write the message to standard out
+        std::cout << session->res_ << std::endl;
 
-        }).then([thiz](boost::system::error_code &ec) {
-            //<7> Gracefully close the socket
-            thiz->socket_.shutdown(tcp::socket::shutdown_both, ec);
-        });
-    }
+    }).then([]() {
+        //<6> success, return default error_code
+        return boost::system::error_code();
+    }, [](const boost::system::error_code ec) {
+        //<6> failed, return the error_code
+        return ec;
 
-
-};
+    }).then([=](boost::system::error_code &ec) {
+        //<7> Gracefully close the socket
+        session->socket_.shutdown(tcp::socket::shutdown_both, ec);
+    });
+}
 
 //------------------------------------------------------------------------------
 
@@ -201,7 +194,7 @@ int main(int argc, char** argv)
     boost::asio::io_context ioc;
 
     // Launch the asynchronous operation
-    std::make_shared<session>(ioc)->run(host, port, target, version);
+    do_session(host, port, target, version, ioc);
 
     // Run the I/O service. The call will return when
     // the get operation is complete.
