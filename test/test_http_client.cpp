@@ -18,6 +18,10 @@
 //
 //------------------------------------------------------------------------------
 
+#include <boost/version.hpp>
+#if BOOST_VERSION < 106600
+#   error "This program need boost 1.66.0 or higher!"
+#endif
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>

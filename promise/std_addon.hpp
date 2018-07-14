@@ -157,7 +157,7 @@ inline std::type_index get_type_index(const std::type_info &info){
 
 
 
-#if __cplusplus < 201402L
+#if (defined(_MSVC_LANG) && _MSVC_LANG < 201402L) || (!defined(_MSVC_LANG) && __cplusplus < 201402L)
 namespace std {
 
 template <size_t... Ints>
