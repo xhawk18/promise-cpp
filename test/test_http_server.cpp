@@ -312,12 +312,12 @@ do_session(
         }).then([=](boost::system::error_code &err) {
             //<7> Gracefully close the socket
             if (!err && !session->close_) {
-                d.resolve();    //continue while ...
+                d.resolve();//continue While ...
             }
             else {
                 std::cout << "shutdown..." << std::endl;
                 session->socket_.shutdown(tcp::socket::shutdown_send, err);
-                d.reject();
+                d.reject(); //break from While
             }
         });
     });
