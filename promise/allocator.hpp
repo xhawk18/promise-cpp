@@ -102,7 +102,7 @@ struct pm_memory_pool_buf {
 template <size_t SIZE>
 struct pm_size_allocator {
     static inline pm_memory_pool *get_memory_pool() {
-        static pm_memory_pool *pool_ = nullptr;
+        thread_local static pm_memory_pool *pool_ = nullptr;
         if(pool_ == nullptr)
             pool_ = pm_stack_new<pm_memory_pool>(SIZE);
         return pool_;

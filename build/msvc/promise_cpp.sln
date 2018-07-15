@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_timer", "test_timer\test_timer.vcxproj", "{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_tasks", "test_tasks\test_tasks.vcxproj", "{C202174B-C3D8-4325-A469-06EC4A08EAF7}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_client", "test_http_client\test_http_client.vcxproj", "{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_server", "test_http_server\test_http_server.vcxproj", "{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,14 @@ Global
 		{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}.Release|x64.Build.0 = Release|x64
 		{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}.Release|x86.ActiveCfg = Release|Win32
 		{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}.Release|x86.Build.0 = Release|Win32
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Debug|x64.ActiveCfg = Debug|x64
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Debug|x64.Build.0 = Debug|x64
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Debug|x86.ActiveCfg = Debug|Win32
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Debug|x86.Build.0 = Debug|Win32
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x64.ActiveCfg = Release|x64
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x64.Build.0 = Release|x64
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x86.ActiveCfg = Release|Win32
+		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

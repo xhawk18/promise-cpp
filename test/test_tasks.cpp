@@ -24,6 +24,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+
+// It seems that disable IOCP is faster on windows
+#define BOOST_ASIO_DISABLE_IOCP
+
 #include <stdio.h>
 #include <iostream>
 #include <string>

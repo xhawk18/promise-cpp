@@ -14,7 +14,7 @@
 
 //------------------------------------------------------------------------------
 //
-// Example: HTTP client, asynchronous
+// Example: HTTP client, asynchronous with promise-cpp
 //
 //------------------------------------------------------------------------------
 
@@ -33,6 +33,7 @@
 #include <memory>
 #include <string>
 #include "promise.hpp"
+#include "asio/io.hpp"
 
 using namespace promise;
 
@@ -40,71 +41,6 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
 
                                         //------------------------------------------------------------------------------
-
-template<typename RESULT>
-void setPromise(Defer d,
-                boost::system::error_code err,
-                const char *errorString,
-                const RESULT &result) {
-    if (err) {
-        std::cerr << errorString << ": " << err.message() << "\n";
-        d.reject(err);
-    }
-    else
-        d.resolve(result);
-}
-
-// Promisified functions
-Defer async_resolve(tcp::resolver &resolver, const std::string &host, const std::string &port) {
-    return newPromise([&](Defer d) {
-        // Look up the domain name
-        resolver.async_resolve(
-            host,
-            port,
-            [d](boost::system::error_code err,
-                tcp::resolver::results_type results) {
-                setPromise(d, err, "resolve", results);
-        });
-    });
-}
-
-Defer async_connect(tcp::socket &socket, const tcp::resolver::results_type &results) {
-    return newPromise([&](Defer d) {
-        // Make the connection on the IP address we get from a lookup
-        boost::asio::async_connect(
-            socket,
-            results.begin(),
-            results.end(),
-            [d](boost::system::error_code err, tcp::resolver::iterator i) {
-                setPromise(d, err, "connect", i);
-        });
-    });
-}
-
-Defer async_write(tcp::socket &socket, http::request<http::empty_body> &req) {
-    return newPromise([&](Defer d) {
-        //write
-        // Send the HTTP request to the remote host
-        http::async_write(socket, req,
-            [d](boost::system::error_code err,
-                std::size_t bytes_transferred) {
-                setPromise(d, err, "write", bytes_transferred);
-        });
-    });
-}
-
-Defer async_read(tcp::socket &socket,
-                 boost::beast::flat_buffer &buffer,
-                 http::response<http::string_body> &res) {
-    //read
-    return newPromise([&](Defer d) {
-        http::async_read(socket, buffer, res,
-            [d](boost::system::error_code err,
-                std::size_t bytes_transferred) {
-                setPromise(d, err, "read", bytes_transferred);
-        });
-    });
-}
 
 // Performs an HTTP GET and prints the response
 void do_session(
@@ -167,6 +103,7 @@ void do_session(
 
     }).then([=](boost::system::error_code &err) {
         //<7> Gracefully close the socket
+        std::cout << "shutdown..." << std::endl;
         session->socket_.shutdown(tcp::socket::shutdown_both, err);
     });
 }

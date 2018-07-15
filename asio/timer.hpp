@@ -24,8 +24,8 @@
  */
 
 #pragma once
-#ifndef INC_TIMER_HPP_
-#define INC_TIMER_HPP_
+#ifndef INC_ASIO_TIMER_HPP_
+#define INC_ASIO_TIMER_HPP_
 
 //
 // Promisified timer based on promise-cpp and boost::asio
@@ -41,10 +41,6 @@
 //   void clearTimeout(Defer d);
 //
 
-
-// It seems that disable IOCP is faster on windows
-#define BOOST_ASIO_DISABLE_IOCP
-
 #include "promise.hpp"
 #include <chrono>
 #include <boost/asio.hpp>
@@ -52,7 +48,7 @@
 
 namespace promise {
 
-Defer yield(boost::asio::io_service &io){
+inline Defer yield(boost::asio::io_service &io){
     auto defer = newPromise([&io](Defer d) {
 #if BOOST_VERSION >= 106600
         boost::asio::defer(io, [d]() {
@@ -69,7 +65,7 @@ Defer yield(boost::asio::io_service &io){
     return defer;
 }
 
-Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
+inline Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
     return newPromise([time_ms, &io](Defer &d) {
         boost::asio::steady_timer *timer =
             pm_new<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
@@ -85,7 +81,7 @@ Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
     });
 }
 
-void cancelDelay(Defer d) {
+inline void cancelDelay(Defer d) {
     d = d.find_pending();
     if (d.operator->()) {
         if (!d->any_.empty()) {
@@ -98,7 +94,7 @@ void cancelDelay(Defer d) {
     }
 }
 
-Defer setTimeout(boost::asio::io_service &io,
+inline Defer setTimeout(boost::asio::io_service &io,
                  const std::function<void(bool)> &func,
                  uint64_t time_ms) {
     return delay(io, time_ms).then([func]() {
@@ -108,7 +104,7 @@ Defer setTimeout(boost::asio::io_service &io,
     });
 }
 
-void clearTimeout(Defer d) {
+inline void clearTimeout(Defer d) {
     cancelDelay(d);
 }
 
