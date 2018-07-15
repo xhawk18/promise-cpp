@@ -294,23 +294,25 @@ do_session(
 {
     While([=](Defer d){
         std::cout << "read new http request ... " << std::endl;
-        // Read a request
+        //<1> Read a request
         session->req_ = {};
         async_read(session->socket_, session->buffer_, session->req_)
+
         .then([=]() {
-            // Send the response
+            //<2> Send the response
             // This lambda is used to send messages
             send_lambda<tcp::socket> lambda{ session->socket_, session->close_ };
             return handle_request(session, lambda);
+
         }).then([]() {
-            //<6> success, return default error_code
+            //<3> success, return default error_code
             return boost::system::error_code();
         }, [](const boost::system::error_code err) {
-            //<6> failed, return the error_code
+            //<3> failed, return the error_code
             return err;
 
         }).then([=](boost::system::error_code &err) {
-            //<7> Gracefully close the socket
+            //<4> Keep-alive or close the connection.
             if (!err && !session->close_) {
                 d.resolve();//continue While ...
             }
