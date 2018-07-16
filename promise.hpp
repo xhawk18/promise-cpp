@@ -54,7 +54,6 @@
 #include "promise/list.hpp"
 #include "promise/allocator.hpp"
 #include "promise/any.hpp"
-//#include "promise/utask.hpp"
 
 namespace promise {
 
