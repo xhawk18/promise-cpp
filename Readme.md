@@ -251,7 +251,7 @@ Defer d1 = newPromise([](Defer d){ /* ... */ });
 std::vector<Defer> promise_list = { d0, d1 };
 
 race(promise_list).then([](){
-    /* code here for all promise objects are resolved */
+    /* code here for one of the promise objects is resolved */
 }).fail([](){
     /* code here for one of the promise objects is rejected */
 });
