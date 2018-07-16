@@ -47,8 +47,49 @@ Defer testTimer(io_service &io) {
     });
 }
 
+void testPromiseRace(io_service &io) {
+    auto promise0 = delay(io, 10000).then([] {
+        printf("race: one resolved\n");
+        return "one";
+    });
+    auto promise1 = delay(io, 5000).then([] {
+        printf("race: two resolved\n");
+        return "two";
+    });
+    std::vector<Defer> promises = { promise0, promise1 };
+
+    race(promises).then([](const char *str) {
+        printf("race result = %s\n", str);
+        // Both resolve, but promise2 is faster
+    });
+}
+
+void testPromiseAll(io_service &io) {
+    auto promise0 = delay(io, 10000).then([] {
+        printf("all: one resolved\n");
+        return std::string("one");
+    });
+    auto promise1 = delay(io, 5000).then([] {
+        printf("all: two resolved\n");
+        return std::string("two");
+    });
+
+    std::vector<Defer> promises = { promise0, promise1 };
+
+    all(promises).then([](const std::vector<pm_any> &results) {
+        printf("all size = %d\n", (int)results.size());
+        for(size_t i = 0; i < results.size(); ++i)
+            printf("all result = %s\n",
+                static_cast<std::string *>(results[i].tuple_element(0))->c_str());
+        // Both resolve, but promise2 is faster
+    });
+}
+
 int main() {
     io_service io;
+
+    testPromiseRace(io);
+    testPromiseAll(io);
 
     Defer timer = testTimer(io);
 

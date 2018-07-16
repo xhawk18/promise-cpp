@@ -237,7 +237,7 @@ inline auto call_func(const FUNC &func, pm_any &arg)
     return call_tuple_as_argument(func, arg, std::make_index_sequence<type_tuple<func_arg_type>::size_>());
 }
 
-struct Bypass {};
+struct BypassAnyArg {};
 struct Promise;
 
 template< class T >
@@ -541,6 +541,12 @@ struct Promise {
             call_next();
     }
 
+    void resolve(const pm_any &ret_arg) {
+        prepare_resolve(ret_arg);
+        if (status_ == kResolved)
+            call_next();
+    }
+
     template <typename RET_ARG>
     void prepare_reject(const RET_ARG &ret_arg) {
         if (status_ != kInit) return;
@@ -553,6 +559,12 @@ struct Promise {
         typedef typename remove_reference_tuple<std::tuple<RET_ARG...>>::type arg_type;
         prepare_reject(arg_type(ret_arg...));
         if(status_ == kRejected)
+            call_next();
+    }
+
+    void reject(const pm_any &ret_arg) {
+        prepare_reject(ret_arg);
+        if (status_ == kRejected)
             call_next();
     }
 
@@ -686,11 +698,11 @@ struct Promise {
 
     template <typename FUNC_ON_FINALLY>
     Defer finally(const FUNC_ON_FINALLY &on_finally) {
-        return then([on_finally](Promise *caller) -> Bypass {
+        return then([on_finally](Promise *caller) -> BypassAnyArg {
             if(verify_func_arg(on_finally, caller->any_))
                 call_func(on_finally, caller->any_);
-            return Bypass();
-        }, [on_finally](Defer &self, Promise *caller) -> Bypass {
+            return BypassAnyArg();
+        }, [on_finally](Defer &self, Promise *caller) -> BypassAnyArg {
 #ifndef PM_EMBED
             typedef typename func_traits<FUNC_ON_FINALLY>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
@@ -704,7 +716,7 @@ struct Promise {
             if (verify_func_arg(on_finally, caller->any_))
                 call_func(on_finally, caller->any_);
 #endif
-            return Bypass();
+            return BypassAnyArg();
         });
     }
 
@@ -837,7 +849,7 @@ struct ResolveChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct ResolveChecker<Bypass, FUNC> {
+struct ResolveChecker<BypassAnyArg, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
@@ -1013,7 +1025,7 @@ struct RejectChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct RejectChecker<Bypass, FUNC> {
+struct RejectChecker<BypassAnyArg, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
@@ -1097,33 +1109,56 @@ inline Defer resolve(const RET_ARG &... ret_arg){
    argument have resolved, or rejects with the reason of the first passed
    promise that rejects. */
 template <typename PROMISE_LIST>
-inline Defer all(const PROMISE_LIST &promise_list) {
+inline Defer all(PROMISE_LIST &promise_list) {
     if(pm_size(promise_list) == 0){
         //return Promise::resolve<>()
     }
 
+    size_t *finished = pm_new<size_t>(0);
     size_t *size = pm_new<size_t>(pm_size(promise_list));
     std::vector<pm_any> *ret_arr = pm_new<std::vector<pm_any>>();
-    ret_arr->reserve(*size);
+    ret_arr->resize(*size);
 
     return newPromise([=](Defer &d) {
-        for (auto &defer : promise_list) {
+        size_t index = 0;
+        for (auto defer : promise_list) {
             defer.then([=](pm_any &arg) {
-                ret_arr->push_back(arg);
-                if (ret_arr->size() >= *size) {
+                (*ret_arr)[index] = arg;
+                if (++(*finished) >= *size) {
                     std::vector<pm_any> ret = *ret_arr;
+                    pm_delete(finished);
                     pm_delete(size);
                     pm_delete(ret_arr);
                     d.resolve(ret);
                 }
             }, [=](pm_any &arg) {
+                pm_delete(finished);
                 pm_delete(size);
                 pm_delete(ret_arr);
                 d.reject(arg);
             });
+
+            ++index;
         }
     });
 }
+
+/* returns a promise that resolves or rejects as soon as one of
+the promises in the iterable resolves or rejects, with the value
+or reason from that promise. */
+template <typename PROMISE_LIST>
+inline Defer race(PROMISE_LIST promise_list) {
+    return newPromise([=](Defer d) {
+        for (auto defer : promise_list) {
+            defer.then([=](pm_any &arg) {
+                d->resolve(arg);
+            }, [=](pm_any &arg) {
+                d->reject(arg);
+            });
+        }
+    });
+}
+
 
 }
 
