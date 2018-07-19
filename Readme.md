@@ -6,10 +6,13 @@
 
 ## Example 
 
-> test/test0.cpp: a simple test code for promise resolve/reject operations.
-> test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
-> test/test_http_client.cpp: promisified flow for asynchronized http client. (boost::asio, boost::beast required)
-> test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
+* test/test0.cpp: a simple test code for promise resolve/reject operations.
+
+* test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
+
+* test/test_http_client.cpp: promisified flow for asynchronized http client. (boost::asio, boost::beast required)
+
+* test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
 Please check folder "build" to get the codelite/msvc projects for the test code above.
 
@@ -17,9 +20,11 @@ Please check folder "build" to get the codelite/msvc projects for the test code 
 
 The library has passed test on these compilers --
 
-> gcc 5
-> Visual studio 2015 sp3
-> clang 3.4.2
+* gcc 5
+
+* Visual studio 2015 sp3
+
+* clang 3.4.2
 
 ### Build tips
 
