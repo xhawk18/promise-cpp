@@ -4,39 +4,35 @@
    promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
    With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
-## Example
+## Example 
 
-### Example projects for linux
+> test/test0.cpp: a simple test code for promise resolve/reject operations.
 
-> Projects: build\codelite_linux\codelite.workspace
+> test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
 
-> Require: codelite, gcc 5 or higher
+> test/test_http_client.cpp: promisified flow for asynchronized http client. (boost::asio, boost::beast required)
 
-### Example projects for windows
+> test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
-> Projects: build\msvc\promise_cpp.sln
+Please check folder "build" to get the codelite/msvc projects for the test code above.
 
-> Require: Visual studio 2015 or higher
+### Compiler required
 
-or
+The library has passed test on these compilers --
 
-> Projects: build\codelite_mingw\codelite.workspace
+> gcc 5 or later
 
-> Require: codelite, gcc 5 or higher
+> Visual studio 2015 or later
 
+> clang 3.4.2 or later
 
 ### Build tips
 
-The example projects use boost::asio as io service. 
-You need to install boost libary to build the examples.
+The example projects use boost::asio as io service, and use boost::beast as http service. 
+You need to install [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
+ or higher to build the examples.
 
-On linux (ubuntu)
-
-```
-$ sudo apt-get install libboost-all-dev
-```
-
-On windows, you can build boost library manually.
+For examples, on windows, you can build boost library in these steps --
 
 ```
 > cd *boost_source_folder*

@@ -29,6 +29,13 @@
  * THE SOFTWARE.
  */
 
+#if defined __GNUC__ && !defined __clang__
+# if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ <= 8)
+#  error "Please use g++ 4.9.0 or higher"
+# endif
+#endif
+
+
 #if defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
 /* Missing headers for ARMCC */
 /* Add on for std, used by arm cc */
