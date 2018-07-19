@@ -7,11 +7,8 @@
 ## Example 
 
 > test/test0.cpp: a simple test code for promise resolve/reject operations.
-
 > test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
-
 > test/test_http_client.cpp: promisified flow for asynchronized http client. (boost::asio, boost::beast required)
-
 > test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
 Please check folder "build" to get the codelite/msvc projects for the test code above.
@@ -20,11 +17,9 @@ Please check folder "build" to get the codelite/msvc projects for the test code 
 
 The library has passed test on these compilers --
 
-> gcc 5 or later
-
-> Visual studio 2015 or later
-
-> clang 3.4.2 or later
+> gcc 5
+> Visual studio 2015 sp3
+> clang 3.4.2
 
 ### Build tips
 
@@ -41,7 +36,7 @@ For examples, on windows, you can build boost library in these steps --
 > b2.exe stage variant=debug runtime-link=static threading=multi
 ```
 
-Please also modify the boost library path in the example's project file.
+After have boost installed, modify path of boost library in the example's project file according to the real path.
 
 ### Example 1
 
