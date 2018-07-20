@@ -29,7 +29,7 @@
       <Compiler Options="-g;-O0;-std=c++11;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
       </Compiler>
-      <Linker Options="-static" Required="yes">
+      <Linker Options="" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
         <Library Value="boost_system"/>
@@ -73,7 +73,7 @@
         <IncludePath Value="../.."/>
         <Preprocessor Value="NDEBUG"/>
       </Compiler>
-      <Linker Options="-s;-static" Required="yes">
+      <Linker Options="-s" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
         <Library Value="boost_system"/>
