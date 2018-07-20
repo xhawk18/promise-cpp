@@ -29,8 +29,12 @@ project(asio)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS date_time system)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
-  link_libraries(pthread ${Boost_LIBRARIES})
+  link_libraries(${Boost_LIBRARIES})
 endif()
+
+if (UNIX)
+  link_libraries(pthread)
+endif (UNIX)
 
 use_cxx11()
 aux_source_directory(. DIR_SRCS)
