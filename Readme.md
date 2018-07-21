@@ -402,14 +402,14 @@ Defer d1 = d;  //It's safe and effective
 
 ### handle uncaught exceptional or rejected parameters
 
-The uncaught exceptional or rejected parameters are ignored by default. We can specify a handler function to do with the uncaught parameters --
+The uncaught exceptional or rejected parameters are ignored by default. We can specify a handler function to do with these parameters --
 
 ```
 handleUncaughtException([](Defer &d) {
     d.fail([](int n, int m) {
-        //go here is the uncaught parameters match types "int n, int m".
+        //go here if the uncaught parameters match types "int n, int m".
     }).fail([](char c) {
-        //go here is the uncaught parameters match type "char c".
+        //go here if the uncaught parameters match type "char c".
     }).fail([]() {
         //go here for all other uncaught parameters.
     });
