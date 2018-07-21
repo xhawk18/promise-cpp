@@ -398,6 +398,21 @@ Defer d = newPromise([](Defer d){});
 Defer d1 = d;  //It's safe and effective
 ```
 
+### handle uncaught rejected or exceptional parameters
+
+The uncaught rejected or exceptional parameters are ignore by default. We can specify a handler function to do with the uncaught parameters --
+
+```
+handleUncaughtException([](Defer &d) {
+    d.fail([](int n, int m) {
+        //go here is the uncaught parameters match types "int n, int m".
+    }).fail([](char c) {
+        //go here is the uncaught parameters match type "char c".
+    }).fail([]() {
+        //go here for all other uncaught parameters.
+    });
+```
+
 
 
 

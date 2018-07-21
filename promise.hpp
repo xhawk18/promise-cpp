@@ -41,6 +41,7 @@
 #include <utility>
 #include <algorithm>
 #include <iterator>
+#include <functional>
 
 #ifndef PM_EMBED
 #include <exception>
@@ -395,11 +396,18 @@ public:
     void resolve(const RET_ARG &... ret_arg) const {
         object_->template resolve<RET_ARG...>(ret_arg...);
     }
+    void resolve(const pm_any &ret_arg) const {
+        object_->resolve(ret_arg);
+    }
 
     template <typename ...RET_ARG>
     void reject(const RET_ARG &... ret_arg) const {
         object_->template reject<RET_ARG...>(ret_arg...);
     }
+    void reject(const pm_any &ret_arg) const {
+        object_->reject(ret_arg);
+    }
+
 
     Defer then(Defer &promise) {
         return object_->then(promise);
@@ -449,6 +457,10 @@ struct RejectChecker;
 #ifndef PM_EMBED
 template<typename ARG_TYPE, typename FUNC>
 struct ExCheck;
+#endif
+
+#ifndef PM_EMBED
+typedef std::function<void(Defer &d)> FnOnUncaughtException;
 #endif
 
 inline Defer newHeadPromise(void);
@@ -524,7 +536,34 @@ struct Promise {
         if (next_.operator->()) {
             next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
+#ifndef PM_EMBED
+        else if (status_ == kRejected) {
+            onUncaughtException(any_);
+        }
+#endif
     }
+
+#ifndef PM_EMBED
+    static FnOnUncaughtException *getUncaughtExceptionHandler() {
+        static FnOnUncaughtException onUncaughtException = nullptr;
+        return &onUncaughtException;
+    }
+
+    static void onUncaughtException(const pm_any &any) {
+        FnOnUncaughtException *onUncaughtException = getUncaughtExceptionHandler();
+        if (onUncaughtException != nullptr) {
+            Defer promise = newHeadPromise();
+            promise.reject(any);
+            (*onUncaughtException)(promise);
+            get_tail(promise.operator->())->fail([] {
+            });
+        }
+    }
+
+    static void handleUncaughtException(const FnOnUncaughtException &onUncaughtException) {
+        (*getUncaughtExceptionHandler()) = onUncaughtException;
+    }
+#endif
 
     template <typename RET_ARG>
     void prepare_resolve(const RET_ARG &ret_arg) {
@@ -899,7 +938,7 @@ struct ResolveChecker<RET, FnSimple> {
 #ifndef PM_EMBED
 template<std::size_t ARG_SIZE, typename FUNC>
 struct ExCheckTuple {
-    static void call(const FUNC &func, Defer &self, Promise *caller) {
+    static void *call(const FUNC &func, Defer &self, Promise *caller) {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         throw eptr;
     }
@@ -1157,6 +1196,10 @@ inline Defer race(PROMISE_LIST promise_list) {
             });
         }
     });
+}
+
+inline void handleUncaughtException(const FnOnUncaughtException &onUncaughtException) {
+    Promise::handleUncaughtException(onUncaughtException);
 }
 
 

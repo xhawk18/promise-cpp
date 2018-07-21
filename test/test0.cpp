@@ -66,6 +66,7 @@ Defer run(Defer &next){
         });
         //Will call next.resole() or next.reject() later
         //throw 33;
+        //next.reject(55, 66);
         return next;
     }).finally([](int n) {
         printf("finally n == %d\n", n);
@@ -92,10 +93,10 @@ Defer run(Defer &next){
         printf("n = %d\n", (int)n);
     }).then(test1)
     .then(test2)
-    .then(test3)
-    .always([]() {
-        output_func_name();
-    });
+    .then(test3);
+    //.always([]() {
+    //    output_func_name();
+    //});
 }
 
 void test_promise_all() {
@@ -119,6 +120,14 @@ void test_promise_all() {
 }
 
 int main(int argc, char **argv) {
+    handleUncaughtException([](Defer d) {
+        printf("UncaughtException\n");
+        
+        d.fail([](long n, int m) {
+            printf("UncaughtException parameters = %d %d\n", (int)n, m);
+        });
+    });
+
     test_promise_all();
 
     Defer next;
@@ -126,7 +135,8 @@ int main(int argc, char **argv) {
     run(next);
     printf("======  after call run ======\n");
 
-    next.reject(123, 'a');
+    //next.reject(123, 'a');
+    next.reject((long)123, (int)345);   //it will go to handleUncaughtException(...)
     //next.resolve('b');
     //next.reject(std::string("xhchen"));
     //next.reject(45);
