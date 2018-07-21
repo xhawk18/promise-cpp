@@ -14,6 +14,8 @@
 
 * test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
+* test/test_tasks.cpp: benchmark test for promisified asynchronized tasks. (boost::asio required)
+
 Please check folder "build" to get the codelite/msvc projects for the test code above.
 
 ### Compiler required
@@ -398,9 +400,9 @@ Defer d = newPromise([](Defer d){});
 Defer d1 = d;  //It's safe and effective
 ```
 
-### handle uncaught rejected or exceptional parameters
+### handle uncaught exceptional or rejected parameters
 
-The uncaught rejected or exceptional parameters are ignore by default. We can specify a handler function to do with the uncaught parameters --
+The uncaught exceptional or rejected parameters are ignored by default. We can specify a handler function to do with the uncaught parameters --
 
 ```
 handleUncaughtException([](Defer &d) {
