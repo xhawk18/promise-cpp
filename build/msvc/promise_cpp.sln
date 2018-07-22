@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_client", "test_ht
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_server", "test_http_server\test_http_server.vcxproj", "{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_timer_simple", "test_timer_simple\test_timer_simple.vcxproj", "{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -61,6 +63,14 @@ Global
 		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x64.Build.0 = Release|x64
 		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x86.ActiveCfg = Release|Win32
 		{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}.Release|x86.Build.0 = Release|Win32
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Debug|x64.ActiveCfg = Debug|x64
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Debug|x64.Build.0 = Debug|x64
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Debug|x86.ActiveCfg = Debug|Win32
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Debug|x86.Build.0 = Debug|Win32
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x64.ActiveCfg = Release|x64
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x64.Build.0 = Release|x64
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x86.ActiveCfg = Release|Win32
+		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
