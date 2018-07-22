@@ -4,7 +4,7 @@
    Promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
    With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
-  Promise-cpp is designed to built on c++11 compilers and need not dependencies. Although some of the examples are linked against boost library, promise-cpp itself is absolutely workable without boost library and can be used together with other asynchronized libraries.
+  Promise-cpp is designed to built by c++11 compilers and almost no dependencies. Although some of the examples are linked against boost library, promise-cpp itself is absolutely workable without boost library and can be used together with other asynchronized libraries.
 
 ## Examples
 
