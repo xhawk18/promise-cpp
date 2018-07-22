@@ -32,9 +32,17 @@
 // See Readme.md for functions and detailed usage --
 //
 
-//#define PM_DEBUG
-//#define PM_EMBED
-//#define PM_EMBEDSTACK 4096
+// macro for debug
+// #define PM_DEBUG
+
+// enable PM_EMBED to remove some features so as to run on embedded CPU
+// #define PM_EMBED
+
+// define PM_EMBED_STACK to use a pre-defined static buffer for memory allocation
+// #define PM_EMBED_STACK (512*1024*1024)
+
+// define PM_NO_ALLOC_CACHE to disable memory cache in this library.
+// #define PM_NO_ALLOC_CACHE
 
 #include <memory>
 #include <typeinfo>
@@ -613,12 +621,12 @@ struct Promise {
             return self;
         }
 #ifdef PM_MAX_CALL_LEN
-        ++g_promise_call_len;
-        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+        ++ (*dbg_promise_call_len());
+        if((*dbg_promise_call_len()) > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
 #endif
         Defer ret = resolved_->call(self, caller);
 #ifdef PM_MAX_CALL_LEN
-        --g_promise_call_len;
+        -- (*dbg_promise_call_len());
 #endif
         if(ret != self)
             joinDeferObject(self, ret);
@@ -631,12 +639,12 @@ struct Promise {
             return self;
         }
 #ifdef PM_MAX_CALL_LEN
-        ++g_promise_call_len;
-        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+        ++ (*dbg_promise_call_len());
+        if((*dbg_promise_call_len()) > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
 #endif
         Defer ret = rejected_->call(self, caller);
 #ifdef PM_MAX_CALL_LEN
-        --g_promise_call_len;
+        -- (*dbg_promise_call_len());
 #endif
         if(ret != self)
             joinDeferObject(self, ret);
@@ -1198,9 +1206,11 @@ inline Defer race(PROMISE_LIST promise_list) {
     });
 }
 
+#ifndef PM_EMBED
 inline void handleUncaughtException(const FnOnUncaughtException &onUncaughtException) {
     Promise::handleUncaughtException(onUncaughtException);
 }
+#endif
 
 
 }

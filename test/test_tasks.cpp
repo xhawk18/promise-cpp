@@ -86,7 +86,12 @@ int main() {
     io_service io;
 
     While([&](Defer d) {
+#ifdef PM_DEBUG
+        printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
+#else
         printf("In while ...\n");
+#endif
+        //Sleep(5000);
         test_switch(io, 1).then([&]() {
             return test_switch(io, 1000);
         }).then([&]() {
