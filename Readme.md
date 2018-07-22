@@ -294,12 +294,15 @@ for example --
 return newPromise([](Defer d){
     d.resolve(9567, 'A');
 }).then(
+
     /* function on_resolved */ [](int n, char ch){
         printf("%d %c\n", n, ch);   //will print 9567 here
     },
+
     /* function on_rejected */ [](){
-         
-    });
+        printf("promise rejected\n"); //will not run to here in this code 
+    }
+);
 ```
 
 ### Defer::then(FUNC_ON_RESOLVED on_resolved)
@@ -413,6 +416,7 @@ handleUncaughtException([](Defer &d) {
     }).fail([]() {
         //go here for all other uncaught parameters.
     });
+});
 ```
 
 
