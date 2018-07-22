@@ -273,7 +273,7 @@ return newPromise([](Defer d){
 
 ### Defer::reject(const RET_ARG... &ret_arg);
 Reject the promise object with arguments, where you can put any number of ret_arg with any type.
-(Please be noted that it is a method of Defer object, which is different from the global resolve function.)
+(Please be noted that it is a method of Defer object, which is different from the global reject function.)
 for example --
 
 ```cpp
