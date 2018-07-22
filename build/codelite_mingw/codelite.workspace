@@ -2,24 +2,27 @@
 <CodeLite_Workspace Name="codelite" Database="" Version="10.0.0" SWTLW="Yes">
   <WorkspaceParserMacros/>
   <WorkspaceParserPaths/>
-  <Project Name="test_timer" Path="test_timer.project" Active="No"/>
   <Project Name="test0" Path="test0.project" Active="No"/>
+  <Project Name="test_timer_simple" Path="test_timer_simple.project" Active="No"/>
+  <Project Name="test_timer" Path="test_timer.project" Active="No"/>
   <Project Name="test_tasks" Path="test_tasks.project" Active="No"/>
   <Project Name="test_http_client" Path="test_http_client.project" Active="No"/>
   <Project Name="test_http_server" Path="test_http_server.project" Active="Yes"/>
   <BuildMatrix>
     <WorkspaceConfiguration Name="Debug" Selected="no">
       <Environment/>
-      <Project Name="test_timer" ConfigName="Debug"/>
       <Project Name="test0" ConfigName="Debug"/>
+      <Project Name="test_timer_simple" ConfigName="Debug"/>
+      <Project Name="test_timer" ConfigName="Debug"/>
       <Project Name="test_tasks" ConfigName="Debug"/>
       <Project Name="test_http_client" ConfigName="Debug"/>
       <Project Name="test_http_server" ConfigName="Debug"/>
     </WorkspaceConfiguration>
     <WorkspaceConfiguration Name="Release" Selected="yes">
       <Environment/>
-      <Project Name="test_timer" ConfigName="Release"/>
       <Project Name="test0" ConfigName="Release"/>
+      <Project Name="test_timer_simple" ConfigName="Release"/>
+      <Project Name="test_timer" ConfigName="Release"/>
       <Project Name="test_tasks" ConfigName="Release"/>
       <Project Name="test_http_client" ConfigName="Release"/>
       <Project Name="test_http_server" ConfigName="Release"/>

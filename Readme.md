@@ -1,12 +1,16 @@
 # C++ promise/A+ library in Javascript styles.
 
 ## Usage
-   promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
+   Promise-cpp is header only and easy to use, just #include "promise.hpp" is enough.
    With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
-## Example 
+  Promise-cpp is designed to built on c++11 compilers and need not dependencies. Although some of the examples are linked against boost library, promise-cpp itself is absolutely workable without boost library and can be used together with other asynchronized libraries.
 
-* test/test0.cpp: a simple test code for promise resolve/reject operations.
+## Examples
+
+* test/test0.cpp: a simple test code for promise resolve/reject operations. (no dependencies)
+
+* test/test_timer_simple.cpp: simple promisified timer. (no dependencies)
 
 * test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
 

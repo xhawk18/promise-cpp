@@ -15,11 +15,12 @@ macro(use_cxx11)
 endmacro(use_cxx11)
 
 
-project(test0)
+project(promise)
 use_cxx11()
 aux_source_directory(. DIR_SRCS)
 include_directories(.)
 add_executable(test0 test/test0.cpp)
+add_executable(test_timer_simple test/test_timer_simple.cpp)
 
 
 project(asio)
