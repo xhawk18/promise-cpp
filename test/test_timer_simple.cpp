@@ -69,7 +69,7 @@ Defer testTimer(Service &service) {
         return delay(service, 1000);
     }).then([&] {
         printf("timer after 1000 ms!\n");
-        return delay(service, 12000);
+        return delay(service, 2000);
     }).then([] {
         printf("timer after 2000 ms!\n");
     }).fail([] {
