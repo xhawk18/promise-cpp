@@ -20,7 +20,7 @@
 
 * test/test_tasks.cpp: benchmark test for promisified asynchronized tasks. (boost::asio required)
 
-Please check folder "build" to get the codelite/msvc projects for the test code above.
+Please check folder "build" to get the codelite/msvc projects for the test code above, or use cmake to build from CMakeList.txt.
 
 ### Compiler required
 
@@ -374,6 +374,8 @@ return newPromise([](Defer d){
 });
 ```
 
+## And more ...
+
 ### about exceptions
 To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
 will same as d.reject(the_throwed_object) and returns immediately.
@@ -386,7 +388,7 @@ return newPromise([](Defer d){
     printf("%s\n", str.c_str());   //will print "oh, no!" here
 });
 ```
-For the performance, we suggest to use function reject instead of throw.
+For the better performance, we suggest to use function reject instead of throw.
 
 ### about the chaining parameter
 Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
@@ -398,6 +400,65 @@ newPromise([](Defer d){
     d.resolve(std::string("ok"));
 })
 ```
+
+### Match rule for chaining parameters
+First let's take a look at the rule of c++ try/catch, in which the thrown value will be caught in the block where value type is matched.
+If type in the catch block can not be matched, it will run into the default block catch(...) { }.
+
+```cpp
+try{
+    throw (short)1;
+}catch(int a){
+    // will not go to here
+}catch(short b){
+    // (short)1 will be caught here
+}catch(...){
+    // will not go to here
+}
+```
+
+"Promise-cpp" implement "then" chain as the match style of try/catch. And more, it can accept multiple parameters.
+
+```cpp
+newPromise([](Defer d){
+    d.resolve(3, 5, 6);
+}).then([](std::string str){
+    // will not go to here since parameter types are not match
+}).then([](const int &a, int b, int c) {
+    // d.resolve(3, 5, 6) will be caught here
+}).then([](){
+    // WILL go to here after previous promise resolved.
+});
+```
+
+The number of parameters in "then" chain can be lesser than that's in resolve function.
+```cpp
+newPromise([](Defer d){
+    d.resolve(3, 5, 6);
+}).then([](int a, int b, int c, int d){
+    // will not go to here since parameter types are not match
+}).then([](int a, std::string str) {
+    // will not go to here since parameter types are not match
+}).then([](int a, int b) {
+    // d.resolve(3, 5, 6) will be caught here since a, b matched with the resolved parameters and ignore the 3rd parameter.
+});
+```
+
+A function in "then" chain without any parameters can be used as default promise caught function.
+```cpp
+newPromise([](Defer d){
+    d.resolve(3, 5, 6);
+}).then([](int a, int b, int c, int d){
+    // will not go to here since parameter types are not matched.
+}).then([](int a, std::string str) {
+    // will not go to here since parameter types are not matched.
+}).then([]() {
+    // Function without parameters will be matched with any resolved values,
+    // so d.resolve(3, 5, 6) will be caught here.
+});
+```
+
+The reject parameters follows the the same match rule as resolved parameters.
 
 ### copy the promise object
 To copy the promise object is allowed and effective, please do that when you need.
