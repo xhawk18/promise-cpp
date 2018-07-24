@@ -70,7 +70,7 @@ The library has passed test on these compilers --
 
 ### Build tips
 
-The example projects use boost::asio as io service, and use boost::beast as http service. 
+Some of the [examples](test) use boost::asio as io service, and use boost::beast as http service. 
 You need to install [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
  or higher to build the examples.
 
