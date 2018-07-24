@@ -1,5 +1,38 @@
 # C++ promise/A+ library in Javascript styles.
 
+<!-- TOC -->
+
+- [C++ promise/A+ library in Javascript styles.](#c-promisea-library-in-javascript-styles)
+    - [What is promise-cpp ?](#what-is-promise-cpp-)
+    - [Examples](#examples)
+        - [Compiler required](#compiler-required)
+        - [Build tips](#build-tips)
+        - [Example 1](#example-1)
+        - [Example 2](#example-2)
+    - [Global functions](#global-functions)
+        - [Defer newPromise(FUNC func);](#defer-newpromisefunc-func)
+        - [Defer resolve(const RET_ARG... &ret_arg);](#defer-resolveconst-ret_arg-ret_arg)
+        - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
+        - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
+        - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
+        - [Defer While(FUNC func);](#defer-whilefunc-func)
+    - [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
+        - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
+        - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
+        - [Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#deferthenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
+        - [Defer::then(FUNC_ON_RESOLVED on_resolved)](#deferthenfunc_on_resolved-on_resolved)
+        - [Defer::fail(FUNC_ON_REJECTED on_rejected)](#deferfailfunc_on_rejected-on_rejected)
+        - [Defer::finally(FUNC_ON_FINALLY on_finally)](#deferfinallyfunc_on_finally-on_finally)
+        - [Defer::always(FUNC_ON_ALWAYS on_always)](#deferalwaysfunc_on_always-on_always)
+    - [And more ...](#and-more-)
+        - [about exceptions](#about-exceptions)
+        - [about the chaining parameter](#about-the-chaining-parameter)
+        - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
+        - [copy the promise object](#copy-the-promise-object)
+        - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
+
+<!-- /TOC -->
+
 ## What is promise-cpp ?
 
 Promise-cpp is header only library that implements promise/A+ standard.
@@ -263,8 +296,27 @@ race(promise_list).then([](){
 });
 ```
 
-## Class Defer
-Defer object is the promise object itself.
+### Defer While(FUNC func);
+"While loop" for promisied task.
+A promise(Defer) object will passed as parameter when call func, which can be resolved to continue with the "While loop", or be rejected to break from the "While loop". 
+
+for example --
+
+```cpp
+While([](Defer d){
+    // Add code here for your task in "While loop"
+    
+    // Call "d.resolve();" to continue with the "While loop",
+    
+    // or call "d.reject();" to break from the "While loop", in this case,
+    //the returned promise object will be in rejected status.
+});
+
+```
+
+## Class Defer - type of promise object.
+
+class Defer is the type of promise object.
 
 ### Defer::resolve(const RET_ARG... &ret_arg);
 Resolve the promise object with arguments, where you can put any number of ret_arg with any type.
