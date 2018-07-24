@@ -44,17 +44,17 @@ Promise-cpp can be the base component in event-looped asychronized programming, 
 
 ## Examples
 
-* test/test0.cpp: a simple test code for promise resolve/reject operations. (no dependencies)
+* [test/test0.cpp](test/test0.cpp): a simple test code for promise resolve/reject operations. (no dependencies)
 
-* test/test_timer_simple.cpp: simple promisified timer. (no dependencies)
+* [test/test_timer_simple.cpp](test/test_timer_simple.cpp): simple promisified timer. (no dependencies)
 
-* test/test_timer.cpp: promisified timer based on asio callback timer. (boost::asio required)
+* [test/test_timer.cpp](test/test_timer.cpp): promisified timer based on asio callback timer. (boost::asio required)
 
-* test/test_http_client.cpp: promisified flow for asynchronized http client. (boost::asio, boost::beast required)
+* [test/test_http_client.cpp](test/test_http_client.cpp): promisified flow for asynchronized http client. (boost::asio, boost::beast required)
 
-* test/test_http_server.cpp: promisified flow for asynchronized http server. (boost::asio, boost::beast required)
+* [test/test_http_server.cpp](test/test_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
-* test/test_tasks.cpp: benchmark test for promisified asynchronized tasks. (boost::asio required)
+* [test/test_tasks.cpp](test/test_tasks.cpp): benchmark test for promisified asynchronized tasks. (boost::asio required)
 
 Please check folder "build" to get the codelite/msvc projects for the test code above, or use cmake to build from CMakeList.txt.
 
