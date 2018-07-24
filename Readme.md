@@ -56,7 +56,7 @@ Promise-cpp can be the base component in event-looped asychronized programming, 
 
 * [test/test_tasks.cpp](test/test_tasks.cpp): benchmark test for promisified asynchronized tasks. (boost::asio required)
 
-Please check folder "build" to get the codelite/msvc projects for the test code above, or use cmake to build from CMakeList.txt.
+Please check folder ["build"](build) to get the codelite/msvc projects for the test code above, or use cmake to build from [CMakeLists.txt](CMakeLists.txt).
 
 ### Compiler required
 
