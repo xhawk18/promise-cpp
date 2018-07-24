@@ -85,7 +85,7 @@ Defer test_switch(io_service &io, int coro)
 int main() {
     io_service io;
 
-    While([&](Defer d) {
+    doWhile([&](Defer d) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else

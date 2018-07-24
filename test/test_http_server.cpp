@@ -292,7 +292,7 @@ void
 do_session(
     std::shared_ptr<Session> session)
 {
-    While([=](Defer d){
+    doWhile([=](Defer d){
         std::cout << "read new http request ... " << std::endl;
         //<1> Read a request
         session->req_ = {};
@@ -314,12 +314,12 @@ do_session(
         }).then([=](boost::system::error_code &err) {
             //<4> Keep-alive or close the connection.
             if (!err && !session->close_) {
-                d.resolve();//continue While ...
+                d.resolve();//continue doWhile ...
             }
             else {
                 std::cout << "shutdown..." << std::endl;
                 session->socket_.shutdown(tcp::socket::shutdown_send, err);
-                d.reject(); //break from While
+                d.reject(); //break from doWhile
             }
         });
     });
@@ -358,7 +358,7 @@ do_listen(
         return fail(ec, "listen");
 
     auto doc_root_ = std::make_shared<std::string>(doc_root);
-    While([acceptor, doc_root_](Defer d){
+    doWhile([acceptor, doc_root_](Defer d){
         async_accept(*acceptor).then([=](std::shared_ptr<tcp::socket> socket) {
             std::cout << "accepted" << std::endl;
             auto session = std::make_shared<Session>(*socket, *doc_root_);

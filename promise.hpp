@@ -1132,11 +1132,11 @@ inline Defer newPromise(FUNC func) {
     return promise;
 }
 
-/* Loop while func call resolved */
+/* While loop func call resolved */
 template <typename FUNC>
-inline Defer While(FUNC func) {
+inline Defer doWhile(FUNC func) {
     return newPromise(func).then([func]() {
-        return While(func);
+        return doWhile(func);
     });
 }
 

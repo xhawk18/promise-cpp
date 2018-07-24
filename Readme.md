@@ -14,7 +14,7 @@
     - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
     - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
     - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
-    - [Defer While(FUNC func);](#defer-whilefunc-func)
+    - [Defer doWhile(FUNC func);](#defer-dowhilefunc-func)
 - [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
     - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
     - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
@@ -295,20 +295,20 @@ race(promise_list).then([](){
 });
 ```
 
-### Defer While(FUNC func);
+### Defer doWhile(FUNC func);
 "While loop" for promisied task.
-A promise(Defer) object will passed as parameter when call func, which can be resolved to continue with the "While loop", or be rejected to break from the "While loop". 
+A promise(Defer) object will passed as parameter when call func, which can be resolved to continue with the "while loop", or be rejected to break from the "while loop". 
 
 for example --
 
 ```cpp
-While([](Defer d){
-    // Add code here for your task in "While loop"
+doWhile([](Defer d){
+    // Add code here for your task in "while loop"
     
-    // Call "d.resolve();" to continue with the "While loop",
+    // Call "d.resolve();" to continue with the "while loop",
     
-    // or call "d.reject();" to break from the "While loop", in this case,
-    //the returned promise object will be in rejected status.
+    // or call "d.reject();" to break from the "while loop", in this case,
+    // the returned promise object will be in rejected status.
 });
 
 ```
