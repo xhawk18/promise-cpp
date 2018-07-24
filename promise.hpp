@@ -1132,11 +1132,23 @@ inline Defer newPromise(FUNC func) {
     return promise;
 }
 
+/*
+ * While loop func call resolved, 
+ * It is not safe since the promise chain will become longer infinitely 
+ * if the returned Defer object was obtained by other and not released.
+ */
+template <typename FUNC>
+inline Defer doWhile_unsafe(FUNC func) {
+    return newPromise(func).then([func]() {
+        return doWhile_unsafe(func);
+    });
+}
+
 /* While loop func call resolved */
 template <typename FUNC>
 inline Defer doWhile(FUNC func) {
-    return newPromise(func).then([func]() {
-        return doWhile(func);
+    return newPromise([func](Defer d) {
+        doWhile_unsafe(func).then(d);
     });
 }
 
