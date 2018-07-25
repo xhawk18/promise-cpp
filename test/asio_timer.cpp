@@ -56,9 +56,8 @@ void testPromiseRace(io_service &io) {
         printf("race: two resolved\n");
         return "two";
     });
-    std::vector<Defer> promises = { promise0, promise1 };
 
-    race(promises).then([](const char *str) {
+    race({promise0, promise1}).then([](const char *str) {
         printf("race result = %s\n", str);
         // Both resolve, but promise2 is faster
     });
@@ -74,9 +73,7 @@ void testPromiseAll(io_service &io) {
         return std::string("two");
     });
 
-    std::vector<Defer> promises = { promise0, promise1 };
-
-    all(promises).then([](const std::vector<pm_any> &results) {
+    all({promise0, promise1}).then([](const std::vector<pm_any> &results) {
         printf("all size = %d\n", (int)results.size());
         for(size_t i = 0; i < results.size(); ++i)
             printf("all result = %s\n",
