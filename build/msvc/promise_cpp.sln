@@ -3,17 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_timer", "test_timer\test_timer.vcxproj", "{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asio_timer", "asio_timer\asio_timer.vcxproj", "{070652E2-DF4D-4317-A9B4-F1AB9A9441F5}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test0", "test0\test0.vcxproj", "{2DB01D3D-F09A-4E4C-AD0D-631301A32916}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_tasks", "test_tasks\test_tasks.vcxproj", "{C202174B-C3D8-4325-A469-06EC4A08EAF7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asio_benchmark_test", "asio_benchmark_test\asio_benchmark_test.vcxproj", "{C202174B-C3D8-4325-A469-06EC4A08EAF7}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_client", "test_http_client\test_http_client.vcxproj", "{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asio_http_client", "asio_http_client\asio_http_client.vcxproj", "{16E80E1D-A201-4AD6-A183-F5775EBB9DC6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_http_server", "test_http_server\test_http_server.vcxproj", "{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "asio_http_server", "asio_http_server\asio_http_server.vcxproj", "{FBFD5630-A5FB-4776-AC4B-FACA10A8CE4D}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_timer_simple", "test_timer_simple\test_timer_simple.vcxproj", "{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simple_timer", "simple_timer\simple_timer.vcxproj", "{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simple_benchmark_test", "simple_benchmark_test\simple_benchmark_test.vcxproj", "{712DFF38-6A02-4A9F-BAAE-23E6A2623795}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,6 +73,14 @@ Global
 		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x64.Build.0 = Release|x64
 		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x86.ActiveCfg = Release|Win32
 		{22C7CC71-0E60-4F46-80F3-2A52CE7F7B5F}.Release|x86.Build.0 = Release|Win32
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Debug|x64.ActiveCfg = Debug|x64
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Debug|x64.Build.0 = Debug|x64
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Debug|x86.ActiveCfg = Debug|Win32
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Debug|x86.Build.0 = Debug|Win32
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Release|x64.ActiveCfg = Release|x64
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Release|x64.Build.0 = Release|x64
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Release|x86.ActiveCfg = Release|Win32
+		{712DFF38-6A02-4A9F-BAAE-23E6A2623795}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
