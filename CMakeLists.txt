@@ -20,7 +20,8 @@ use_cxx11()
 aux_source_directory(. DIR_SRCS)
 include_directories(.)
 add_executable(test0 test/test0.cpp)
-add_executable(test_timer_simple test/test_timer_simple.cpp)
+add_executable(simple_timer test/simple_timer.cpp)
+add_executable(simple_benchmark_test test/simple_benchmark_test.cpp)
 
 
 project(asio)
@@ -40,9 +41,9 @@ endif (UNIX)
 use_cxx11()
 aux_source_directory(. DIR_SRCS)
 include_directories(. ./asio)
-add_executable(test_tasks test/test_tasks.cpp)
-add_executable(test_timer test/test_timer.cpp)
-add_executable(test_http_client test/test_http_client.cpp)
-add_executable(test_http_server test/test_http_server.cpp)
+add_executable(asio_benchmark_test test/asio_benchmark_test.cpp)
+add_executable(asio_timer test/asio_timer.cpp)
+add_executable(asio_http_client test/asio_http_client.cpp)
+add_executable(asio_http_server test/asio_http_server.cpp)
 
 

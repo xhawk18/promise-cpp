@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CodeLite_Project Name="test_tasks" InternalType="Console" Version="10.0.0">
+<CodeLite_Project Name="asio_timer" InternalType="Console">
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00020001N0005Debug0000000000000001N0007Release000000000000]]>
@@ -11,7 +11,7 @@
     <File Name="../../promise.hpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
-    <File Name="../../test/test_tasks.cpp"/>
+    <File Name="../../test/asio_timer.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>
@@ -25,25 +25,18 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="Debug" CompilerType="MinGW ( gcc.exe (i686-posix-dwarf-rev1, Built by MinGW-W64 project) 6.3.0 )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Debug" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-O0;-std=c++11;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
-        <IncludePath Value="../../../boost_1_67_0"/>
       </Compiler>
       <Linker Options="-static" Required="yes">
-        <LibraryPath Value="F:\Work\boost_1_67_0\stage\lib"/>
-        <Library Value="advapi32"/>
-        <Library Value="iphlpapi"/>
-        <Library Value="psapi"/>
-        <Library Value="shell32"/>
-        <Library Value="user32"/>
-        <Library Value="userenv"/>
-        <Library Value="ws2_32"/>
-        <Library Value="boost_system-mgw63-mt-sd-x32-1_67"/>
+        <Library Value="pthread"/>
+        <Library Value="dl"/>
+        <Library Value="boost_system"/>
+        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -75,26 +68,19 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Release" CompilerType="MinGW ( gcc.exe (i686-posix-dwarf-rev1, Built by MinGW-W64 project) 6.3.0 )" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Release" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-O3;-std=c++11;-Wall" C_Options="-O3;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
-        <IncludePath Value="../../../boost_1_67_0"/>
         <Preprocessor Value="NDEBUG"/>
       </Compiler>
       <Linker Options="-s;-static" Required="yes">
-        <LibraryPath Value="F:\Work\boost_1_67_0\stage\lib"/>
-        <Library Value="advapi32"/>
-        <Library Value="iphlpapi"/>
-        <Library Value="psapi"/>
-        <Library Value="shell32"/>
-        <Library Value="user32"/>
-        <Library Value="userenv"/>
-        <Library Value="ws2_32"/>
-        <Library Value="boost_system-mgw63-mt-s-x32-1_67"/>
+        <Library Value="pthread"/>
+        <Library Value="dl"/>
+        <Library Value="boost_system"/>
+        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Release" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>

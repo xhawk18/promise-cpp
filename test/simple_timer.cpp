@@ -31,45 +31,21 @@
 #include <thread>
 #include <utility>
 #include "promise.hpp"
+#include "simple_task/simple_task.hpp"
+
 
 using namespace promise;
 using namespace std;
 
 
-typedef chrono::time_point<chrono::steady_clock> TimePoint;
-typedef multimap<TimePoint, Defer> Service;
-
-Defer delay(Service &service, uint64_t time_ms) {
-    return newPromise([&](Defer d){
-        TimePoint now = chrono::steady_clock::now();
-        TimePoint time = now + std::chrono::milliseconds(time_ms);
-        service.emplace(time, d);
-    });
-}
-
-void run(Service &service){
-    while(service.size() > 0){
-        TimePoint now = chrono::steady_clock::now();
-        TimePoint time = service.begin()->first;
-        if(time <= now){
-            Defer d = service.begin()->second;
-            d.resolve();
-            service.erase(service.begin());
-        }
-        else 
-            this_thread::sleep_for(time - now);
-    }
-}
-
-
 Defer testTimer(Service &service) {
 
-    return delay(service, 3000).then([&] {
+    return service.delay(3000).then([&] {
         printf("timer after 3000 ms!\n");
-        return delay(service, 1000);
+        return service.delay(1000);
     }).then([&] {
         printf("timer after 1000 ms!\n");
-        return delay(service, 2000);
+        return service.delay(2000);
     }).then([] {
         printf("timer after 2000 ms!\n");
     }).fail([] {
@@ -89,6 +65,6 @@ int main() {
     testTimer(service);
     testTimer(service);
 
-    run(service);
+    service.run();
     return 0;
 }

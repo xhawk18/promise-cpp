@@ -46,15 +46,17 @@ Promise-cpp can be the base component in event-looped asychronized programming, 
 
 * [test/test0.cpp](test/test0.cpp): a simple test code for promise resolve/reject operations. (no dependencies)
 
-* [test/test_timer_simple.cpp](test/test_timer_simple.cpp): simple promisified timer. (no dependencies)
+* [test/simple_timer.cpp](test/simple_timer.cpp): simple promisified timer. (no dependencies)
 
-* [test/test_timer.cpp](test/test_timer.cpp): promisified timer based on asio callback timer. (boost::asio required)
+* [test/simple_benchmark_test.cpp](test/simple_benchmark_test.cpp): benchmark test for simple promisified asynchronized tasks. (no dependencies)
 
-* [test/test_http_client.cpp](test/test_http_client.cpp): promisified flow for asynchronized http client. (boost::asio, boost::beast required)
+* [test/asio_timer.cpp](test/asio_timer.cpp): promisified timer based on asio callback timer. (boost::asio required)
 
-* [test/test_http_server.cpp](test/test_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
+* [test/asio_benchmark_test.cpp](test/asio_benchmark_test.cpp): benchmark test for promisified asynchronized tasks in asio. (boost::asio required)
 
-* [test/test_tasks.cpp](test/test_tasks.cpp): benchmark test for promisified asynchronized tasks. (boost::asio required)
+* [test/asio_http_client.cpp](test/asio_http_client.cpp): promisified flow for asynchronized http client. (boost::asio, boost::beast required)
+
+* [test/asio_http_server.cpp](test/asio_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
 Please check folder ["build"](build) to get the codelite/msvc projects for the test code above, or use cmake to build from [CMakeLists.txt](CMakeLists.txt).
 

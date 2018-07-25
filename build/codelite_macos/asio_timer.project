@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CodeLite_Project Name="test_timer" InternalType="Console">
+<CodeLite_Project Name="asio_timer" InternalType="Console">
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00020001N0005Debug0000000000000001N0007Release000000000000]]>
@@ -11,7 +11,7 @@
     <File Name="../../promise.hpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
-    <File Name="../../test/test_timer.cpp"/>
+    <File Name="../../test/asio_timer.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>
