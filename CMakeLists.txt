@@ -3,6 +3,13 @@
 
 cmake_minimum_required(VERSION 2.8)
 
+# make Release as default
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
+  if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+  endif()
+endif()
+
 
 macro(use_cxx11)
   if (CMAKE_VERSION VERSION_LESS "3.1")
