@@ -523,6 +523,7 @@ struct Promise {
 
 #ifdef PM_DEBUG
     uint32_t type_;
+    uint32_t id_;
 #endif
 
     Promise(const Promise &) = delete;
@@ -534,6 +535,7 @@ struct Promise {
         , status_(kInit)
 #ifdef PM_DEBUG
         , type_(PM_TYPE_NONE)
+        , id_(++(*dbg_promise_id()))
 #endif
         {
         //printf("size promise = %d %d %d\n", (int)sizeof(*this), (int)sizeof(prev_), (int)sizeof(next_));
@@ -835,6 +837,14 @@ struct Promise {
         self->next_ = Defer(head);
         head->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(self));
         //printf("6prev_ = %d %x\n", (int)next->prev_, pm_stack::itr_to_ptr(next->prev_));
+
+#ifdef PM_DEBUG
+        printf("debug promise id: ");
+        for(Promise *p = head; p != nullptr; p = p->next_.operator->()) {
+            printf("%d ", p->id_);
+        }
+        printf("\n");
+#endif
     }
 
     static inline void joinDeferObject(Defer &self, Defer &next){

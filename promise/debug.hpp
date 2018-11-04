@@ -52,6 +52,11 @@ extern "C" {
         static uint32_t promise_call_len = 0;
         return &promise_call_len;
     };
+
+    inline uint32_t *dbg_promise_id() {
+        static uint32_t promise_id = 0;
+        return &promise_id;
+    };
 }
 #else
 #define pm_assert(x)    do{ } while(0)
