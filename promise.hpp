@@ -1212,6 +1212,11 @@ inline Defer all(PROMISE_LIST &promise_list) {
     });
 }
 
+inline Defer all(std::initializer_list<Defer> promise_list) {
+    return all<std::initializer_list<Defer>>(promise_list);
+}
+
+
 /* returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise. */
@@ -1226,6 +1231,10 @@ inline Defer race(PROMISE_LIST promise_list) {
             });
         }
     });
+}
+
+inline Defer race(std::initializer_list<Defer> promise_list) {
+    return race<std::initializer_list<Defer>>(promise_list);
 }
 
 #ifndef PM_EMBED

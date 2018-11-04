@@ -4,10 +4,11 @@
 
 - [What is promise-cpp ?](#what-is-promise-cpp-)
 - [Examples](#examples)
+    - [Examples list](#examples-list)
     - [Compiler required](#compiler-required)
     - [Build tips](#build-tips)
-    - [Example 1](#example-1)
-    - [Example 2](#example-2)
+    - [Sample code 1](#sample-code-1)
+    - [Sample code 2](#sample-code-2)
 - [Global functions](#global-functions)
     - [Defer newPromise(FUNC func);](#defer-newpromisefunc-func)
     - [Defer resolve(const RET_ARG... &ret_arg);](#defer-resolveconst-ret_arg-ret_arg)
@@ -43,6 +44,8 @@ Promise-cpp is designed to built by c++11 compilers and almost no dependencies. 
 Promise-cpp can be the base component in event-looped asychronized programming, which is NOT std::promise.
 
 ## Examples
+
+### Examples list 
 
 * [test/test0.cpp](test/test0.cpp): a simple test code for promise resolve/reject operations. (no dependencies)
 
@@ -87,9 +90,9 @@ For examples, on windows, you can build boost library in these steps --
 
 After have boost installed, modify path of boost library in the example's project file according to the real path.
 
-### Example 1
+### Sample code 1
 
-This example shows converting a timer callback to promise object.
+This sample code shows converting a timer callback to promise object.
 
 ```cpp
 #include <stdio.h>
@@ -142,9 +145,9 @@ int main() {
 }
 ```
 
-### Example 2
+### Sample code 2
 
-This example shows promise resolve/reject flows.
+This sample code shows promise resolve/reject flows.
 
 ```cpp
 #include <stdio.h>
