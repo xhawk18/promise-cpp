@@ -2,34 +2,38 @@
 
 <!-- TOC -->
 
-- [What is promise-cpp ?](#what-is-promise-cpp-)
-- [Examples](#examples)
-    - [Examples list](#examples-list)
-    - [Compiler required](#compiler-required)
-    - [Build tips](#build-tips)
-    - [Sample code 1](#sample-code-1)
-    - [Sample code 2](#sample-code-2)
-- [Global functions](#global-functions)
-    - [Defer newPromise(FUNC func);](#defer-newpromisefunc-func)
-    - [Defer resolve(const RET_ARG... &ret_arg);](#defer-resolveconst-ret_arg-ret_arg)
-    - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
-    - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
-    - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
-    - [Defer doWhile(FUNC func);](#defer-dowhilefunc-func)
-- [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
-    - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
-    - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
-    - [Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#deferthenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
-    - [Defer::then(FUNC_ON_RESOLVED on_resolved)](#deferthenfunc_on_resolved-on_resolved)
-    - [Defer::fail(FUNC_ON_REJECTED on_rejected)](#deferfailfunc_on_rejected-on_rejected)
-    - [Defer::finally(FUNC_ON_FINALLY on_finally)](#deferfinallyfunc_on_finally-on_finally)
-    - [Defer::always(FUNC_ON_ALWAYS on_always)](#deferalwaysfunc_on_always-on_always)
-- [And more ...](#and-more-)
-    - [about exceptions](#about-exceptions)
-    - [about the chaining parameter](#about-the-chaining-parameter)
-    - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
-    - [copy the promise object](#copy-the-promise-object)
-    - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
+- [C++ promise/A+ library in Javascript style.](#c-promisea-library-in-javascript-style)
+    - [What is promise-cpp ?](#what-is-promise-cpp-)
+    - [Examples](#examples)
+        - [Examples list](#examples-list)
+        - [Compiler required](#compiler-required)
+        - [Build tips](#build-tips)
+        - [Sample code 1](#sample-code-1)
+        - [Sample code 2](#sample-code-2)
+    - [Global functions](#global-functions)
+        - [Defer newPromise(FUNC func);](#defer-newpromisefunc-func)
+        - [Defer resolve(const RET_ARG... &ret_arg);](#defer-resolveconst-ret_arg-ret_arg)
+        - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
+        - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
+        - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
+        - [Defer doWhile(FUNC func);](#defer-dowhilefunc-func)
+    - [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
+        - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
+        - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
+        - [Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#deferthenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
+        - [Defer::then(FUNC_ON_RESOLVED on_resolved)](#deferthenfunc_on_resolved-on_resolved)
+        - [Defer::fail(FUNC_ON_REJECTED on_rejected)](#deferfailfunc_on_rejected-on_rejected)
+        - [Defer::finally(FUNC_ON_FINALLY on_finally)](#deferfinallyfunc_on_finally-on_finally)
+        - [Defer::always(FUNC_ON_ALWAYS on_always)](#deferalwaysfunc_on_always-on_always)
+    - [And more ...](#and-more-)
+        - [about exceptions](#about-exceptions)
+        - [about the chaining parameter](#about-the-chaining-parameter)
+        - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
+            - [Resolved parameters](#resolved-parameters)
+            - [Rejected parameters](#rejected-parameters)
+            - [Omit parameters](#omit-parameters)
+        - [copy the promise object](#copy-the-promise-object)
+        - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
 
 <!-- /TOC -->
 
@@ -462,6 +466,15 @@ newPromise([](Defer d){
 ```
 
 ### Match rule for chaining parameters
+
+"then" and "fail" function can accept multiple promise parameters and they follows the below rule --
+
+#### Resolved parameters
+
+Resolved parameters must match the next "then" function, otherwise it will throw an exception and can be caught by the following "fail" function.
+
+#### Rejected parameters
+
 First let's take a look at the rule of c++ try/catch, in which the thrown value will be caught in the block where value type is matched.
 If type in the catch block can not be matched, it will run into the default block catch(...) { }.
 
@@ -477,28 +490,26 @@ try{
 }
 ```
 
-"Promise-cpp" implement "then" chain as the match style of try/catch. And more, it can accept multiple parameters.
+"Promise-cpp" implement "fail" chain as the match style of try/catch.
 
 ```cpp
 newPromise([](Defer d){
-    d.resolve(3, 5, 6);
-}).then([](std::string str){
+    d.reject(3, 5, 6);
+}).fail([](std::string str){
     // will not go to here since parameter types are not match
-}).then([](const int &a, int b, int c) {
-    // d.resolve(3, 5, 6) will be caught here
-}).then([](){
-    // WILL go to here after previous promise resolved.
+}).fail([](const int &a, int b, int c) {
+    // d.reject(3, 5, 6) will be caught here
+}).fail([](){
+    // Will not go to here sinace previous rejected promise was caught.
 });
 ```
 
-The number of parameters in "then" chain can be lesser than that's in resolve function.
+#### Omit parameters
+
+The number of parameters in "then" or "fail" chain can be lesser than that's in resolve function.
 ```cpp
 newPromise([](Defer d){
     d.resolve(3, 5, 6);
-}).then([](int a, int b, int c, int d){
-    // will not go to here since parameter types are not match
-}).then([](int a, std::string str) {
-    // will not go to here since parameter types are not match
 }).then([](int a, int b) {
     // d.resolve(3, 5, 6) will be caught here since a, b matched with the resolved parameters and ignore the 3rd parameter.
 });
@@ -508,17 +519,13 @@ A function in "then" chain without any parameters can be used as default promise
 ```cpp
 newPromise([](Defer d){
     d.resolve(3, 5, 6);
-}).then([](int a, int b, int c, int d){
-    // will not go to here since parameter types are not matched.
-}).then([](int a, std::string str) {
-    // will not go to here since parameter types are not matched.
 }).then([]() {
     // Function without parameters will be matched with any resolved values,
     // so d.resolve(3, 5, 6) will be caught here.
 });
 ```
 
-The reject parameters follows the the same match rule as resolved parameters.
+The reject parameters follows the the same omit rule as resolved parameters.
 
 ### copy the promise object
 To copy the promise object is allowed and effective, please do that when you need.
