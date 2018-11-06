@@ -40,6 +40,7 @@ struct pm_memory_pool {
     }
 };
 
+
 //allocator
 struct pm_memory_pool_buf_header {
     pm_memory_pool_buf_header(pm_memory_pool *pool)
@@ -49,56 +50,42 @@ struct pm_memory_pool_buf_header {
 
     pm_list list_;
     pm_stack::itr_t pool_;
-    int16_t ref_count_;
+#ifndef PM_EMBED
+    size_t ref_count_;
+#else
+    uint16_t ref_count_;
+#endif
+};
+
+
+struct dummy_pool_buf {
+    pm_memory_pool_buf_header header_;
+    struct {
+        void *buf_[1];
+    } buf_;
 
     static inline void *to_ptr(pm_memory_pool_buf_header *header) {
-        struct dummy_pool_buf {
-            pm_memory_pool_buf_header header_;
-            struct {
-                void *buf_[1];
-            } buf_;
-        };
         dummy_pool_buf *buf = reinterpret_cast<dummy_pool_buf *>(
             reinterpret_cast<char *>(header) - pm_offsetof(&dummy_pool_buf::header_));
         return (void *)&buf->buf_;
     }
 
-    static inline void *to_ptr(pm_list *list){
+    static inline void *to_ptr(pm_list *list) {
         pm_memory_pool_buf_header *header = pm_container_of(list, &pm_memory_pool_buf_header::list_);
-        return pm_memory_pool_buf_header::to_ptr(header);
+        return dummy_pool_buf::to_ptr(header);
     }
 
     static inline pm_memory_pool_buf_header *from_ptr(void *ptr) {
-        struct dummy_pool_buf {
-            pm_memory_pool_buf_header header_;
-            struct {
-                void *buf_[1];
-            } buf_;
-        };
         dummy_pool_buf *buf = pm_container_of(ptr, &dummy_pool_buf::buf_);
         return &buf->header_;
     }
 };
 
-template <size_t SIZE>
-struct pm_memory_pool_buf {
-    struct buf_t {
-        buf_t() {}
-        void *buf[(SIZE + sizeof(void *) - 1) / sizeof(void *)];
-    };
-
-    pm_memory_pool_buf(pm_memory_pool *pool)
-        : header_(pool) {
-    }
-
-    pm_memory_pool_buf_header header_;
-    buf_t buf_;
-};
 
 template <size_t SIZE>
 struct pm_size_allocator {
     static inline pm_memory_pool *get_memory_pool() {
-        static pm_memory_pool *pool_ = nullptr;
+        thread_local static pm_memory_pool *pool_ = nullptr;
         if(pool_ == nullptr)
             pool_ = pm_stack_new<pm_memory_pool>(SIZE);
         return pool_;
@@ -114,22 +101,29 @@ private:
         return header;
     }
 
-    template <size_t SIZE>
-    static void *obtain_impl() {
+    static void *obtain_impl(pm_memory_pool *pool, size_t size) {
 #ifdef PM_DEBUG
-        g_alloc_size += SIZE;
+        (*dbg_alloc_size()) += (uint32_t)size;
 #endif
-        pm_memory_pool *pool = pm_size_allocator<SIZE>::get_memory_pool();
         if (pool->free_.empty()) {
-            pm_memory_pool_buf<SIZE> *pool_buf = 
-                pm_stack_new<pm_memory_pool_buf<SIZE>>(pool);
-            //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
+            size_t alloc_size = size + pm_offsetof(&dummy_pool_buf::buf_);
+#ifdef PM_EMBED_STACK
+            void *buf = pm_stack::allocate(alloc_size);
+#else
+            alloc_size = (alloc_size + sizeof(void *) - 1) / sizeof(void *);
+            void **buf = new void *[alloc_size];
+            //printf("new %p\n", buf);
+#endif
+            pm_memory_pool_buf_header *header = new(buf)
+                pm_memory_pool_buf_header(pool);
+            dummy_pool_buf *pool_buf = pm_container_of
+                (header, &dummy_pool_buf::header_);
             return (void *)&pool_buf->buf_;
         }
         else {
             pm_memory_pool_buf_header *header = obtain_pool_buf(pool);
-            pm_memory_pool_buf<SIZE> *pool_buf = pm_container_of
-                (header, &pm_memory_pool_buf<SIZE>::header_);
+            dummy_pool_buf *pool_buf = pm_container_of
+                (header, &dummy_pool_buf::header_);
             //printf("++++ obtain = %p %d\n", (void *)&pool_buf->buf_, sizeof(T));
             return (void *)&pool_buf->buf_;
         }
@@ -137,32 +131,46 @@ private:
 
     static void release(void *ptr) {
         //printf("--- release = %p\n", ptr);
-        pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(ptr);
+        dummy_pool_buf *pool_buf = pm_container_of(ptr, &dummy_pool_buf::buf_);
+        pm_memory_pool_buf_header *header = &pool_buf->header_;
         pm_memory_pool *pool = reinterpret_cast<pm_memory_pool *>(pm_stack::itr_to_ptr(header->pool_));
+
+#if defined PM_EMBED_STACK || !defined PM_NO_ALLOC_CACHE
         pool->free_.move(&header->list_);
+#else
+        header->~pm_memory_pool_buf_header();
+        void **buf = reinterpret_cast<void **>(pool_buf);
+        //printf("delete %p\n", buf);
+        delete[] buf;
+#endif
+
 #ifdef PM_DEBUG
-        g_alloc_size -= pool->size_;
+        (*dbg_alloc_size()) -= (uint32_t)pool->size_;
 #endif
     }
 
     static void add_ref_impl(void *object) {
         //printf("add_ref %p\n", object);
         if (object != nullptr) {
-            pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
+            pm_memory_pool_buf_header *header = dummy_pool_buf::from_ptr(object);
             //printf("++ %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ + 1);
             ++header->ref_count_;
+
+            //Check if ref_count_ must overflow£¡
+            if (header->ref_count_ <= 0) {
+                pm_throw("ref_count_ overflow");
+            }
         }
     }
 
     static bool dec_ref_impl(void *object) {
         //printf("dec_ref %p\n", object);
         if (object != nullptr) {
-            pm_memory_pool_buf_header *header = pm_memory_pool_buf_header::from_ptr(object);
+            pm_memory_pool_buf_header *header = dummy_pool_buf::from_ptr(object);
             //printf("-- %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ - 1);
             pm_assert(header->ref_count_ > 0);
             --header->ref_count_;
             if (header->ref_count_ == 0) {
-                pm_allocator::release(object);
                 return true;
             }
         }
@@ -172,7 +180,8 @@ private:
 public:
     template <typename T>
     static inline void *obtain() {
-        return obtain_impl<sizeof(T)>();
+        pm_memory_pool *pool = pm_size_allocator<sizeof(T)>::get_memory_pool();
+        return obtain_impl(pool, sizeof(T));
     }
 
     template<typename T>
@@ -182,9 +191,10 @@ public:
 
     template<typename T>
     static void dec_ref(T *object) {
-        if(dec_ref_impl(reinterpret_cast<void *>(const_cast<T *>(object)))){
+        void *object_ = reinterpret_cast<void *>(const_cast<T *>(object));
+        if(dec_ref_impl(object_)){
             object->~T();
-            //pm_allocator::release(reinterpret_cast<void *>(const_cast<T *>(object)));
+            pm_allocator::release(object_);
         }
     }
 };

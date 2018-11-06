@@ -30,15 +30,33 @@
  */
 
 #ifdef PM_DEBUG
+#include <cassert>
 #define PM_TYPE_NONE    0
-#define PM_TYPE_TIMER   1
+//#define PM_TYPE_TIMER   1
+
 #define PM_MAX_CALL_LEN 50
 #define pm_assert(x)    assert(x)
 
 extern "C" {
-    extern uint32_t g_alloc_size;
-    extern uint32_t g_stack_size;
-    extern uint32_t g_promise_call_len;
+    inline uint32_t *dbg_alloc_size() {
+        static uint32_t alloc_size = 0;
+        return &alloc_size;
+    }
+
+    inline uint32_t *dbg_stack_size() {
+        static uint32_t stack_size = 0;
+        return &stack_size;
+    }
+
+    inline uint32_t *dbg_promise_call_len() {
+        static uint32_t promise_call_len = 0;
+        return &promise_call_len;
+    };
+
+    inline uint32_t *dbg_promise_id() {
+        static uint32_t promise_id = 0;
+        return &promise_id;
+    };
 }
 #else
 #define pm_assert(x)    do{ } while(0)

@@ -84,9 +84,9 @@ struct pm_stack {
         top += size;
 
 #ifdef PM_DEBUG
-        g_stack_size = (uint32_t)(top - start_);
+        (*dbg_stack_size()) = (uint32_t)(top - start_);
 #endif
-        //printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(top - start_), (int)sizeof(void *), (int)size, OFFSET_IGNORE_BIT, (int)sizeof(itr_t), ret);
+        //printf("mem ======= %d %d, size = %d, %d, %d, %x\n", (int)(top - start_), (int)sizeof(void *), (int)size, (int)OFFSET_IGNORE_BIT, (int)sizeof(itr_t), (int)ret);
         return ret;
     }
 
@@ -125,7 +125,6 @@ inline T *pm_stack_new(Args&&... args) {
 #endif
         T(args...);
 }
-
 
 }
 #endif

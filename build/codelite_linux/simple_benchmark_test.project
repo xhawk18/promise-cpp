@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CodeLite_Project Name="test0" InternalType="Console">
+<CodeLite_Project Name="simple_benchmark_test" InternalType="Console">
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00020001N0005Debug0000000000000001N0007Release000000000000]]>
@@ -11,7 +11,7 @@
     <File Name="../../promise.hpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="test">
-    <File Name="../../test/test0.cpp"/>
+    <File Name="../../test/simple_benchmark_test.cpp"/>
   </VirtualDirectory>
   <Dependencies Name="Debug"/>
   <Dependencies Name="Release"/>

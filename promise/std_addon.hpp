@@ -29,6 +29,13 @@
  * THE SOFTWARE.
  */
 
+#if defined __GNUC__ && !defined __clang__
+# if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ <= 8)
+#  error "Please use g++ 4.9.0 or higher"
+# endif
+#endif
+
+
 #if defined __ARMCC_VERSION && __ARMCC_VERSION < 6000000
 /* Missing headers for ARMCC */
 /* Add on for std, used by arm cc */
@@ -136,6 +143,30 @@ inline typename tuple_element<I, TUPLE>::type &get(TUPLE &tuple) {
     return tuple_get<I, TUPLE>::get(tuple);
 }
 
+
+typedef const std::type_info *type_index;
+inline type_index get_type_index(const std::type_info &info){
+    return type_index(&info);
+}
+
+} //namespace std
+
+#else
+
+#include <tuple>
+#include <typeindex>
+#include <type_traits>
+
+inline std::type_index get_type_index(const std::type_info &info){
+    return std::type_index(info);
+}
+#endif
+
+
+
+#if (defined(_MSVC_LANG) && _MSVC_LANG < 201402L) || (!defined(_MSVC_LANG) && __cplusplus < 201402L)
+namespace std {
+
 template <size_t... Ints>
 struct index_sequence
 {
@@ -161,23 +192,8 @@ struct make_index_sequence
 template<> struct make_index_sequence<0> : index_sequence<> { };
 template<> struct make_index_sequence<1> : index_sequence<0> { };
 
-typedef const std::type_info *type_index;
-inline type_index get_type_index(const std::type_info &info){
-    return type_index(&info);
-}
-
-}
-
-#else
-
-#include <tuple>
-#include <typeindex>
-#include <type_traits>
-
-inline std::type_index get_type_index(const std::type_info &info){
-    return std::type_index(info);
-}
+} //namespace std
 #endif
 
-
+ 
 #endif

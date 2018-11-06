@@ -1,10 +1,4 @@
-#pragma once
-#ifndef INC_PROMISE_FULL_HPP_
-#define INC_PROMISE_FULL_HPP_
-
 /*
- * Promise API implemented by cpp as Javascript promise style 
- *
  * Copyright (c) 2016, xhawk18
  * at gmail.com
  *
@@ -29,15 +23,33 @@
  * THE SOFTWARE.
  */
 
-//#define PM_DEBUG
-//#define PM_EMBED
-//#define PM_EMBEDSTACK 4096
+#pragma once
+#ifndef INC_PROMISE_FULL_HPP_
+#define INC_PROMISE_FULL_HPP_
+
+//
+// C++ promise/A+ library in Javascript styles.
+// See Readme.md for functions and detailed usage --
+//
+
+// macro for debug
+// #define PM_DEBUG
+
+// enable PM_EMBED to remove some features so as to run on embedded CPU
+// #define PM_EMBED
+
+// define PM_EMBED_STACK to use a pre-defined static buffer for memory allocation
+// #define PM_EMBED_STACK (512*1024*1024)
+
+// define PM_NO_ALLOC_CACHE to disable memory cache in this library.
+// #define PM_NO_ALLOC_CACHE
 
 #include <memory>
 #include <typeinfo>
 #include <utility>
 #include <algorithm>
 #include <iterator>
+#include <functional>
 
 #ifndef PM_EMBED
 #include <exception>
@@ -51,7 +63,6 @@
 #include "promise/list.hpp"
 #include "promise/allocator.hpp"
 #include "promise/any.hpp"
-//#include "promise/utask.hpp"
 
 namespace promise {
 
@@ -235,7 +246,7 @@ inline auto call_func(const FUNC &func, pm_any &arg)
     return call_tuple_as_argument(func, arg, std::make_index_sequence<type_tuple<func_arg_type>::size_>());
 }
 
-struct Bypass {};
+struct BypassAnyArg {};
 struct Promise;
 
 template< class T >
@@ -393,11 +404,18 @@ public:
     void resolve(const RET_ARG &... ret_arg) const {
         object_->template resolve<RET_ARG...>(ret_arg...);
     }
+    void resolve(const pm_any &ret_arg) const {
+        object_->resolve(ret_arg);
+    }
 
     template <typename ...RET_ARG>
     void reject(const RET_ARG &... ret_arg) const {
         object_->template reject<RET_ARG...>(ret_arg...);
     }
+    void reject(const pm_any &ret_arg) const {
+        object_->reject(ret_arg);
+    }
+
 
     Defer then(Defer &promise) {
         return object_->then(promise);
@@ -447,6 +465,10 @@ struct RejectChecker;
 #ifndef PM_EMBED
 template<typename ARG_TYPE, typename FUNC>
 struct ExCheck;
+#endif
+
+#ifndef PM_EMBED
+typedef std::function<void(Defer &d)> FnOnUncaughtException;
 #endif
 
 inline Defer newHeadPromise(void);
@@ -501,6 +523,7 @@ struct Promise {
 
 #ifdef PM_DEBUG
     uint32_t type_;
+    uint32_t id_;
 #endif
 
     Promise(const Promise &) = delete;
@@ -512,6 +535,7 @@ struct Promise {
         , status_(kInit)
 #ifdef PM_DEBUG
         , type_(PM_TYPE_NONE)
+        , id_(++(*dbg_promise_id()))
 #endif
         {
         //printf("size promise = %d %d %d\n", (int)sizeof(*this), (int)sizeof(prev_), (int)sizeof(next_));
@@ -522,7 +546,34 @@ struct Promise {
         if (next_.operator->()) {
             next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
+#ifndef PM_EMBED
+        else if (status_ == kRejected) {
+            onUncaughtException(any_);
+        }
+#endif
     }
+
+#ifndef PM_EMBED
+    static FnOnUncaughtException *getUncaughtExceptionHandler() {
+        static FnOnUncaughtException onUncaughtException = nullptr;
+        return &onUncaughtException;
+    }
+
+    static void onUncaughtException(const pm_any &any) {
+        FnOnUncaughtException *onUncaughtException = getUncaughtExceptionHandler();
+        if (onUncaughtException != nullptr) {
+            Defer promise = newHeadPromise();
+            promise.reject(any);
+            (*onUncaughtException)(promise);
+            get_tail(promise.operator->())->fail([] {
+            });
+        }
+    }
+
+    static void handleUncaughtException(const FnOnUncaughtException &onUncaughtException) {
+        (*getUncaughtExceptionHandler()) = onUncaughtException;
+    }
+#endif
 
     template <typename RET_ARG>
     void prepare_resolve(const RET_ARG &ret_arg) {
@@ -536,6 +587,12 @@ struct Promise {
         typedef typename remove_reference_tuple<std::tuple<RET_ARG...>>::type arg_type;
         prepare_resolve(arg_type(ret_arg...));
         if(status_ == kResolved)
+            call_next();
+    }
+
+    void resolve(const pm_any &ret_arg) {
+        prepare_resolve(ret_arg);
+        if (status_ == kResolved)
             call_next();
     }
 
@@ -554,18 +611,24 @@ struct Promise {
             call_next();
     }
 
+    void reject(const pm_any &ret_arg) {
+        prepare_reject(ret_arg);
+        if (status_ == kRejected)
+            call_next();
+    }
+
     Defer call_resolve(Defer &self, Promise *caller){
         if(resolved_ == nullptr){
             self->prepare_resolve(caller->any_);
             return self;
         }
 #ifdef PM_MAX_CALL_LEN
-        ++g_promise_call_len;
-        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+        ++ (*dbg_promise_call_len());
+        if((*dbg_promise_call_len()) > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
 #endif
         Defer ret = resolved_->call(self, caller);
 #ifdef PM_MAX_CALL_LEN
-        --g_promise_call_len;
+        -- (*dbg_promise_call_len());
 #endif
         if(ret != self)
             joinDeferObject(self, ret);
@@ -578,12 +641,12 @@ struct Promise {
             return self;
         }
 #ifdef PM_MAX_CALL_LEN
-        ++g_promise_call_len;
-        if(g_promise_call_len > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
+        ++ (*dbg_promise_call_len());
+        if((*dbg_promise_call_len()) > PM_MAX_CALL_LEN) pm_throw("PM_MAX_CALL_LEN");
 #endif
         Defer ret = rejected_->call(self, caller);
 #ifdef PM_MAX_CALL_LEN
-        --g_promise_call_len;
+        -- (*dbg_promise_call_len());
 #endif
         if(ret != self)
             joinDeferObject(self, ret);
@@ -684,11 +747,11 @@ struct Promise {
 
     template <typename FUNC_ON_FINALLY>
     Defer finally(const FUNC_ON_FINALLY &on_finally) {
-        return then([on_finally](Promise *caller) -> Bypass {
+        return then([on_finally](Promise *caller) -> BypassAnyArg {
             if(verify_func_arg(on_finally, caller->any_))
                 call_func(on_finally, caller->any_);
-            return Bypass();
-        }, [on_finally](Defer &self, Promise *caller) -> Bypass {
+            return BypassAnyArg();
+        }, [on_finally](Defer &self, Promise *caller) -> BypassAnyArg {
 #ifndef PM_EMBED
             typedef typename func_traits<FUNC_ON_FINALLY>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
@@ -702,7 +765,7 @@ struct Promise {
             if (verify_func_arg(on_finally, caller->any_))
                 call_func(on_finally, caller->any_);
 #endif
-            return Bypass();
+            return BypassAnyArg();
         });
     }
 
@@ -774,6 +837,14 @@ struct Promise {
         self->next_ = Defer(head);
         head->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(self));
         //printf("6prev_ = %d %x\n", (int)next->prev_, pm_stack::itr_to_ptr(next->prev_));
+
+#ifdef PM_DEBUG
+        printf("debug promise id: ");
+        for(Promise *p = head; p != nullptr; p = p->next_.operator->()) {
+            printf("%d ", p->id_);
+        }
+        printf("\n");
+#endif
     }
 
     static inline void joinDeferObject(Defer &self, Defer &next){
@@ -835,7 +906,7 @@ struct ResolveChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct ResolveChecker<Bypass, FUNC> {
+struct ResolveChecker<BypassAnyArg, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
@@ -885,7 +956,7 @@ struct ResolveChecker<RET, FnSimple> {
 #ifndef PM_EMBED
 template<std::size_t ARG_SIZE, typename FUNC>
 struct ExCheckTuple {
-    static void call(const FUNC &func, Defer &self, Promise *caller) {
+    static void *call(const FUNC &func, Defer &self, Promise *caller) {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         throw eptr;
     }
@@ -893,7 +964,8 @@ struct ExCheckTuple {
 
 template <typename FUNC>
 struct ExCheckTuple<0, FUNC> {
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) 
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         pm_any arg = std::tuple<>();
         caller->any_.clear();
         return call_func(func, arg);
@@ -903,7 +975,8 @@ struct ExCheckTuple<0, FUNC> {
 template <typename FUNC>
 struct ExCheckTuple<1, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller)
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         try {
             std::rethrow_exception(eptr);
@@ -927,7 +1000,8 @@ struct ExCheck:
 
 template<typename FUNC>
 struct ExCheck<pm_any, FUNC> {
-    static auto call(const FUNC &func, Defer &self, Promise *caller) {
+    static auto call(const FUNC &func, Defer &self, Promise *caller) 
+        -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         try {
             std::rethrow_exception(eptr);
@@ -1008,7 +1082,7 @@ struct RejectChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct RejectChecker<Bypass, FUNC> {
+struct RejectChecker<BypassAnyArg, FUNC> {
     typedef typename func_traits<FUNC>::arg_type arg_type;
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
@@ -1068,11 +1142,23 @@ inline Defer newPromise(FUNC func) {
     return promise;
 }
 
-/* Loop while func call resolved */
+/*
+ * While loop func call resolved, 
+ * It is not safe since the promise chain will become longer infinitely 
+ * if the returned Defer object was obtained by other and not released.
+ */
 template <typename FUNC>
-inline Defer While(FUNC func) {
+inline Defer doWhile_unsafe(FUNC func) {
     return newPromise(func).then([func]() {
-        return While(func);
+        return doWhile_unsafe(func);
+    });
+}
+
+/* While loop func call resolved */
+template <typename FUNC>
+inline Defer doWhile(FUNC func) {
+    return newPromise([func](Defer d) {
+        doWhile_unsafe(func).then(d);
     });
 }
 
@@ -1092,33 +1178,71 @@ inline Defer resolve(const RET_ARG &... ret_arg){
    argument have resolved, or rejects with the reason of the first passed
    promise that rejects. */
 template <typename PROMISE_LIST>
-inline Defer all(const PROMISE_LIST &promise_list) {
+inline Defer all(PROMISE_LIST &promise_list) {
     if(pm_size(promise_list) == 0){
         //return Promise::resolve<>()
     }
 
+    size_t *finished = pm_new<size_t>(0);
     size_t *size = pm_new<size_t>(pm_size(promise_list));
     std::vector<pm_any> *ret_arr = pm_new<std::vector<pm_any>>();
-    ret_arr->reserve(*size);
+    ret_arr->resize(*size);
 
     return newPromise([=](Defer &d) {
-        for (auto &defer : promise_list) {
+        size_t index = 0;
+        for (auto defer : promise_list) {
             defer.then([=](pm_any &arg) {
-                ret_arr->push_back(arg);
-                if (ret_arr->size() >= *size) {
+                (*ret_arr)[index] = arg;
+                if (++(*finished) >= *size) {
                     std::vector<pm_any> ret = *ret_arr;
+                    pm_delete(finished);
                     pm_delete(size);
                     pm_delete(ret_arr);
                     d.resolve(ret);
                 }
             }, [=](pm_any &arg) {
+                pm_delete(finished);
                 pm_delete(size);
                 pm_delete(ret_arr);
                 d.reject(arg);
             });
+
+            ++index;
         }
     });
 }
+
+inline Defer all(std::initializer_list<Defer> promise_list) {
+    return all<std::initializer_list<Defer>>(promise_list);
+}
+
+
+/* returns a promise that resolves or rejects as soon as one of
+the promises in the iterable resolves or rejects, with the value
+or reason from that promise. */
+template <typename PROMISE_LIST>
+inline Defer race(PROMISE_LIST promise_list) {
+    return newPromise([=](Defer d) {
+        for (auto defer : promise_list) {
+            defer.then([=](pm_any &arg) {
+                d->resolve(arg);
+            }, [=](pm_any &arg) {
+                d->reject(arg);
+            });
+        }
+    });
+}
+
+inline Defer race(std::initializer_list<Defer> promise_list) {
+    return race<std::initializer_list<Defer>>(promise_list);
+}
+
+#ifndef PM_EMBED
+inline void handleUncaughtException(const FnOnUncaughtException &onUncaughtException) {
+    Promise::handleUncaughtException(onUncaughtException);
+}
+#endif
+
 
 }
 
