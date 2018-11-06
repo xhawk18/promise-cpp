@@ -561,7 +561,7 @@ struct Promise {
 
     static void onUncaughtException(const pm_any &any) {
         FnOnUncaughtException *onUncaughtException = getUncaughtExceptionHandler();
-        if (onUncaughtException != nullptr) {
+        if (*onUncaughtException != nullptr) {
             Defer promise = newHeadPromise();
             promise.reject(any);
             (*onUncaughtException)(promise);
