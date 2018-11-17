@@ -1212,6 +1212,11 @@ inline Defer all(PROMISE_LIST &promise_list) {
     });
 }
 
+template <typename ... PROMISE_LIST>
+inline Defer all(PROMISE_LIST ...promise_list) {
+    return all({ promise_list ... });
+}
+
 inline Defer all(std::initializer_list<Defer> promise_list) {
     return all<std::initializer_list<Defer>>(promise_list);
 }
@@ -1231,6 +1236,11 @@ inline Defer race(PROMISE_LIST promise_list) {
             });
         }
     });
+}
+
+template <typename ... PROMISE_LIST>
+inline Defer race(PROMISE_LIST ...promise_list) {
+    return race({ promise_list ... });
 }
 
 inline Defer race(std::initializer_list<Defer> promise_list) {

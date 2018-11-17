@@ -57,7 +57,7 @@ void testPromiseRace(asio::io_service &io) {
         return "two";
     });
 
-    race({promise0, promise1}).then([](const char *str) {
+    race(promise0, promise1).then([](const char *str) {
         printf("race result = %s\n", str);
         // Both resolve, but promise2 is faster
     });
@@ -73,7 +73,7 @@ void testPromiseAll(asio::io_service &io) {
         return std::string("two");
     });
 
-    all({promise0, promise1}).then([](const std::vector<pm_any> &results) {
+    all(promise0, promise1).then([](const std::vector<pm_any> &results) {
         printf("all size = %d\n", (int)results.size());
         for(size_t i = 0; i < results.size(); ++i)
             printf("all result = %s\n",
