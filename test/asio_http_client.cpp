@@ -36,7 +36,6 @@
 #include "asio/io.hpp"
 
 using namespace promise;
-namespace system = boost::system;
 namespace asio   = boost::asio;
 using     tcp    = boost::asio::ip::tcp;
 namespace http   = boost::beast::http;
@@ -98,12 +97,12 @@ void do_session(
 
     }).then([]() {
         //<6> success, return default error_code
-        return system::error_code();
-    }, [](const system::error_code err) {
+        return boost::system::error_code();
+    }, [](const boost::system::error_code err) {
         //<6> failed, return the error_code
         return err;
 
-    }).then([=](system::error_code &err) {
+    }).then([=](boost::system::error_code &err) {
         //<7> Gracefully close the socket
         std::cout << "shutdown..." << std::endl;
         session->socket_.shutdown(tcp::socket::shutdown_both, err);
