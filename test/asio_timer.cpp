@@ -59,7 +59,7 @@ void testPromiseRace(asio::io_service &io) {
 
     race(promise0, promise1).then([](const char *str) {
         printf("race result = %s\n", str);
-        // Both resolve, but promise2 is faster
+        // Both resolve, but promise1 is faster
     });
 }
 
@@ -78,7 +78,7 @@ void testPromiseAll(asio::io_service &io) {
         for(size_t i = 0; i < results.size(); ++i)
             printf("all result = %s\n",
                 static_cast<std::string *>(results[i].tuple_element(0))->c_str());
-        // Both resolve, but promise2 is faster
+        // Both resolve, but promise1 is faster
     });
 }
 
