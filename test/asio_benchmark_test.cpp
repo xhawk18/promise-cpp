@@ -36,22 +36,23 @@
 #include "asio/timer.hpp"
 
 using namespace promise;
-using namespace std;
-using namespace boost::asio;
+namespace chrono       = std::chrono;
+namespace asio         = boost::asio;
+using     steady_clock = std::chrono::steady_clock;
 
 static const int N = 1000000;
 
-void dump(string name, int n,
-    std::chrono::steady_clock::time_point start,
-    std::chrono::steady_clock::time_point end)
+void dump(std::string name, int n,
+    steady_clock::time_point start,
+    steady_clock::time_point end)
 {
-    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    cout << name << "    " << n << "      " << 
+    auto ns = chrono::duration_cast<chrono::nanoseconds>(end - start);
+    std::cout << name << "    " << n << "      " << 
         ns.count() / n << 
-        "ns/op" << endl;
+        "ns/op" << std::endl;
 }
 
-void task(io_service &io, int task_id, int count, int *pcoro, Defer d) {
+void task(asio::io_service &io, int task_id, int count, int *pcoro, Defer d) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
@@ -65,9 +66,9 @@ void task(io_service &io, int task_id, int count, int *pcoro, Defer d) {
 };
 
 
-Defer test_switch(io_service &io, int coro)
+Defer test_switch(asio::io_service &io, int coro)
 {
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    steady_clock::time_point start = steady_clock::now();
 
     int *pcoro = new int(coro);
 
@@ -77,13 +78,13 @@ Defer test_switch(io_service &io, int coro)
         }
     }).then([=](){
         delete pcoro;
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        steady_clock::time_point end = steady_clock::now();
         dump("BenchmarkSwitch_" + std::to_string(coro), N, start, end);
     });
 }
 
 int main() {
-    io_service io;
+    asio::io_service io;
 
     doWhile([&](Defer d) {
 #ifdef PM_DEBUG

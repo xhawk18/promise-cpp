@@ -33,10 +33,7 @@
 #include "promise.hpp"
 #include "simple_task/simple_task.hpp"
 
-
 using namespace promise;
-using namespace std;
-
 
 Defer testTimer(Service &service) {
 
@@ -53,11 +50,7 @@ Defer testTimer(Service &service) {
     });
 }
 
-
-#include <iostream>
-
 int main() {
-    
 
     Service service;
 

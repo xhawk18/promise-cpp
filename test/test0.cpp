@@ -51,9 +51,9 @@ Defer run(Defer &next){
     return newPromise([](Defer d) {
         output_func_name();
         d.resolve(3, 5, 6);
-    }).then([](promise::pm_any &any){
+    }).then([](pm_any &any){
         output_func_name();
-        return promise::resolve(3, 5, 16);
+        return resolve(3, 5, 16);
     }).then([](const int &a, int b, int c) {
         printf("%d %d %d\n", a, b, c);
         output_func_name();

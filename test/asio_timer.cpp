@@ -30,9 +30,9 @@
 #include <boost/asio.hpp>
 
 using namespace promise;
-using namespace boost::asio;
+namespace asio = boost::asio;
 
-Defer testTimer(io_service &io) {
+Defer testTimer(asio::io_service &io) {
 
     return delay(io, 3000).then([&] {
         printf("timer after 3000 ms!\n");
@@ -47,7 +47,7 @@ Defer testTimer(io_service &io) {
     });
 }
 
-void testPromiseRace(io_service &io) {
+void testPromiseRace(asio::io_service &io) {
     auto promise0 = delay(io, 10000).then([] {
         printf("race: one resolved\n");
         return "one";
@@ -63,7 +63,7 @@ void testPromiseRace(io_service &io) {
     });
 }
 
-void testPromiseAll(io_service &io) {
+void testPromiseAll(asio::io_service &io) {
     auto promise0 = delay(io, 10000).then([] {
         printf("all: one resolved\n");
         return std::string("one");
@@ -83,7 +83,7 @@ void testPromiseAll(io_service &io) {
 }
 
 int main() {
-    io_service io;
+    asio::io_service io;
 
     testPromiseRace(io);
     testPromiseAll(io);

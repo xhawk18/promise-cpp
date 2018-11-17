@@ -40,13 +40,17 @@
 
 using namespace promise;
 
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
-namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
+namespace asio        = boost::asio;
+namespace ip          = boost::asio::ip;
+using     socket_base = boost::asio::socket_base;
+using     tcp         = boost::asio::ip::tcp;
+namespace beast       = boost::beast;
+namespace http        = boost::beast::http;
 
 struct Session {
     bool close_;
     tcp::socket socket_;
-    boost::beast::flat_buffer buffer_;
+    beast::flat_buffer buffer_;
     std::string doc_root_;
     http::request<http::string_body> req_;
 
@@ -79,15 +83,15 @@ Defer async_accept(tcp::acceptor &acceptor) {
 
 
 // Return a reasonable mime type based on the extension of a file.
-boost::beast::string_view
-mime_type(boost::beast::string_view path)
+beast::string_view
+mime_type(beast::string_view path)
 {
-    using boost::beast::iequals;
+    using beast::iequals;
     auto const ext = [&path]
     {
         auto const pos = path.rfind(".");
-        if(pos == boost::beast::string_view::npos)
-            return boost::beast::string_view{};
+        if(pos == beast::string_view::npos)
+            return beast::string_view{};
         return path.substr(pos);
     }();
     if(iequals(ext, ".htm"))  return "text/html";
@@ -118,8 +122,8 @@ mime_type(boost::beast::string_view path)
 // The returned path is normalized for the platform.
 std::string
 path_cat(
-    boost::beast::string_view base,
-    boost::beast::string_view path)
+    beast::string_view base,
+    beast::string_view path)
 {
     if(base.empty())
         return path.to_string();
@@ -153,7 +157,7 @@ handle_request(
 {
     // Returns a bad request response
     auto const bad_request =
-    [session](boost::beast::string_view why)
+    [session](beast::string_view why)
     {
         http::response<http::string_body> res{http::status::bad_request, session->req_.version()};
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -166,7 +170,7 @@ handle_request(
 
     // Returns a not found response
     auto const not_found =
-    [session](boost::beast::string_view target)
+    [session](beast::string_view target)
     {
         http::response<http::string_body> res{http::status::not_found, session->req_.version()};
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -179,7 +183,7 @@ handle_request(
 
     // Returns a server error response
     auto const server_error =
-    [session](boost::beast::string_view what)
+    [session](beast::string_view what)
     {
         http::response<http::string_body> res{http::status::internal_server_error, session->req_.version()};
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -198,7 +202,7 @@ handle_request(
     // Request path must be absolute and not contain "..".
     if(session->req_.target().empty() ||
         session->req_.target()[0] != '/' ||
-        session->req_.target().find("..") != boost::beast::string_view::npos)
+        session->req_.target().find("..") != beast::string_view::npos)
         return send(bad_request("Illegal request-target"));
 
     // Build the path to the requested file
@@ -207,9 +211,9 @@ handle_request(
         path.append("index.html");
 
     // Attempt to open the file
-    boost::beast::error_code ec;
+    beast::error_code ec;
     http::file_body::value_type body;
-    body.open(path.c_str(), boost::beast::file_mode::scan, ec);
+    body.open(path.c_str(), beast::file_mode::scan, ec);
 
     // Handle the case where the file doesn't exist
     if(ec == boost::system::errc::no_such_file_or_directory)
@@ -330,7 +334,7 @@ do_session(
 // Accepts incoming connections and launches the sessions
 void
 do_listen(
-    boost::asio::io_context& ioc,
+    asio::io_context& ioc,
     tcp::endpoint endpoint,
     std::string const& doc_root)
 {
@@ -343,7 +347,7 @@ do_listen(
         return fail(ec, "open");
 
     // Allow address reuse
-    acceptor->set_option(boost::asio::socket_base::reuse_address(true));
+    acceptor->set_option(socket_base::reuse_address(true));
     if(ec)
         return fail(ec, "set_option");
 
@@ -353,7 +357,7 @@ do_listen(
         return fail(ec, "bind");
 
     // Start listening for connections
-    acceptor->listen(boost::asio::socket_base::max_listen_connections, ec);
+    acceptor->listen(socket_base::max_listen_connections, ec);
     if(ec)
         return fail(ec, "listen");
 
@@ -379,13 +383,13 @@ int main(int argc, char* argv[])
             "    http-server-coro 0.0.0.0 8080 . 1\n";
         return EXIT_FAILURE;
     }
-    auto const address = boost::asio::ip::make_address(argv[1]);
+    auto const address = ip::make_address(argv[1]);
     auto const port = static_cast<unsigned short>(std::atoi(argv[2]));
     std::string const doc_root = argv[3];
     auto const threads = std::max<int>(1, std::atoi(argv[4]));
 
     // The io_context is required for all I/O
-    boost::asio::io_context ioc{threads};
+    asio::io_context ioc{threads};
 
     // Spawn a listening port
     do_listen(ioc,
