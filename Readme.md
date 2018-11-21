@@ -34,6 +34,7 @@
             - [Omit parameters](#omit-parameters)
         - [copy the promise object](#copy-the-promise-object)
         - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
+        - [about multithread](#about-multithread)
 
 <!-- /TOC -->
 
@@ -551,6 +552,16 @@ handleUncaughtException([](Defer &d) {
 });
 ```
 
+### about multithread
+
+The "Defer" object is not thread safe by default for better performance.
+
+To make it workable with multithread, define PM_MULTITHREAD before include "promise.hpp"
+
+```
+#define PM_MULTITHREAD
+#include "promise.hpp"
+```
 
 
 
