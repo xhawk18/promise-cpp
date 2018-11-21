@@ -64,6 +64,16 @@ inline P* pm_container_of(T* ptr, const M P::*member) {
     return reinterpret_cast<P*>(reinterpret_cast<char*>(ptr) - pm_offsetof(member));
 }
 
+#ifdef PM_MULTITHREAD
+
+struct pm_mutex {
+    static std::recursive_mutex &get_mutex() {
+        static std::recursive_mutex mutex_;
+        return mutex_;
+    }
+};
+
+#endif
 
 }
 #endif

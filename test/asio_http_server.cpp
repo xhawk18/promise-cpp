@@ -35,6 +35,11 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+
+// Boost asio use mulithread in this example,
+// so we enable multithread mode of "promise library".
+#define PM_MULTITHREAD
 #include "promise.hpp"
 #include "asio/io.hpp"
 

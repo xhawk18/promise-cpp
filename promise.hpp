@@ -32,6 +32,9 @@
 // See Readme.md for functions and detailed usage --
 //
 
+// support multithread
+// #define PM_MULTITHREAD
+
 // macro for debug
 // #define PM_DEBUG
 
@@ -50,6 +53,9 @@
 #include <algorithm>
 #include <iterator>
 #include <functional>
+#ifdef PM_MULTITHREAD
+#include <mutex>
+#endif
 
 #ifndef PM_EMBED
 #include <exception>
@@ -544,6 +550,9 @@ struct Promise {
     virtual ~Promise() {
         clear_func();
         if (next_.operator->()) {
+#ifdef PM_MULTITHREAD
+            std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
             next_->prev_ = pm_stack::ptr_to_itr(nullptr);
         }
 #ifndef PM_EMBED
@@ -676,33 +685,51 @@ struct Promise {
     }
     
     Defer call_next() {
-        if(status_ == kResolved) {
-            if(next_.operator->()){
-                pm_allocator::add_ref(this);
-                status_ = kFinished;
-                Defer d = next_->call_resolve(next_, this);
-                this->any_.clear();
-                next_->clear_func();
-                if(d.operator->())
-                    d->call_next();
-                //next_.clear();
-                pm_allocator::dec_ref(this);
-                return d;
+        uint8_t status = kInit;
+        if (status_ == kResolved) {
+            if (next_.operator->()) {
+#ifdef PM_MULTITHREAD
+                std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
+                if (status_ == kResolved) {
+                    status = status_;
+                    status_ = kFinished;
+                }
             }
         }
-        else if(status_ == kRejected ) {
-            if(next_.operator->()){
-                pm_allocator::add_ref(this);
-                status_ = kFinished;
-                Defer d =  next_->call_reject(next_, this);
-                this->any_.clear();
-                next_->clear_func();
-                if (d.operator->())
-                    d->call_next();
-                //next_.clear();
-                pm_allocator::dec_ref(this);
-                return d;
+        else if (status_ == kRejected) {
+            if (next_.operator->()) {
+#ifdef PM_MULTITHREAD
+                std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
+                if (status_ == kRejected) {
+                    status = status_;
+                    status_ = kFinished;
+                }
             }
+        }
+
+        if(status == kResolved){
+            pm_allocator::add_ref(this);
+            Defer d = next_->call_resolve(next_, this);
+            this->any_.clear();
+            next_->clear_func();
+            if(d.operator->())
+                d->call_next();
+            //next_.clear();
+            pm_allocator::dec_ref(this);
+            return d;
+        }
+        else if(status == kRejected ) {
+            pm_allocator::add_ref(this);
+            Defer d =  next_->call_reject(next_, this);
+            this->any_.clear();
+            next_->clear_func();
+            if (d.operator->())
+                d->call_next();
+            //next_.clear();
+            pm_allocator::dec_ref(this);
+            return d;
         }
 
         return next_;
@@ -771,6 +798,9 @@ struct Promise {
 
 
     Defer find_pending() {
+#ifdef PM_MULTITHREAD
+        std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
         if (status_ == kInit) {
             Promise *p = this;
             Promise *prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
@@ -803,6 +833,7 @@ struct Promise {
             pending.reject();
     }
 
+private:
     static Promise *get_head(Promise *p){
         while(p){
             Promise *prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
@@ -822,6 +853,10 @@ struct Promise {
     
     
     static inline void joinDeferObject(Promise *self, Defer &next){
+#ifdef PM_MULTITHREAD
+        std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
+
         /* Check if there's any functions return null Defer object */
         pm_assert(next.operator->() != nullptr);
 

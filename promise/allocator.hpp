@@ -29,6 +29,10 @@
  * THE SOFTWARE.
  */
 
+#ifdef PM_MULTITHREAD
+#include <mutex>
+#endif
+
 namespace promise {
 
 struct pm_memory_pool {
@@ -154,6 +158,10 @@ private:
         if (object != nullptr) {
             pm_memory_pool_buf_header *header = dummy_pool_buf::from_ptr(object);
             //printf("++ %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ + 1);
+
+#ifdef PM_MULTITHREAD
+            std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
             ++header->ref_count_;
 
             //Check if ref_count_ must overflow£¡
@@ -168,6 +176,10 @@ private:
         if (object != nullptr) {
             pm_memory_pool_buf_header *header = dummy_pool_buf::from_ptr(object);
             //printf("-- %p %d -> %d\n", pool_buf, pool_buf->ref_count_, pool_buf->ref_count_ - 1);
+
+#ifdef PM_MULTITHREAD
+            std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
             pm_assert(header->ref_count_ > 0);
             --header->ref_count_;
             if (header->ref_count_ == 0) {
