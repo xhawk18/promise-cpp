@@ -421,7 +421,9 @@ public:
     void reject(const pm_any &ret_arg) const {
         object_->reject(ret_arg);
     }
-
+    void reject(const std::exception_ptr &ptr) const {
+        object_->reject(ptr);
+    }
 
     Defer then(Defer &promise) {
         return object_->then(promise);
@@ -452,6 +454,9 @@ public:
         return object_->template finally<FUNC_ON_FINALLY>(on_finally);
     }
 
+    void call(Defer &promise) {
+        object_->call(promise);
+    }
 private:
     inline void swap(Defer &ptr) {
         std::swap(object_, ptr.object_);
@@ -626,6 +631,12 @@ struct Promise {
             call_next();
     }
 
+    void reject(const std::exception_ptr &ptr) {
+        prepare_reject(ptr);
+        if (status_ == kRejected)
+            call_next();
+    }
+
     Defer call_resolve(Defer &self, Promise *caller){
         if(resolved_ == nullptr){
             self->prepare_resolve(caller->any_);
@@ -796,6 +807,15 @@ struct Promise {
         });
     }
 
+    void call(Defer &promise) {
+        then([promise](Promise *caller) -> BypassAnyArg {
+            promise.resolve(caller->any_);
+            return BypassAnyArg();
+        }, [promise](Defer &self, Promise *caller) -> BypassAnyArg {
+            promise.reject(caller->any_);
+            return BypassAnyArg();
+        });
+    }
 
     Defer find_pending() {
 #ifdef PM_MULTITHREAD
@@ -1193,7 +1213,7 @@ inline Defer doWhile_unsafe(FUNC func) {
 template <typename FUNC>
 inline Defer doWhile(FUNC func) {
     return newPromise([func](Defer d) {
-        doWhile_unsafe(func).then(d);
+        doWhile_unsafe(func).call(d);
     });
 }
 

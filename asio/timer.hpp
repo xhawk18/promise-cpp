@@ -108,7 +108,31 @@ inline void clearTimeout(Defer d) {
     cancelDelay(d);
 }
 
+inline Defer wait(boost::asio::io_service &io, Defer d, uint64_t time_ms) {
+    return newPromise([&io, d, time_ms](Defer &dTimer) {
+        boost::asio::steady_timer *timer =
+            pm_new<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
+        dTimer->any_ = timer;
 
+        d.finally([=](){
+            if (!dTimer->any_.empty()) {
+                boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(dTimer->any_);
+                dTimer->any_.clear();
+                timer->cancel();
+                pm_delete(timer);
+            }
+        }).call(dTimer);
+        
+        timer->async_wait([=](const boost::system::error_code& error_code) {
+            if (!dTimer->any_.empty()) {
+                boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(dTimer->any_);
+                dTimer->any_.clear();
+                pm_delete(timer);
+                d.reject();
+            }
+        });
+    });
+}
 
 
 
