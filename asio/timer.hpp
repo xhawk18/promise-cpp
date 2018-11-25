@@ -128,7 +128,7 @@ inline Defer wait(boost::asio::io_service &io, Defer d, uint64_t time_ms) {
                 boost::asio::steady_timer *timer = any_cast<boost::asio::steady_timer *>(dTimer->any_);
                 dTimer->any_.clear();
                 pm_delete(timer);
-                d.reject(boost::system::errc::timed_out);
+                d.reject(boost::system::errc::make_error_code(boost::system::errc::timed_out));
             }
         });
     });
