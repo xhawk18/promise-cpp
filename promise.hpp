@@ -457,6 +457,10 @@ public:
     void call(Defer &promise) {
         object_->call(promise);
     }
+
+    void dump() {
+        object_->dump();
+    }
 private:
     inline void swap(Defer &ptr) {
         std::swap(object_, ptr.object_);
@@ -650,8 +654,10 @@ struct Promise {
 #ifdef PM_MAX_CALL_LEN
         -- (*dbg_promise_call_len());
 #endif
-        if(ret != self)
+        if (ret != self) {
             joinDeferObject(self, ret);
+            self->status_ = kFinished;
+        }
         return ret;
     }
 
@@ -668,8 +674,10 @@ struct Promise {
 #ifdef PM_MAX_CALL_LEN
         -- (*dbg_promise_call_len());
 #endif
-        if(ret != self)
+        if (ret != self) {
             joinDeferObject(self, ret);
+            self->status_ = kFinished;
+        }
         return ret;
     }
 
@@ -851,6 +859,25 @@ struct Promise {
         Defer pending = find_pending();
         if(pending.operator->() != nullptr)
             pending.reject();
+    }
+
+    void dump() {
+#ifdef PM_MULTITHREAD
+        std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
+#endif
+
+        /* Check if there's any functions return null Defer object */
+        pm_assert(next.operator->() != nullptr);
+
+        Promise *head = get_head(this);
+        printf("dump ");
+        for (Promise *p = head; p != nullptr; p = p->next_.operator->()) {
+            if(p == this)
+                printf("*%p[%d] ", p, (int)p->status_);
+            else
+                printf("%p[%d] ", p, (int)p->status_);
+        }
+        printf("\n");
     }
 
 private:
