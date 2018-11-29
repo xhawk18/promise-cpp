@@ -47,6 +47,7 @@
 // define PM_NO_ALLOC_CACHE to disable memory cache in this library.
 // #define PM_NO_ALLOC_CACHE
 
+#include <cstdio>
 #include <memory>
 #include <typeinfo>
 #include <utility>
