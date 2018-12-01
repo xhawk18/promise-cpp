@@ -35,6 +35,7 @@
         - [copy the promise object](#copy-the-promise-object)
         - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
         - [about multithread](#about-multithread)
+        - [working in embedded chips ?](#working-in-embedded-chips-)
 
 <!-- /TOC -->
 
@@ -563,6 +564,9 @@ To make it workable with multithread, define PM_MULTITHREAD before include "prom
 #include "promise.hpp"
 ```
 
+### working in embedded chips ?
 
+Yes, it works!
+Please use [promise_embed](https://github.com/xhawk18/promise_embed), which is the special version optimized for embedded chips, such as Cortex M0/M3(STM32, etc...).
 
-
+[Promise_embed](https://github.com/xhawk18/promise_embed) provides multitask function in single thread even through there's no operation system.
