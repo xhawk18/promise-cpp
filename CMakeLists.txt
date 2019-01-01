@@ -23,6 +23,7 @@ endmacro(use_cxx11)
 
 
 project(promise)
+set(PROJECT_VERSION 1.0.0)
 use_cxx11()
 aux_source_directory(. DIR_SRCS)
 include_directories(.)
@@ -32,6 +33,13 @@ add_executable(simple_benchmark_test test/simple_benchmark_test.cpp)
 add_executable(chain_defer_test test/chain_defer_test.cpp)
 enable_testing()
 add_test(chain_defer_test chain_defer_test)
+
+install(FILES promise.hpp DESTINATION include)
+file(GLOB PROMISE_HEADERS promise/*.hpp)
+install(FILES ${PROMISE_HEADERS} DESTINATION include/promise)
+configure_file(build/promise-cpp.pc.in ${CMAKE_CURRENT_BINARY_DIR}/promise-cpp.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/promise-cpp.pc DESTINATION lib/pkgconfig)
+unset(PROJECT_VERSION)
 
 
 project(asio)
