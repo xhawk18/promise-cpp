@@ -29,6 +29,9 @@ include_directories(.)
 add_executable(test0 test/test0.cpp)
 add_executable(simple_timer test/simple_timer.cpp)
 add_executable(simple_benchmark_test test/simple_benchmark_test.cpp)
+add_executable(chain_defer_test test/chain_defer_test.cpp)
+enable_testing()
+add_test(chain_defer_test chain_defer_test)
 
 
 project(asio)
