@@ -430,6 +430,10 @@ public:
         return object_->then(promise);
     }
 
+    Defer then(Defer&& promise) {
+        return then(promise);
+    }
+
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
     Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
         return object_->template then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
