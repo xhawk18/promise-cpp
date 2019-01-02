@@ -3,7 +3,7 @@
 #include <iostream>
 
 promise::Defer writeTo(std::ostream& out) {
-    return promise::newHeadPromise().then([&out](int value) {
+    return promise::newPromise().then([&out](int value) {
         out << value;
         return promise::reject(std::string(" testErrorReason "));
     }, [&out](const std::string& reason) {
@@ -13,7 +13,7 @@ promise::Defer writeTo(std::ostream& out) {
 }
 
 int main() {
-    promise::Defer d = promise::newHeadPromise();
+    promise::Defer d = promise::newPromise();
     std::ostringstream out;
     promise::Defer writeToOut = writeTo(out);
     d.then(writeToOut).then(writeTo(out)).then(writeTo(out));
@@ -25,5 +25,7 @@ int main() {
                   << "expected \"" << expected << "\"\n";
         return 1;
     }
+
     std::cout << "PASS\n";
+    return 0;
 }

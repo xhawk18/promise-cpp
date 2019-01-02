@@ -491,7 +491,7 @@ struct ExCheck;
 typedef std::function<void(Defer &d)> FnOnUncaughtException;
 #endif
 
-inline Defer newHeadPromise(void);
+inline Defer newPromise(void);
 
 struct PromiseCaller{
     virtual ~PromiseCaller(){};
@@ -585,7 +585,7 @@ struct Promise {
     static void onUncaughtException(const pm_any &any) {
         FnOnUncaughtException *onUncaughtException = getUncaughtExceptionHandler();
         if (*onUncaughtException != nullptr) {
-            Defer promise = newHeadPromise();
+            Defer promise = newPromise();
             promise.reject(any);
             (*onUncaughtException)(promise);
             get_tail(promise.operator->())->fail([] {
@@ -761,7 +761,7 @@ struct Promise {
 
 
     Defer then_impl(PromiseCaller *resolved, PromiseCaller *rejected){
-        Defer promise = newHeadPromise();
+        Defer promise = newPromise();
         promise->resolved_ = resolved;
         promise->rejected_ = rejected;
         return then(promise);
@@ -1217,14 +1217,14 @@ struct RejectChecker<RET, FnSimple> {
     }
 };
 
-inline Defer newHeadPromise(){
+inline Defer newPromise(){
     return Defer(pm_new<Promise>());
 }
 
 /* Create new promise object */
 template <typename FUNC>
 inline Defer newPromise(FUNC func) {
-    Defer promise = newHeadPromise();
+    Defer promise = newPromise();
     promise->run(func, promise);
     return promise;
 }
