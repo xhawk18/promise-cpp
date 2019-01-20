@@ -33,6 +33,8 @@
 #include <mutex>
 #endif
 
+#include <memory>
+
 namespace promise {
 
 struct pm_memory_pool {
@@ -89,10 +91,10 @@ struct dummy_pool_buf {
 template <size_t SIZE>
 struct pm_size_allocator {
     static inline pm_memory_pool *get_memory_pool() {
-        thread_local static pm_memory_pool *pool_ = nullptr;
+        thread_local static std::unique_ptr<pm_memory_pool> pool_;
         if(pool_ == nullptr)
-            pool_ = pm_stack_new<pm_memory_pool>(SIZE);
-        return pool_;
+            pool_.reset(pm_stack_new<pm_memory_pool>(SIZE));
+        return pool_.get();
     }
 };
 
