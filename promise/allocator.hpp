@@ -37,12 +37,22 @@
 
 namespace promise {
 
+inline void destroy_node(pm_list *node);
+
 struct pm_memory_pool {
     pm_list free_;
     size_t size_;
     pm_memory_pool(size_t size)
         : free_()
         , size_(size){
+    }
+    ~pm_memory_pool(){
+        pm_list *node = free_.next();
+        while(node != &free_){
+            pm_list *next = node->next();
+            destroy_node(node);
+            node = next;
+        }
     }
 };
 
@@ -87,6 +97,18 @@ struct dummy_pool_buf {
     }
 };
 
+inline void destroy_node(pm_list *node) {
+    pm_memory_pool_buf_header *header = pm_container_of(node, &pm_memory_pool_buf_header::list_);
+    header->~pm_memory_pool_buf_header();
+#ifdef PM_EMBED_STACK
+    //nothing to be freed
+#else
+    dummy_pool_buf *pool_buf = pm_container_of
+        (header, &dummy_pool_buf::header_);
+    void **buf = reinterpret_cast<void **>(pool_buf);
+    delete[] buf;
+#endif
+}
 
 template <size_t SIZE>
 struct pm_size_allocator {
