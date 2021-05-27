@@ -1275,27 +1275,37 @@ inline Defer all(PROMISE_LIST &promise_list) {
     std::vector<pm_any> *ret_arr = pm_new<std::vector<pm_any>>();
     ret_arr->resize(*size);
 
+    auto deleter = [=]() {
+        pm_delete(finished);
+        pm_delete(size);
+        pm_delete(ret_arr);
+    };
+
     return newPromise([=](Defer &d) {
         size_t index = 0;
         for (auto defer : promise_list) {
             defer.then([=](pm_any &arg) {
+                if (d->status_ != Promise::kInit)
+                    return;
                 (*ret_arr)[index] = arg;
                 if (++(*finished) >= *size) {
                     std::vector<pm_any> ret = *ret_arr;
-                    pm_delete(finished);
-                    pm_delete(size);
-                    pm_delete(ret_arr);
                     d.resolve(ret);
                 }
             }, [=](pm_any &arg) {
-                pm_delete(finished);
-                pm_delete(size);
-                pm_delete(ret_arr);
+                if (d->status_ != Promise::kInit)
+                    return;
                 d.reject(arg);
             });
 
             ++index;
         }
+    }).then([=](pm_any &arg){
+        deleter();
+        return resolve(arg);
+    }, [=](pm_any &arg){
+        deleter();
+        return reject(arg);
     });
 }
 
