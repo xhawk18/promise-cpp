@@ -67,6 +67,8 @@ Promise-cpp can be the base component in event-looped asychronized programming, 
 
 * [test/asio_http_server.cpp](test/asio_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
+* [test/my_qt_app](test/my_qt_app):  promisified timer in QT gui thread. (QT required)
+
 Please check folder ["build"](build) to get the codelite/msvc projects for the test code above, or use cmake to build from [CMakeLists.txt](CMakeLists.txt).
 
 ### Compiler required
