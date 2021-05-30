@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(my_qt_app LANGUAGES CXX)
+project(qt_timer LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -35,20 +35,20 @@ set(PROJECT_SOURCES
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(my_qt_app
+    qt_add_executable(qt_timer
         ${PROJECT_SOURCES}
     )
 else()
     if(ANDROID)
-        add_library(my_qt_app SHARED
+        add_library(qt_timer SHARED
             ${PROJECT_SOURCES}
         )
     else()
-        add_executable(my_qt_app
+        add_executable(qt_timer
             ${PROJECT_SOURCES}
         )
     endif()
 endif()
 
-target_link_libraries(my_qt_app PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-target_include_directories(my_qt_app PRIVATE "../..")
+target_link_libraries(qt_timer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_include_directories(qt_timer PRIVATE "../..")

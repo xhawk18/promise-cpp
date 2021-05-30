@@ -24,11 +24,12 @@
  */
 
 #pragma once
-#ifndef INC_PROMISE_QT_HPP_
-#define INC_PROMISE_QT_HPP_
+#ifndef INC_PROMISE_WIN32_HPP_
+#define INC_PROMISE_WIN32_HPP_
 
 //
-// Promisified timer based on promise-cpp and QT
+// Promisified timer based on promise-cpp on windows platform
+// It can be used in any windows application other than MFC
 //
 // Functions --
 //   Defer yield(QWidget *widget);
@@ -43,27 +44,25 @@
 
 #include "../../promise.hpp"
 #include <chrono>
-#include <QObject>
-#include <QTimerEvent>
+#include <map>
+#include <windows.h>
 
 namespace promise {
 
 inline void cancelDelay(Defer d);
 inline void clearTimeout(Defer d);
 
-struct QtTimerHolder: QObject {
-    QtTimerHolder() {};
+struct WindowsTimerHolder {
+    WindowsTimerHolder() {};
 public:
     Defer delay(int time_ms) {
         return newPromise([time_ms, this](Defer &d) {
-            int timerId = this->startTimer(time_ms);
+            int timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
+            //printf("timerId = %d\n", (int)timerId);
 
-            QtTimer *timer = pm_new<QtTimer>();
-            timer->timerId_ = timerId;
-            timer->timerHolder_ = this;
-            d->any_ = timer;
-            this->defers_.insert({ timerId, d });
-            });
+            d->any_ = timerId;
+            getDefers().insert({ timerId, d });
+        });
     }
 
     Defer yield() {
@@ -80,44 +79,46 @@ public:
     }
 
 protected:
-    void timerEvent(QTimerEvent *event) {
-        int timerId = event->timerId();
-        auto found = this->defers_.find(timerId);
-        if (found != this->defers_.end()) {
+    static void CALLBACK timerEvent(HWND unnamedParam1,
+                                    UINT unnamedParam2,
+                                    UINT_PTR timerId,
+                                    DWORD unnamedParam4) {
+        (void)unnamedParam1;
+        (void)unnamedParam2;
+        (void)unnamedParam4;
+        //printf("%d %d %d %d\n", (int)unnamedParam1, (int)unnamedParam2, (int)unnamedParam3, (int)unnamedParam4);
+        auto found = getDefers().find(timerId);
+        if (found != getDefers().end()) {
             Defer d = found->second;
-            clearQtTimer(d);
+            clearWindowsTimer(d);
             d.resolve();
         }
-        QObject::timerEvent(event);
     }
-private:
-    struct QtTimer {
-        int            timerId_;
-        QtTimerHolder *timerHolder_;
-    };
 
+private:
     friend void cancelDelay(Defer d);
-    static void clearQtTimer(Defer &d) {
+    static void clearWindowsTimer(Defer &d) {
         if (!d->any_.empty()) {
-            QtTimer **ptimer = any_cast<QtTimer *>(&d->any_);
+            UINT_PTR *pTimerId = any_cast<UINT_PTR>(&d->any_);
             d->any_.clear();
-            if (ptimer != nullptr) {
-                QtTimer *timer = *ptimer;
-                timer->timerHolder_->defers_.erase(timer->timerId_);
-                timer->timerHolder_->killTimer(timer->timerId_);
-                pm_delete(timer);
+            if (pTimerId != nullptr) {
+                UINT_PTR timerId = *pTimerId;
+                ::KillTimer(NULL, timerId);
             }
         }
     }
 
-    std::map<int, promise::Defer>  defers_;
+    inline static std::map<UINT_PTR, promise::Defer> &getDefers() {
+        static std::map<UINT_PTR, promise::Defer>  s_defers_;
+        return s_defers_;
+    }
 };
 
 
 inline void cancelDelay(Defer d) {
     d = d.find_pending();
     if (d.operator->()) {
-        QtTimerHolder::clearQtTimer(d);
+        WindowsTimerHolder::clearWindowsTimer(d);
         d.reject();
     }
 }

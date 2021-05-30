@@ -23,6 +23,7 @@ endmacro(use_cxx11)
 
 
 project(promise)
+
 set(PROJECT_VERSION 1.0.0)
 use_cxx11()
 aux_source_directory(. DIR_SRCS)
@@ -42,10 +43,6 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/promise-cpp.pc DESTINATION lib/pkgconf
 unset(PROJECT_VERSION)
 
 
-project(asio)
-#set(Boost_USE_STATIC_LIBS        ON) # only find static libs
-#set(Boost_USE_MULTITHREADED      ON)
-#set(Boost_USE_STATIC_RUNTIME     ON)
 find_package(Boost 1.66.0 COMPONENTS)
 if(NOT Boost_FOUND)
   message(WARNING "Boost not found, so asio projects will not be compiled")
@@ -69,11 +66,10 @@ else()
 endif()
 
 
-project(qt_test)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets)
 if(NOT QT_DIR)
-  message(WARNING "QT not found, so project my_qt_app will not be compiled")
+  message(WARNING "QT not found, so project qt_timer will not be compiled")
 else()
-  add_subdirectory(./test/my_qt_app)
+  add_subdirectory(./test/qt_timer)
 endif()

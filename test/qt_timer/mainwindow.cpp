@@ -10,7 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    auto updateTest = [=](int sourceLine) {
+    auto updateText = [=](int sourceLine) {
         std::stringstream os;
         os << "thread " << std::this_thread::get_id() << ", source line = " << sourceLine;
         ui->label->setText(QString::fromStdString(os.str()));
@@ -18,25 +18,25 @@ MainWindow::MainWindow(QWidget *parent)
 
     // delay tasks
     timerHolder_.yield().then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     }).then([=]() {
-        updateTest(__LINE__);
+        updateText(__LINE__);
         return timerHolder_.delay(1000);
     });
 }
