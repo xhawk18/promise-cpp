@@ -28,12 +28,11 @@
     <Configuration Name="Debug" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="-g;-O0;-std=c++11;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
+        <Preprocessor Value="BOOST_ALL_NO_LIB"/>
       </Compiler>
       <Linker Options="" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
-        <Library Value="boost_system"/>
-        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
@@ -72,12 +71,11 @@
       <Compiler Options="-O3;-std=c++11;-Wall" C_Options="-O3;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
         <Preprocessor Value="NDEBUG"/>
+        <Preprocessor Value="BOOST_ALL_NO_LIB"/>
       </Compiler>
       <Linker Options="-s" Required="yes">
         <Library Value="pthread"/>
         <Library Value="dl"/>
-        <Library Value="boost_system"/>
-        <Library Value="boost_date_time"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Release" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>

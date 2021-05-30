@@ -29,6 +29,7 @@
       <Compiler Options="-g;-O0;-std=c++11;-Wall" C_Options="-g;-O0;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="../.."/>
         <IncludePath Value="../../../boost_1_67_0"/>
+        <Preprocessor Value="BOOST_ALL_NO_LIB"/>
       </Compiler>
       <Linker Options="-static" Required="yes">
         <LibraryPath Value="F:\Work\boost_1_67_0\stage\lib"/>
@@ -40,7 +41,6 @@
         <Library Value="userenv"/>
         <Library Value="ws2_32"/>
         <Library Value="wsock32"/>
-        <Library Value="boost_system-mgw63-mt-sd-x32-1_67"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Debug" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
@@ -81,6 +81,7 @@
         <IncludePath Value="../.."/>
         <IncludePath Value="../../../boost_1_67_0"/>
         <Preprocessor Value="NDEBUG"/>
+        <Preprocessor Value="BOOST_ALL_NO_LIB"/>
       </Compiler>
       <Linker Options="-s;-static" Required="yes">
         <LibraryPath Value="F:\Work\boost_1_67_0\stage\lib"/>
@@ -92,7 +93,6 @@
         <Library Value="userenv"/>
         <Library Value="ws2_32"/>
         <Library Value="wsock32"/>
-        <Library Value="boost_system-mgw63-mt-s-x32-1_67"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
       <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="./Release" Command="./$(ProjectName)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="$(IntermediateDirectory)" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>

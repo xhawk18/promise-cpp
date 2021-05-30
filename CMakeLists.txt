@@ -1,7 +1,7 @@
 # cmake -DBOOST_ROOT=path_to_boost_include -DBOOST_LIBRARYDIR=path_to_boost_lib -DCMAKE_BUILD_TYPE=Release|Debug .
 
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.12)
 
 # make Release as default
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
@@ -46,22 +46,34 @@ project(asio)
 #set(Boost_USE_STATIC_LIBS        ON) # only find static libs
 #set(Boost_USE_MULTITHREADED      ON)
 #set(Boost_USE_STATIC_RUNTIME     ON)
-find_package(Boost 1.66.0 REQUIRED COMPONENTS date_time system)
-if(Boost_FOUND)
+find_package(Boost 1.66.0 COMPONENTS)
+if(NOT Boost_FOUND)
+  message(WARNING "Boost not found, so asio projects will not be compiled")
+else()
+
   include_directories(${Boost_INCLUDE_DIRS})
-  link_libraries(${Boost_LIBRARIES})
+  #link_libraries(${Boost_LIBRARIES})
+  if (UNIX)
+    link_libraries(pthread)
+  endif (UNIX)
+
+  add_compile_definitions(BOOST_ALL_NO_LIB)
+  
+  use_cxx11()
+  aux_source_directory(. DIR_SRCS)
+  include_directories(. ./asio)
+  add_executable(asio_benchmark_test test/asio_benchmark_test.cpp)
+  add_executable(asio_timer test/asio_timer.cpp)
+  add_executable(asio_http_client test/asio_http_client.cpp)
+  add_executable(asio_http_server test/asio_http_server.cpp)
 endif()
 
-if (UNIX)
-  link_libraries(pthread)
-endif (UNIX)
 
-use_cxx11()
-aux_source_directory(. DIR_SRCS)
-include_directories(. ./asio)
-add_executable(asio_benchmark_test test/asio_benchmark_test.cpp)
-add_executable(asio_timer test/asio_timer.cpp)
-add_executable(asio_http_client test/asio_http_client.cpp)
-add_executable(asio_http_server test/asio_http_server.cpp)
-
-
+project(qt_test)
+find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets)
+if(NOT QT_DIR)
+  message(WARNING "QT not found, so project my_qt_app will not be compiled")
+else()
+  add_subdirectory(./test/my_qt_app)
+endif()
