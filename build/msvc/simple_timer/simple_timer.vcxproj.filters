@@ -23,7 +23,7 @@
     <ClInclude Include="..\..\..\promise.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\simple_task\simple_task.hpp">
+    <ClInclude Include="..\..\..\add_ons\simple_task\simple_task.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

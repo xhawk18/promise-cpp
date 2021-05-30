@@ -34,7 +34,7 @@
 #include <string>
 #include <chrono>
 #include "promise.hpp"
-#include "simple_task/simple_task.hpp"
+#include "add_ons/simple_task/simple_task.hpp"
 
 using namespace promise;
 namespace chrono       = std::chrono;

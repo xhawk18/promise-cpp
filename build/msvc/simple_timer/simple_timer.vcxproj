@@ -154,7 +154,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\promise.hpp" />
-    <ClInclude Include="..\..\..\simple_task\simple_task.hpp" />
+    <ClInclude Include="..\..\..\add_ons\simple_task\simple_task.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -157,7 +157,7 @@
     <ClCompile Include="..\..\..\test\asio_http_client.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\asio\io.hpp" />
+    <ClInclude Include="..\..\..\add_ons\asio\io.hpp" />
     <ClInclude Include="..\..\..\promise.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

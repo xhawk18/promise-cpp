@@ -173,7 +173,7 @@
     <ClCompile Include="..\..\..\test\asio_benchmark_test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\asio\timer.hpp" />
+    <ClInclude Include="..\..\..\add_ons\asio\timer.hpp" />
     <ClInclude Include="..\..\..\promise.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

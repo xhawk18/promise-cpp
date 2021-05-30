@@ -41,7 +41,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "../promise.hpp"
+#include "../../promise.hpp"
 #include <chrono>
 #include <QObject>
 #include <QTimerEvent>

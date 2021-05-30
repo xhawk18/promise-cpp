@@ -41,7 +41,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "promise.hpp"
+#include "../../promise.hpp"
 #include <chrono>
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
