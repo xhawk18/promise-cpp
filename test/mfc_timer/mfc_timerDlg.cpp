@@ -106,7 +106,8 @@ BOOL CmfctimerDlg::OnInitDialog()
     // Update text on the dialog
     auto updateText = [=](int sourceLine) {
         std::wstringstream os;
-        os << "thread " << std::this_thread::get_id() << ", source line = " << sourceLine;
+        os << "thread id   = " << std::this_thread::get_id() << "\n"
+           << "source line = " << sourceLine;
         CWnd *label = GetDlgItem(IDC_STATIC);
         label->SetWindowText(os.str().c_str());
         //os.str();
@@ -114,27 +115,30 @@ BOOL CmfctimerDlg::OnInitDialog()
     updateText(__LINE__);
 
     // delay tasks
-    timerHolder_.delay(3000).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
+    using namespace promise;
+    doWhile([=](Defer d) {
+        timerHolder_.delay(1000).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.yield();
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then(d); //call doWhile
     });
 
     return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE

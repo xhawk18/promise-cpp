@@ -12,32 +12,37 @@ MainWindow::MainWindow(QWidget *parent)
 
     auto updateText = [=](int sourceLine) {
         std::stringstream os;
-        os << "thread " << std::this_thread::get_id() << ", source line = " << sourceLine;
+        os << "thread id   = " << std::this_thread::get_id() << "\n"
+           << "source line = " << sourceLine;
         ui->label->setText(QString::fromStdString(os.str()));
     };
+    updateText(__LINE__);
 
     // delay tasks
-    timerHolder_.yield().then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
-    }).then([=]() {
-        updateText(__LINE__);
-        return timerHolder_.delay(1000);
+    using namespace promise;
+    doWhile([=](Defer d) {
+        timerHolder_.delay(1000).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.yield();
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then([=]() {
+            updateText(__LINE__);
+            return timerHolder_.delay(1000);
+        }).then(d); //call doWhile
     });
 }
 
