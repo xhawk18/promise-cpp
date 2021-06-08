@@ -56,13 +56,20 @@ struct WindowsTimerHolder {
     WindowsTimerHolder() {};
 public:
     Defer delay(int time_ms) {
-        return newPromise([time_ms, this](Defer &d) {
-            int timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
-            //printf("timerId = %d\n", (int)timerId);
+        UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
-            d->any_ = timerId;
-            getDefers().insert({ timerId, d });
+        return newPromise([timerId](Defer &d) {
+            //printf("timerId = %d\n", (int)timerId);
+            WindowsTimerHolder::getDefers().insert({ timerId, d });
+        }).then([timerId]() {
+            WindowsTimerHolder::getDefers().erase(timerId);
+            return promise::resolve();
+        }, [timerId]() {
+            ::KillTimer(NULL, timerId);
+            WindowsTimerHolder::getDefers().erase(timerId);
+            return promise::reject();
         });
+
     }
 
     Defer yield() {
@@ -73,9 +80,9 @@ public:
                      int time_ms) {
         return delay(time_ms).then([func]() {
             func(false);
-            }, [func]() {
-                func(true);
-            });
+        }, [func]() {
+            func(true);
+        });
     }
 
 protected:
@@ -90,23 +97,12 @@ protected:
         auto found = getDefers().find(timerId);
         if (found != getDefers().end()) {
             Defer d = found->second;
-            clearWindowsTimer(d);
             d.resolve();
         }
     }
 
 private:
     friend void cancelDelay(Defer d);
-    static void clearWindowsTimer(Defer &d) {
-        if (!d->any_.empty()) {
-            UINT_PTR *pTimerId = any_cast<UINT_PTR>(&d->any_);
-            d->any_.clear();
-            if (pTimerId != nullptr) {
-                UINT_PTR timerId = *pTimerId;
-                ::KillTimer(NULL, timerId);
-            }
-        }
-    }
 
     inline static std::map<UINT_PTR, promise::Defer> &getDefers() {
         static std::map<UINT_PTR, promise::Defer>  s_defers_;
@@ -116,11 +112,7 @@ private:
 
 
 inline void cancelDelay(Defer d) {
-    d = d.find_pending();
-    if (d.operator->()) {
-        WindowsTimerHolder::clearWindowsTimer(d);
-        d.reject();
-    }
+    d.reject_pending();
 }
 
 inline void clearTimeout(Defer d) {
