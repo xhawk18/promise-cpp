@@ -136,29 +136,32 @@ inline void cancelDelay(Defer d);
 inline void clearTimeout(Defer d);
 
 struct QtTimerHolder: QObject {
-    QtTimerHolder() {};
+    QtTimerHolder() {
+    };
+    ~QtTimerHolder() {
+    }
 public:
-    Defer delay(int time_ms) {
-        int timerId = this->startTimer(time_ms);
+    static Defer delay(int time_ms) {
+        int timerId = getInstance().startTimer(time_ms);
 
-        return newPromise([timerId, this](Defer &d) {
-            this->defers_.insert({ timerId, d });
-        }).then([timerId, this]() {
-            this->defers_.erase(timerId);
+        return newPromise([timerId](Defer &d) {
+            getInstance().defers_.insert({ timerId, d });
+        }).then([timerId]() {
+            getInstance().defers_.erase(timerId);
             return promise::resolve();
-        }, [timerId, this]() {
-            this->killTimer(timerId);
-            this->defers_.erase(timerId);
+        }, [timerId]() {
+            getInstance().killTimer(timerId);
+            getInstance().defers_.erase(timerId);
             return promise::reject();
         });
     }
 
-    Defer yield() {
+    static Defer yield() {
         return delay(0);
     }
 
-    Defer setTimeout(const std::function<void(bool)> &func,
-                     int time_ms) {
+    static Defer setTimeout(const std::function<void(bool)> &func,
+                            int time_ms) {
         return delay(time_ms).then([func]() {
             func(false);
         }, [func]() {
@@ -177,10 +180,27 @@ protected:
         QObject::timerEvent(event);
     }
 private:
-    friend void cancelDelay(Defer d);
-
     std::map<int, promise::Defer>  defers_;
+
+    static QtTimerHolder &getInstance() {
+        static QtTimerHolder s_qtTimerHolder_;
+        return s_qtTimerHolder_;
+    }
 };
+
+
+inline Defer delay(int time_ms) {
+    return QtTimerHolder::delay(time_ms);
+}
+
+inline Defer yield() {
+    return QtTimerHolder::yield();
+}
+
+inline Defer setTimeout(const std::function<void(bool)> &func,
+                        int time_ms) {
+    return QtTimerHolder::setTimeout(func, time_ms);
+}
 
 
 inline void cancelDelay(Defer d) {

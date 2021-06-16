@@ -9,6 +9,7 @@
 #include "afxdialogex.h"
 #include <sstream>
 #include <thread>
+#include "../../add_ons/windows/promise_windows.hpp"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -117,27 +118,27 @@ BOOL CmfctimerDlg::OnInitDialog()
     // delay tasks
     using namespace promise;
     doWhile([=](Defer d) {
-        timerHolder_.delay(1000).then([=]() {
+        promise::delay(1000).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.yield();
+            return promise::yield();
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return promise::delay(1000);
         }).then(d); //call doWhile
     });
 

@@ -55,7 +55,7 @@ inline void clearTimeout(Defer d);
 struct WindowsTimerHolder {
     WindowsTimerHolder() {};
 public:
-    Defer delay(int time_ms) {
+    static Defer delay(int time_ms) {
         UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
         return newPromise([timerId](Defer &d) {
@@ -72,11 +72,11 @@ public:
 
     }
 
-    Defer yield() {
+    static Defer yield() {
         return delay(0);
     }
 
-    Defer setTimeout(const std::function<void(bool)> &func,
+    static Defer setTimeout(const std::function<void(bool)> &func,
                      int time_ms) {
         return delay(time_ms).then([func]() {
             func(false);
@@ -109,6 +109,19 @@ private:
         return s_defers_;
     }
 };
+
+inline Defer delay(int time_ms) {
+    return WindowsTimerHolder::delay(time_ms);
+}
+
+inline Defer yield() {
+    return WindowsTimerHolder::yield();
+}
+
+inline Defer setTimeout(const std::function<void(bool)> &func,
+    int time_ms) {
+    return WindowsTimerHolder::setTimeout(func, time_ms);
+}
 
 
 inline void cancelDelay(Defer d) {

@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "../../add_ons/windows/promise_windows.hpp"
-
 // CmfctimerDlg 对话框
 class CmfctimerDlg : public CDialogEx
 {
@@ -32,8 +30,4 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
-
-private:
-	// Promisified timer holder for windows application
-	promise::WindowsTimerHolder timerHolder_;
 };
