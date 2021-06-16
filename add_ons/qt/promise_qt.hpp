@@ -92,14 +92,16 @@ protected:
 
         std::list<Listeners::iterator> deletes;
         
-        for (Listeners::iterator itr = listeners_.lower_bound(key);
-            itr != listeners_.end() && itr->first.first == object;
-            ++itr) {
-            deletes.push_back(itr);
-        }
-
-        for(Listeners::iterator itr: deletes) {
-            itr->second(object, nullptr);
+        
+        while(true) {
+            Listeners::iterator itr = listeners_.lower_bound(key);
+            if(itr != listeners_.end() && itr->first.first == object) {
+                // one by one for safety
+                itr->second(object, nullptr);
+            }
+            else {
+                break;
+            }
         }
 
         return false;
@@ -118,8 +120,11 @@ inline Defer waitEvent(QObject      *object,
             (void)object;
             if (event == nullptr)
                 promise->reject();
-            else
+            else {
+                // The next then function will be call immediately
+                // Be care that do not use event in the next event loop
                 promise->resolve(event);
+            }
             return false;
         }
     );

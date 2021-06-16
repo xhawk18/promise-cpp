@@ -22,11 +22,12 @@
     - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
     - [Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#deferthenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
     - [Defer::then(FUNC_ON_RESOLVED on_resolved)](#deferthenfunc_on_resolved-on_resolved)
+    - [Defer::then(Defer d)](#deferthendefer-d)
     - [Defer::fail(FUNC_ON_REJECTED on_rejected)](#deferfailfunc_on_rejected-on_rejected)
     - [Defer::finally(FUNC_ON_FINALLY on_finally)](#deferfinallyfunc_on_finally-on_finally)
     - [Defer::always(FUNC_ON_ALWAYS on_always)](#deferalwaysfunc_on_always-on_always)
-  - [And more ...](#and-more-)
-    - [about exceptions](#about-exceptions)
+    - [Defer::doContinue(const RET_ARG... &ret_arg);](#deferdocontinueconst-ret_arg-ret_arg)
+    - [Defer::doBreak(const RET_ARG... &ret_arg);](#deferdobreakconst-ret_arg-ret_arg)
     - [about the chaining parameter](#about-the-chaining-parameter)
     - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
       - [Resolved parameters](#resolved-parameters)
@@ -320,10 +321,10 @@ for example --
 doWhile([](Defer d){
     // Add code here for your task in "while loop"
     
-    // Call "d.resolve();" to continue with the "while loop",
+    // Call "d.doContinue();" or "d.resolve();" to continue with the "while loop",
     
-    // or call "d.reject();" to break from the "while loop", in this case,
-    // the returned promise object will be in rejected status.
+    // or call "d.doBreak(); or "d.reject();" to break from the "while loop", in this case,
+    // the returned promise object will be in resolved status.
 });
 
 ```
@@ -392,6 +393,10 @@ return newPromise([](Defer d){
 });
 ```
 
+### Defer::then(Defer d)
+Return the chaining promise object, where d is the promise object be called when 
+previous promise object calls function resolve or reject.
+
 ### Defer::fail(FUNC_ON_REJECTED on_rejected)
 Return the chaining promise object, where on_rejected is the function to be called when
 previous promise object calls function reject.
@@ -442,6 +447,38 @@ return newPromise([](Defer d){
 }).always([](){
     printf("in always\n");   //will print "in always" here
 });
+```
+
+### Defer::doContinue(const RET_ARG... &ret_arg);
+Continue the doWhile loop (ret_arg will be ignored). This function is essentially a alias of 
+[Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
+
+for example --
+
+```cpp
+static int *i = new int(0);
+doWhile([i](Defer d) {
+    if(*i < 10) {
+        ++ (*i);
+        d.doContinue();
+    }
+    else {
+        d.doBreak(*i);
+    }
+
+}).then([](int result) {
+    printf("result = %d\n", result);
+}).finally([i]() {
+    delete i;
+})
+```
+
+### Defer::doBreak(const RET_ARG... &ret_arg);
+Break the doWhile loop (ret_arg will be transferred). This function is essentially a alias of 
+[Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
+
+(please see the example above)
+
 ```
 
 ## And more ...
