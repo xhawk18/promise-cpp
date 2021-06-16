@@ -107,8 +107,10 @@ struct offset_tuple_impl {
 template<typename TUPLE>
 struct offset_tuple_impl<TUPLE, 0> {
     offset_tuple_impl(const TUPLE *tuple) {
+        (void)tuple;
     }
     void *tuple_offset(size_t i) const {
+        (void)i;
         return nullptr;
     }
 };
@@ -166,9 +168,11 @@ template<typename TUPLE>
 struct type_tuple_impl<TUPLE, 0> {
     static const std::size_t size_ = 0;
     std::type_index tuple_type(size_t i) const {
+        (void)i;
         return get_type_index(typeid(void));
     }
     std::type_index tuple_rcv_type(size_t i) const {
+        (void)i;
         return get_type_index(typeid(void));
     }
 };

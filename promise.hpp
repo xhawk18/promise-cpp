@@ -223,6 +223,7 @@ inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::ind
 
 template<typename FUNC>
 inline bool verify_func_arg(const FUNC &func, pm_any &arg) {
+    (void)func;
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     type_tuple<func_arg_type> tuple_func;
 
@@ -360,6 +361,17 @@ public:
         pm_allocator::add_ref(object_);
     }
 
+    Defer clone() const {
+        if (object_ == nullptr)
+            return pm_shared_ptr_promise();
+        else {
+            return pm_shared_ptr_promise(object_->clone());
+        }
+    }
+
+    operator bool() const {
+        return operator->() != nullptr;
+    }
     Defer &operator=(Defer const &ptr) {
         Defer(ptr).swap(*this);
         return *this;
@@ -401,6 +413,16 @@ public:
     void reject_pending() {
         if(object_ != nullptr)
             object_->reject_pending();
+    }
+
+    Defer tail() const {
+        if (object_ != nullptr) {
+            Promise *object = T::get_tail(object_);
+            pm_allocator::add_ref(object);
+            return pm_shared_ptr_promise(object);
+        }
+        else
+            return *this;
     }
 
     void clear() {
@@ -496,6 +518,7 @@ inline Defer newPromise(void);
 struct PromiseCaller{
     virtual ~PromiseCaller(){};
     virtual Defer call(Defer &self, Promise *caller) = 0;
+    virtual PromiseCaller *clone() const = 0;
 };
 
 template <typename FUNC_ON_RESOLVED>
@@ -510,6 +533,10 @@ struct ResolvedCaller
     virtual Defer call(Defer &self, Promise *caller) {
         return ResolveChecker<resolve_ret_type, FUNC_ON_RESOLVED>::call(on_resolved_, self, caller);
     }
+
+    virtual PromiseCaller *clone() const {
+        return static_cast<PromiseCaller *>(pm_new<ResolvedCaller>(on_resolved_));
+    }
 };
 
 template <typename FUNC_ON_REJECTED>
@@ -523,6 +550,10 @@ struct RejectedCaller
 
     virtual Defer call(Defer &self, Promise *caller) {
         return RejectChecker<reject_ret_type, FUNC_ON_REJECTED>::call(on_rejected_, self, caller);
+    }
+
+    virtual PromiseCaller *clone() const {
+        return static_cast<PromiseCaller *>(pm_new<RejectedCaller>(on_rejected_));
     }
 };
 
@@ -547,6 +578,27 @@ struct Promise {
 #endif
 
     Promise(const Promise &) = delete;
+    Defer clone() const {
+        Defer defer = newPromise();
+        defer->any_ = any_;
+        if (resolved_ == nullptr)
+            defer->resolved_ = nullptr;
+        else
+            defer->resolved_ = resolved_->clone();
+        if (rejected_ == nullptr)
+            defer->rejected_ = nullptr;
+        else
+            defer->rejected_ = rejected_->clone();
+        defer->status_ = status_;
+
+        if (next_) {
+            Defer next = next_.clone();
+            next->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(defer.operator->()));
+            defer->next_ = next;
+        }
+        return defer;
+    }
+
     explicit Promise()
         : next_(nullptr)
         , prev_(pm_stack::ptr_to_itr(nullptr))
@@ -563,7 +615,7 @@ struct Promise {
 
     virtual ~Promise() {
         clear_func();
-        if (next_.operator->()) {
+        if (next_) {
 #ifdef PM_MULTITHREAD
             std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
 #endif
@@ -711,7 +763,7 @@ struct Promise {
     Defer call_next() {
         uint8_t status = kInit;
         if (status_ == kResolved) {
-            if (next_.operator->()) {
+            if (next_) {
 #ifdef PM_MULTITHREAD
                 std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
 #endif
@@ -722,7 +774,7 @@ struct Promise {
             }
         }
         else if (status_ == kRejected) {
-            if (next_.operator->()) {
+            if (next_) {
 #ifdef PM_MULTITHREAD
                 std::lock_guard<std::recursive_mutex> lock(pm_mutex::get_mutex());
 #endif
@@ -738,7 +790,7 @@ struct Promise {
             Defer d = next_->call_resolve(next_, this);
             this->any_.clear();
             next_->clear_func();
-            if(d.operator->())
+            if(d)
                 d->call_next();
             //next_.clear();
             pm_allocator::dec_ref(this);
@@ -749,7 +801,7 @@ struct Promise {
             Defer d =  next_->call_reject(next_, this);
             this->any_.clear();
             next_->clear_func();
-            if (d.operator->())
+            if (d)
                 d->call_next();
             //next_.clear();
             pm_allocator::dec_ref(this);
@@ -825,6 +877,7 @@ struct Promise {
             promise.resolve(caller->any_);
             return BypassAnyArg();
         }, [promise](Defer &self, Promise *caller) -> BypassAnyArg {
+            (void)self;
             promise.reject(caller->any_);
             return BypassAnyArg();
         });
@@ -862,7 +915,7 @@ struct Promise {
 
     void reject_pending(){
         Defer pending = find_pending();
-        if(pending.operator->() != nullptr)
+        if(pending)
             pending.reject();
     }
 
@@ -885,7 +938,6 @@ struct Promise {
         printf("\n");
     }
 
-private:
     static Promise *get_head(Promise *p){
         while(p){
             Promise *prev = static_cast<Promise *>(pm_stack::itr_to_ptr(p->prev_));
@@ -897,12 +949,12 @@ private:
     static Promise *get_tail(Promise *p){
         while(p){
             Defer &next = p->next_;
-            if(next.operator->() == nullptr) break;
+            if(!next) break;
             p = next.operator->();
         }
         return p;
     }
-    
+private:
     
     static inline void joinDeferObject(Promise *self, Defer &next){
 #ifdef PM_MULTITHREAD
@@ -910,12 +962,12 @@ private:
 #endif
 
         /* Check if there's any functions return null Defer object */
-        pm_assert(next.operator->() != nullptr);
+        pm_assert(next);
 
         Promise *head = get_head(next.operator->());
         Promise *tail = get_tail(next.operator->());
 
-        if(self->next_.operator->()){
+        if(self->next_){
             self->next_->prev_ = pm_stack::ptr_to_itr(reinterpret_cast<void *>(tail));
             //printf("5prev_ = %d %x\n", (int)self->next_->prev_, pm_stack::itr_to_ptr(self->next_->prev_));
         }
@@ -1053,6 +1105,7 @@ template <typename FUNC>
 struct ExCheckTuple<0, FUNC> {
     static auto call(const FUNC &func, Defer &self, Promise *caller) 
         -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
+        (void)self;
         pm_any arg = std::tuple<>();
         caller->any_.clear();
         return call_func(func, arg);
@@ -1089,6 +1142,7 @@ template<typename FUNC>
 struct ExCheck<pm_any, FUNC> {
     static auto call(const FUNC &func, Defer &self, Promise *caller) 
         -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type {
+        (void)self;
         std::exception_ptr eptr = any_cast<std::exception_ptr>(caller->any_);
         try {
             std::rethrow_exception(eptr);
