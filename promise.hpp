@@ -449,17 +449,19 @@ public:
         object_->reject(ptr);
     }
 
-    Defer then(const Defer &promise) {
-        return object_->then(const_cast<Defer &>(promise));
+    Defer &then(const Defer &promise) const {
+        tail().object_->then(const_cast<Defer &>(promise));
+        return const_cast<Defer &>(*this);
     }
 
-    Defer then(Defer&& promise) {
+    Defer &then(Defer&& promise) const {
         return then(promise);
     }
 
     template <typename FUNC_ON_RESOLVED, typename FUNC_ON_REJECTED>
-    Defer then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
-        return object_->template then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
+    Defer &then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected) const {
+        tail().object_->template then<FUNC_ON_RESOLVED, FUNC_ON_REJECTED>(on_resolved, on_rejected);
+        return const_cast<Defer &>(*this);
     }
 
     template <typename FUNC_ON_RESOLVED,
@@ -468,23 +470,27 @@ public:
             typename std::remove_cv<typename std::remove_reference<FUNC_ON_RESOLVED>::type>::type>::value
         >::type *dummy = nullptr
     >
-    Defer then(FUNC_ON_RESOLVED on_resolved) const {
-        return object_->template then<FUNC_ON_RESOLVED>(on_resolved);
+    Defer &then(FUNC_ON_RESOLVED on_resolved) const {
+        tail().object_->template then<FUNC_ON_RESOLVED>(on_resolved);
+        return const_cast<Defer &>(*this);
     }
 
     template <typename FUNC_ON_REJECTED>
-    Defer fail(FUNC_ON_REJECTED on_rejected) const {
-        return object_->template fail<FUNC_ON_REJECTED>(on_rejected);
+    Defer &fail(FUNC_ON_REJECTED on_rejected) const {
+        tail().object_->template fail<FUNC_ON_REJECTED>(on_rejected);
+        return const_cast<Defer &>(*this);
     }
 
     template <typename FUNC_ON_ALWAYS>
-    Defer always(FUNC_ON_ALWAYS on_always) const {
-        return object_->template always<FUNC_ON_ALWAYS>(on_always);
+    Defer &always(FUNC_ON_ALWAYS on_always) const {
+        tail().object_->template always<FUNC_ON_ALWAYS>(on_always);
+        return const_cast<Defer &>(*this);
     }
 
     template <typename FUNC_ON_FINALLY>
-    Defer finally(FUNC_ON_FINALLY on_finally) const {
-        return object_->template finally<FUNC_ON_FINALLY>(on_finally);
+    Defer &finally(FUNC_ON_FINALLY on_finally) const {
+        tail().object_->template finally<FUNC_ON_FINALLY>(on_finally);
+        return const_cast<Defer &>(*this);
     }
 
     // For doWhile promise
@@ -1377,7 +1383,7 @@ inline Defer all(const std::initializer_list<Defer> &promise_list) {
     return newPromise([=](Defer &d) {
         size_t index = 0;
         for (auto defer : promise_list) {
-            defer.tail().then([=](pm_any &arg) {
+            defer.then([=](pm_any &arg) {
                 if (d->status_ != Promise::kInit)
                     return;
                 (*ret_arr)[index] = arg;
@@ -1414,7 +1420,7 @@ or reason from that promise. */
 inline Defer race(const std::initializer_list<Defer> &promise_list) {
     return newPromise([=](Defer d) {
         for (auto defer : promise_list) {
-            defer.tail().then([=](pm_any &arg) {
+            defer.then([=](pm_any &arg) {
                 d->resolve(arg);
             }, [=](pm_any &arg) {
                 d->reject(arg);
