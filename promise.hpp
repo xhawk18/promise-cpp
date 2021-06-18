@@ -303,6 +303,10 @@ public:
         return object_;
     }
 
+    inline T &operator*() const {
+        return *object_;
+    }
+
     inline T *obtain_rawptr() {
         pm_allocator::add_ref(object_);
         return object_;
@@ -1331,20 +1335,24 @@ inline Defer newPromise(FUNC func) {
  * if the returned Defer object was obtained by other and not released.
  */
 template <typename FUNC>
-inline Defer doWhile_unsafe(FUNC func) {
-    return newPromise(func).then([func]() {
-        return doWhile_unsafe(func);
+inline Defer doWhile_unsafe(FUNC func, pm_shared_ptr<Defer> current) {
+    *current = newPromise(func).then([current, func]() {
+        return doWhile_unsafe(func, current);
     });
+    return *current;
 }
 
 /* While loop func call resolved */
 template <typename FUNC>
 inline Defer doWhile(FUNC func) {
-    return newPromise([func](Defer d) {
-        doWhile_unsafe(func).then(d);
-    }).fail([](Defer &self, Promise *caller) -> BypassAndResolve {
+    pm_shared_ptr<Defer> currnet = pm_shared_ptr<Defer>(pm_new<Defer>());
+
+    return newPromise([func, currnet](Defer d) {
+        doWhile_unsafe(func, currnet).then(d);
+    }).fail([currnet](Defer &self, Promise *caller) -> BypassAndResolve {
         (void)self;
         (void)caller;
+        currnet->doBreak();
         return BypassAndResolve();
     });
 }
@@ -1447,6 +1455,20 @@ inline Defer raceAndReject(const std::initializer_list<Defer> &promise_list) {
 
 template <typename ... PROMISE_LIST>
 inline Defer raceAndReject(PROMISE_LIST ...promise_list) {
+    return raceAndReject({ promise_list ... });
+}
+
+inline Defer raceAndResolve(const std::initializer_list<Defer> &promise_list) {
+    std::vector<Defer> copy_list = promise_list;
+    return race(promise_list).finally([copy_list] {
+        for (auto defer : copy_list) {
+            defer.resolve();
+        }
+    });
+}
+
+template <typename ... PROMISE_LIST>
+inline Defer raceAndResolve(PROMISE_LIST ...promise_list) {
     return raceAndReject({ promise_list ... });
 }
 

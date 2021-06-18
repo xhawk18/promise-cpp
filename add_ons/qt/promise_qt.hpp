@@ -45,6 +45,7 @@
 #include <chrono>
 #include <QObject>
 #include <QTimerEvent>
+#include <QApplication>
 
 namespace promise {
 
@@ -75,28 +76,31 @@ public:
 protected:
     bool eventFilter(QObject *object, QEvent *event) {
         std::pair<QObject *, QEvent::Type> key = { object, event->type() };
-        Listeners::iterator itr = listeners_.find(key);
-        if (itr != listeners_.end()) {
-            return itr->second(object, event);
+
+        // may not safe if one handler is removed by other
+        std::list<Listeners::iterator> itrs;
+        for(Listeners::iterator itr = listeners_.lower_bound(key);
+            itr != listeners_.end() && key == itr->first; ++itr) {
+            itrs.push_back(itr);
+        }
+        for(Listeners::iterator itr: itrs) {
+            itr->second(object, event);
         }
 
         if (event->type() == QEvent::Destroy) {
-            return removeObjectFilters(object);
+            removeObjectFilters(object);
         }
 
-        return false;
+        return QObject::eventFilter(object, event);
     }
 
     bool removeObjectFilters(QObject *object) {
         std::pair<QObject *, QEvent::Type> key = { object, QEvent::None };
 
-        std::list<Listeners::iterator> deletes;
-        
-        
+        // checked one by one for safety (others may be removed)
         while(true) {
             Listeners::iterator itr = listeners_.lower_bound(key);
             if(itr != listeners_.end() && itr->first.first == object) {
-                // one by one for safety
                 itr->second(object, nullptr);
             }
             else {
@@ -112,20 +116,34 @@ protected:
 
 // Wait event will wait the event for only once
 inline Defer waitEvent(QObject      *object,
-                       QEvent::Type  eventType) {
+                       QEvent::Type  eventType,
+                       bool          callSysHandler = false) {
     Defer promise = newPromise();
 
+    std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
     auto listener = PromiseEventFilter::getSingleInstance().addEventListener(
-        object, eventType, [promise](QObject *object, QEvent *event) {
+        object, eventType, [promise, callSysHandler, disableFilter](QObject *object, QEvent *event) {
             (void)object;
-            if (event == nullptr)
+            if (event == nullptr) {
                 promise->reject();
-            else {
-                // The next then function will be call immediately
-                // Be care that do not use event in the next event loop
-                promise->resolve(event);
+                return false;
             }
-            return false;
+            // The next then function will be call immediately
+            // Be care that do not use event in the next event loop
+            else if (*disableFilter) {
+                return false;
+            }
+            else if (callSysHandler) {
+                *disableFilter = true;
+                QApplication::sendEvent(object, event);
+                *disableFilter = false;
+                promise->resolve(event);
+                return true;
+            }
+            else {
+                promise->resolve(event);
+                return false;
+            }
         }
     );
 
