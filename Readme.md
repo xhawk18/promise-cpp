@@ -16,6 +16,8 @@
     - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
     - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
     - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
+    - [Defer raceAndReject(const PROMISE_LIST &promise_list);](#defer-raceandrejectconst-promise_list-promise_list)
+    - [Defer raceAndResolve(const PROMISE_LIST &promise_list);](#defer-raceandresolveconst-promise_list-promise_list)
     - [Defer doWhile(FUNC func);](#defer-dowhilefunc-func)
   - [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
     - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
@@ -290,7 +292,7 @@ all(promise_list).then([](){
 ```
 
 ### Defer race(const PROMISE_LIST &promise_list);
-Rturns a promise that resolves or rejects as soon as one of
+Returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise.
 The "promise_list" can be any container that has Defer as element type.
@@ -310,6 +312,12 @@ race(promise_list).then([](){
     /* code here for one of the promise objects is rejected */
 });
 ```
+
+### Defer raceAndReject(const PROMISE_LIST &promise_list);
+Same as function race(), and reject all depending promises object in the list.
+
+### Defer raceAndResolve(const PROMISE_LIST &promise_list);
+Same as function race(), and resove all depending promises object in the list.
 
 ### Defer doWhile(FUNC func);
 "While loop" for promisied task.
