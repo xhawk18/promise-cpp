@@ -161,6 +161,7 @@ struct call_tuple_t {
     
     static ret_type call(const FUNC &func, pm_any &arg) {
         func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
+        (void)new_arg;
         arg.clear();
         return ret_type(func(std::get<I>(new_arg)...));
     }
@@ -183,6 +184,7 @@ struct call_tuple_t<void, FUNC, false, I...> {
 
     static std::tuple<> call(const FUNC &func, pm_any &arg) {
         func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
+        (void)new_arg;
         arg.clear();
         func(std::get<I>(new_arg)...);
         return std::tuple<>();

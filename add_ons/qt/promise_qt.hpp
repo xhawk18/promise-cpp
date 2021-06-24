@@ -169,13 +169,9 @@ public:
 
         return newPromise([timerId](Defer &d) {
             getInstance().defers_.insert({ timerId, d });
-        }).then([timerId]() {
-            getInstance().defers_.erase(timerId);
-            return promise::resolve();
-        }, [timerId]() {
+        }).finally([timerId]() {
             getInstance().killTimer(timerId);
             getInstance().defers_.erase(timerId);
-            return promise::reject();
         });
     }
 
