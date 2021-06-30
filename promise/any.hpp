@@ -189,6 +189,25 @@ struct type_tuple<std::tuple<T...>> :
     static const std::size_t size_ = std::tuple_size<std::tuple<T...>>::value;
 };
 
+template<typename T>
+struct remove_front_tuple {
+    static T get(T &value) {
+        return value;
+    }
+};
+
+template<typename T0, typename ...T>
+struct remove_front_tuple<std::tuple<T0, T...>> {
+    template <std::size_t ... Is>
+    static std::tuple<T...> pop_front_impl(const std::tuple<T0, T...>& tuple, std::index_sequence<Is...>) {
+        return std::make_tuple(std::get<1 + Is>(tuple)...);
+    }
+
+    static std::tuple<T...> get(std::tuple<T0, T...> &tuple) {
+        return pop_front_impl(tuple,
+                              std::make_index_sequence<std::tuple_size<std::tuple<T0, T...>>::value - 1>());
+    }
+};
 
 
 class pm_any {
@@ -254,6 +273,13 @@ public: // queries
     void *tuple_element(size_t i) const {
         return content ? content->tuple_element(i) : nullptr;
     }
+    
+    pm_any tuple_remove_front() {
+        if(content)
+            return content->tuple_remove_front();
+        else
+            return *this;
+    }
 
 public: // types (public so any_cast can be non-friend)
     class placeholder {
@@ -266,6 +292,7 @@ public: // types (public so any_cast can be non-friend)
         virtual std::size_t tuple_size() const = 0;
         virtual std::type_index tuple_type(size_t i) const = 0;
         virtual void *tuple_element(size_t i) const = 0;
+        virtual pm_any tuple_remove_front() = 0;
 
         virtual placeholder * clone() const = 0;
     };
@@ -294,6 +321,10 @@ public: // types (public so any_cast can be non-friend)
 
         virtual void *tuple_element(size_t i) const {
             return offset_tuple_.tuple_offset(i);
+        }
+
+        virtual pm_any tuple_remove_front() {
+            return pm_any(remove_front_tuple<ValueType>::get(held));
         }
 
         virtual placeholder * clone() const {

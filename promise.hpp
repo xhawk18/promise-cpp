@@ -158,7 +158,7 @@ template<typename RET, typename FUNC, bool direct_any_arg, std::size_t ...I>
 struct call_tuple_t {
     typedef typename func_traits<FUNC>::arg_type func_arg_type;
     typedef typename remove_reference_tuple<std::tuple<RET>>::type ret_type;
-    
+
     static ret_type call(const FUNC &func, pm_any &arg) {
         func_arg_type new_arg(*reinterpret_cast<typename std::tuple_element<I, func_arg_type>::type *>(arg.tuple_element(I))...);
         (void)new_arg;
@@ -214,7 +214,7 @@ struct call_tuple_ret_t<void> {
 };
 
 template<typename FUNC, std::size_t ...I>
-inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::index_sequence<I...> &) 
+inline auto call_tuple_as_argument(const FUNC &func, pm_any &arg, const std::index_sequence<I...> &)
     -> typename call_tuple_ret_t<typename func_traits<FUNC>::ret_type>::ret_type
 {
     typedef typename func_traits<FUNC>::ret_type ret_type;
@@ -256,8 +256,10 @@ inline auto call_func(const FUNC &func, pm_any &arg)
     return call_tuple_as_argument(func, arg, std::make_index_sequence<type_tuple<func_arg_type>::size_>());
 }
 
-struct BypassAndResolve {};
-struct BypassAndReject {};
+struct BypassTag {
+    bool isRejected_;
+};
+struct DoWhileBreakTag {};
 struct Promise;
 
 template< class T >
@@ -500,13 +502,12 @@ public:
     }
 
     // For doWhile promise
-    template <typename ...RET_ARG>
-    void doContinue(const RET_ARG &... ret_arg) const {
-        resolve(ret_arg...);
+    void doContinue() const {
+        resolve();
     }
     template <typename ...RET_ARG>
     void doBreak(const RET_ARG &... ret_arg) const {
-        reject(ret_arg...);
+        reject(DoWhileBreakTag(), ret_arg...);
     }
 
     void dump() {
@@ -879,26 +880,38 @@ struct Promise {
 
     template <typename FUNC_ON_FINALLY>
     Defer finally(const FUNC_ON_FINALLY &on_finally) {
-        return then([on_finally](Defer &self, Promise *caller) -> BypassAndResolve {
+        return then([on_finally](Defer &self, Promise *caller) -> BypassTag {
             (void)self;
-            if(verify_func_arg(on_finally, caller->any_))
+            if (verify_func_arg(on_finally, caller->any_)) {
+                // call_func will clear caller->any_, so back it up first.
+                pm_any any = caller->any_;
                 call_func(on_finally, caller->any_);
-            return BypassAndResolve();
-        }, [on_finally](Defer &self, Promise *caller) -> BypassAndReject {
+                caller->any_ = any;
+            }
+            return BypassTag{false};
+        }, [on_finally](Defer &self, Promise *caller) -> BypassTag {
 #ifndef PM_EMBED
             typedef typename func_traits<FUNC_ON_FINALLY>::arg_type arg_type;
             if (caller->any_.type() == typeid(std::exception_ptr)) {
                 ExCheck<arg_type, FUNC_ON_FINALLY>::call(on_finally, self, caller);
             }
             else {
-                if (verify_func_arg(on_finally, caller->any_))
+                if (verify_func_arg(on_finally, caller->any_)) {
+                    // call_func will clear caller->any_, so back it up first.
+                    pm_any any = caller->any_;
                     call_func(on_finally, caller->any_);
+                    caller->any_ = any;
+                }
             }
 #else
-            if (verify_func_arg(on_finally, caller->any_))
+            if (verify_func_arg(on_finally, caller->any_)) {
+                // call_func will clear caller->any_, so back it up first.
+                pm_any any = caller->any_;
                 call_func(on_finally, caller->any_);
+                caller->any_ = any;
+            }
 #endif
-            return BypassAndReject();
+            return BypassTag{true};
         });
     }
 
@@ -1014,44 +1027,26 @@ template <typename RET, typename FUNC>
 struct BypassChecker;
 
 template <typename FUNC>
-struct BypassChecker<BypassAndResolve, FUNC> {
+struct BypassChecker<BypassTag, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
 #ifndef PM_EMBED
         try {
-            pm_any any = caller->any_;
-            func(self, caller);
-            self->prepare_resolve(any);
+            BypassTag bypassTag = func(self, caller);
+            if(bypassTag.isRejected_)
+                self->prepare_reject(caller->any_);
+            else
+                self->prepare_resolve(caller->any_);
         }
         catch (...) {
             self->prepare_reject(std::current_exception());
         }
         return self;
 #else
-        pm_any any = caller->any_;
-        func(self, caller);
-        self->prepare_resolve(any);
-        return self;
-#endif
-    }
-};
-
-template <typename FUNC>
-struct BypassChecker<BypassAndReject, FUNC> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-#ifndef PM_EMBED
-        try {
-            pm_any any = caller->any_;
-            func(self, caller);
-            self->prepare_reject(any);
-        }
-        catch (...) {
-            self->prepare_reject(std::current_exception());
-        }
-        return self;
-#else
-        pm_any any = caller->any_;
-        func(self, caller);
-        self->prepare_reject(any);
+        BypassTag bypassTag = func(self, caller);
+        if(bypassTag.isRejected_)
+            self->prepare_reject(caller->any_);
+        else
+            self->prepare_resolve(caller->any_);
         return self;
 #endif
     }
@@ -1110,16 +1105,9 @@ struct ResolveChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct ResolveChecker<BypassAndResolve, FUNC> {
+struct ResolveChecker<BypassTag, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        return BypassChecker<BypassAndResolve, FUNC>::call(func, self, caller);
-    }
-};
-
-template <typename FUNC>
-struct ResolveChecker<BypassAndReject, FUNC> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        return BypassChecker<BypassAndReject, FUNC>::call(func, self, caller);
+        return BypassChecker<BypassTag, FUNC>::call(func, self, caller);
     }
 };
 
@@ -1280,16 +1268,9 @@ struct RejectChecker<Defer, FUNC> {
 };
 
 template <typename FUNC>
-struct RejectChecker<BypassAndResolve, FUNC> {
+struct RejectChecker<BypassTag, FUNC> {
     static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        return BypassChecker<BypassAndResolve, FUNC>::call(func, self, caller);
-    }
-};
-
-template <typename FUNC>
-struct RejectChecker<BypassAndReject, FUNC> {
-    static Defer call(const FUNC &func, Defer &self, Promise *caller) {
-        return BypassChecker<BypassAndReject, FUNC>::call(func, self, caller);
+        return BypassChecker<BypassTag, FUNC>::call(func, self, caller);
     }
 };
 
@@ -1351,11 +1332,23 @@ inline Defer doWhile(FUNC func) {
 
     return newPromise([func, currnet](Defer d) {
         doWhile_unsafe(func, currnet).then(d);
-    }).fail([currnet](Defer &self, Promise *caller) -> BypassAndResolve {
+    }).fail([currnet](Defer &self, Promise *caller) -> BypassTag {
         (void)self;
-        (void)caller;
         currnet->doBreak();
-        return BypassAndResolve();
+        
+        if(caller->any_.tuple_size() > 0 &&
+            caller->any_.tuple_type(0) == get_type_index(typeid(DoWhileBreakTag))) {
+            //printf("======================= size = %d\n", caller->any_.tuple_size());
+            // Normal doBreak, remove the DoWhileBreakTag on the 1st tuple element
+            caller->any_ = caller->any_.tuple_remove_front();
+            //printf("======================= size = %d\n", caller->any_.tuple_size());
+            return BypassTag{false};
+        }
+        else {
+            // rejected, transfer promise object as original
+            // printf("xxxxxxxxxxxxxxxxxx\n");
+            return BypassTag{true};
+        }
     });
 }
 
