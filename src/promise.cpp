@@ -342,15 +342,11 @@ Defer all(const std::initializer_list<Defer> &promise_list) {
         size_t index = 0;
         for (auto defer : promise_list) {
             defer.then([=](const any &arg) {
-                //if (d->status_ != Promise::kInit)
-                //    return;
                 (*retArr)[index] = arg;
                 if (++(*finished) >= *size) {
                     cb.resolve(*retArr);
                 }
             }, [=](const any &arg) {
-                //if (d->status_ != Promise::kInit)
-                //    return;
                 cb.reject(arg);
             });
 
