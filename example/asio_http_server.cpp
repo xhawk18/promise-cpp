@@ -76,12 +76,12 @@ struct Session {
 
 // Promisified functions
 Defer async_accept(tcp::acceptor &acceptor) {
-    return newPromise([&](Defer d) {
+    return newPromise([&](Callback &cb) {
         // Look up the domain name
         auto socket = std::make_shared<tcp::socket>(static_cast<asio::io_context &>(acceptor.get_executor().context()));
         acceptor.async_accept(*socket,
             [=](boost::system::error_code err) {
-            setPromise(d, err, "resolve", socket);
+            setPromise(cb, err, "resolve", socket);
         });
     });
 }
@@ -301,7 +301,7 @@ void
 do_session(
     std::shared_ptr<Session> session)
 {
-    doWhile([=](Defer d){
+    doWhile([=](LoopCallback &cb){
         std::cout << "read new http request ... " << std::endl;
         //<1> Read a request
         session->req_ = {};
@@ -316,19 +316,21 @@ do_session(
         }).then([]() {
             //<3> success, return default error_code
             return boost::system::error_code();
-        }, [](const boost::system::error_code err) {
+        }, [](const any &result) {
+            const boost::system::error_code &err = result.cast<boost::system::error_code>();
             //<3> failed, return the error_code
             return err;
 
-        }).then([=](boost::system::error_code &err) {
+        }).then([=](const any &result) {
+            boost::system::error_code &err = result.cast<boost::system::error_code>();
             //<4> Keep-alive or close the connection.
             if (!err && !session->close_) {
-                d.resolve();//continue doWhile ...
+                cb.doContinue();//continue doWhile ...
             }
             else {
                 std::cout << "shutdown..." << std::endl;
                 session->socket_.shutdown(tcp::socket::shutdown_send, err);
-                d.reject(); //break from doWhile
+                cb.doBreak(); //break from doWhile
             }
         });
     });
@@ -367,13 +369,15 @@ do_listen(
         return fail(ec, "listen");
 
     auto doc_root_ = std::make_shared<std::string>(doc_root);
-    doWhile([acceptor, doc_root_](Defer d){
-        async_accept(*acceptor).then([=](std::shared_ptr<tcp::socket> socket) {
+    doWhile([acceptor, doc_root_](LoopCallback &cb){
+        async_accept(*acceptor).then([=](const any &result) {
+            std::shared_ptr<tcp::socket> socket = result.cast<std::shared_ptr<tcp::socket>>();
             std::cout << "accepted" << std::endl;
             auto session = std::make_shared<Session>(*socket, *doc_root_);
             do_session(session);
-        }).fail([](const boost::system::error_code err) {
-        }).then(d);
+        }).fail([](const any &result) {
+            const boost::system::error_code &err = result.cast<boost::system::error_code>();
+        }).then(cb);
     });
 }
 

@@ -52,16 +52,16 @@ void dump(std::string name, int n,
         "ns/op" << std::endl;
 }
 
-void task(asio::io_service &io, int task_id, int count, int *pcoro, Defer d) {
+void task(asio::io_service &io, int task_id, int count, int *pcoro, Callback &cb) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
-            d.resolve();
+            cb.resolve();
         return;
     }
 
-    yield(io).then([=, &io]() {
-        task(io, task_id, count - 1, pcoro, d);
+    yield(io).then([=, &io, &cb]() {
+        task(io, task_id, count - 1, pcoro, cb);
     });
 };
 
@@ -72,9 +72,9 @@ Defer test_switch(asio::io_service &io, int coro)
 
     int *pcoro = new int(coro);
 
-    return newPromise([=, &io](Defer d){
+    return newPromise([=, &io](Callback &cb){
         for (int task_id = 0; task_id < coro; ++task_id) {
-            task(io, task_id, N / coro, pcoro, d);
+            task(io, task_id, N / coro, pcoro, cb);
         }
     }).then([=](){
         delete pcoro;
@@ -86,7 +86,7 @@ Defer test_switch(asio::io_service &io, int coro)
 int main() {
     asio::io_service io;
 
-    doWhile([&](Defer d) {
+    doWhile([&](LoopCallback &cb) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else
@@ -101,7 +101,7 @@ int main() {
             return test_switch(io, 100000);
         }).then([&]() {
             return test_switch(io, 1000000);
-        }).then(d);
+        }).then(cb);
     });
 
     io.run();

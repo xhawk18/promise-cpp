@@ -57,7 +57,8 @@ void testPromiseRace(asio::io_service &io) {
         return "two";
     });
 
-    race(promise0, promise1).then([](const char *str) {
+    race(promise0, promise1).then([](const any &result) {
+        const char *str = result.cast<const char *>();
         printf("race result = %s\n", str);
         // Both resolve, but promise1 is faster
     });
@@ -73,11 +74,13 @@ void testPromiseAll(asio::io_service &io) {
         return std::string("two");
     });
 
-    all(promise0, promise1).then([](const std::vector<pm_any> &results) {
+    all(promise0, promise1).then([](const any &result) {
+        const std::vector<any> &results = result.cast<std::vector<any>>();
         printf("all size = %d\n", (int)results.size());
-        for(size_t i = 0; i < results.size(); ++i)
-            printf("all result = %s\n",
-                static_cast<std::string *>(results[i].tuple_element(0))->c_str());
+        for (size_t i = 0; i < results.size(); ++i) {
+            //printf("all result = %s\n",
+            //    static_cast<std::string *>(results[i].tuple_element(0))->c_str());
+        }
         // Both resolve, but promise1 is faster
     });
 }

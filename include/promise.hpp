@@ -65,6 +65,7 @@ private:
 struct Defer {
     Defer &then(const any &callbackOrOnResolved);
     Defer &then(const any &onResolved, const any &onRejected);
+    Defer &fail(const any &onRejected);
     Defer &always(const any &onAlways);
     Defer &finally(const any &onFinally);
 
@@ -83,6 +84,39 @@ Defer reject(const any &arg);
 Defer resolve(const any &arg);
 Defer reject();
 Defer resolve();
+
+
+
+/* Returns a promise that resolves when all of the promises in the iterable
+   argument have resolved, or rejects with the reason of the first passed
+   promise that rejects. */
+Defer all(const std::initializer_list<Defer> &promise_list);
+template <typename ... PROMISE_LIST>
+inline Defer all(PROMISE_LIST ...promise_list) {
+    return all({ promise_list ... });
+}
+
+
+/* returns a promise that resolves or rejects as soon as one of
+the promises in the iterable resolves or rejects, with the value
+or reason from that promise. */
+Defer race(const std::initializer_list<Defer> &promise_list);
+template <typename ... PROMISE_LIST>
+inline Defer race(PROMISE_LIST ...promise_list) {
+    return race({ promise_list ... });
+}
+
+Defer raceAndReject(const std::initializer_list<Defer> &promise_list);
+template <typename ... PROMISE_LIST>
+inline Defer raceAndReject(PROMISE_LIST ...promise_list) {
+    return raceAndReject({ promise_list ... });
+}
+
+Defer raceAndResolve(const std::initializer_list<Defer> &promise_list);
+template <typename ... PROMISE_LIST>
+inline Defer raceAndResolve(PROMISE_LIST ...promise_list) {
+    return raceAndReject({ promise_list ... });
+}
 
 
 } // namespace promise

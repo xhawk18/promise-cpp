@@ -1,6 +1,7 @@
 #include "promise.hpp"
 #include <cassert>
 #include <stdexcept>
+#include <vector>
 
 namespace promise {
 
@@ -178,47 +179,6 @@ void LoopCallback::reject() const {
     cb_.reject();
 }
 
-#if 0
-Defer &Defer::then(const Callback &cb) {
-    return then(fnOnPromise([cb](const any &arg) -> any {
-        cb.resolve(arg);
-        return nullptr;
-    }), fnOnPromise([cb](const any &arg) ->any {
-        cb.reject(arg);
-        return nullptr;
-    }));
-}
-
-Defer &Defer::then(const LoopCallback &cb) {
-    return then(fnOnPromise([cb](const any &arg) -> any {
-        (void)arg;
-        cb.doContinue();
-        return nullptr;
-    }), fnOnPromise([cb](const any &arg) ->any {
-        cb.reject(arg);
-        return nullptr;
-    }));
-}
-
-Defer &Defer::then(const fnOnPromise &onResolved,
-                   const fnOnPromise &onRejected) {
-    std::shared_ptr<Task> task = std::make_shared<Task>(Task {
-        TaskState::kPending,
-        sharedPromise_,
-        onResolved,
-        onRejected
-    });
-    sharedPromise_->promise_->pendingTasks_.push_back(task);
-    call(task);
-    return *this;
-}
-
-Defer &Defer::then(const fnOnPromise &onResolved) {
-    return then(onResolved, fnOnPromise(nullptr));
-}
-#endif
-
-
 Defer &Defer::then(const any &callbackOrOnResolved) {
     if (callbackOrOnResolved.type() == typeid(Callback)) {
         Callback &cb = callbackOrOnResolved.cast<Callback>();
@@ -243,6 +203,9 @@ Defer &Defer::then(const any &callbackOrOnResolved) {
     }
     else {
         return then(callbackOrOnResolved, nullptr);
+        //return then(callbackOrOnResolved, [](const any &arg) -> any {
+        //    return promise::reject(arg);
+        //}); //?? TODO: why not work?
     }
 }
 
@@ -258,6 +221,11 @@ Defer &Defer::then(const any &onResolved, const any &onRejected) {
     return *this;
 }
 
+Defer &Defer::fail(const any &onRejected) {
+    return then([](const any &arg) -> any {
+        return arg;
+    }, onRejected);
+}
 
 Defer &Defer::always(const any &onAlways) {
     return then(onAlways, onAlways);
@@ -362,6 +330,68 @@ Defer reject() {
 Defer resolve() {
     return newPromise([](Callback &cb) { cb.resolve(nullptr); });
 }
+
+Defer all(const std::initializer_list<Defer> &promise_list) {
+    if (promise_list.size() == 0) {
+        return resolve();
+    }
+
+    std::shared_ptr<size_t> finished = std::make_shared<size_t>(0);
+    std::shared_ptr<size_t> size = std::make_shared<size_t>(promise_list.size());
+    std::shared_ptr<std::vector<any>> retArr = std::make_shared<std::vector<any>>();
+    retArr->resize(*size);
+
+    return newPromise([=](Callback &cb) {
+        size_t index = 0;
+        for (auto defer : promise_list) {
+            defer.then([=](const any &arg) {
+                //if (d->status_ != Promise::kInit)
+                //    return;
+                (*retArr)[index] = arg;
+                if (++(*finished) >= *size) {
+                    cb.resolve(*retArr);
+                }
+            }, [=](const any &arg) {
+                //if (d->status_ != Promise::kInit)
+                //    return;
+                cb.reject(arg);
+            });
+
+            ++index;
+        }
+    });
+}
+
+Defer race(const std::initializer_list<Defer> &promise_list) {
+    return newPromise([=](Callback &cb) {
+        for (auto defer : promise_list) {
+            defer.then([=](const any &arg) {
+                cb.resolve(arg);
+            }, [=](const any &arg) {
+                cb.reject(arg);
+            });
+        }
+    });
+}
+
+Defer raceAndReject(const std::initializer_list<Defer> &promise_list) {
+    std::vector<Defer> copy_list = promise_list;
+    return race(promise_list).finally([copy_list] {
+        for (auto defer : copy_list) {
+            defer.reject();
+        }
+    });
+}
+
+Defer raceAndResolve(const std::initializer_list<Defer> &promise_list) {
+    std::vector<Defer> copy_list = promise_list;
+    return race(promise_list).finally([copy_list] {
+        for (auto defer : copy_list) {
+            defer.resolve();
+        }
+    });
+}
+
  
 } // namespace promise
 

@@ -37,6 +37,27 @@ add_executable(test0 ${my_source} example/test0.cpp)
 add_executable(simple_benchmark_test ${my_source} example/simple_benchmark_test.cpp)
 
 
+find_package(Boost 1.66.0 COMPONENTS)
+if(NOT Boost_FOUND)
+  message(WARNING "Boost not found, so asio projects will not be compiled")
+else()
+
+  include_directories(${Boost_INCLUDE_DIRS})
+  if (UNIX)
+    link_libraries(pthread)
+  endif (UNIX)
+
+  add_compile_definitions(BOOST_ALL_NO_LIB)
+  
+  use_cxx11()
+  include_directories(. ./add_ons/asio)
+  add_executable(asio_benchmark_test ${my_source} example/asio_benchmark_test.cpp)
+  add_executable(asio_timer ${my_source} example/asio_timer.cpp)
+  add_executable(asio_http_client ${my_source} example/asio_http_client.cpp)
+  add_executable(asio_http_server ${my_source} example/asio_http_server.cpp)
+endif()
+
+
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets)
 if(NOT QT_DIR)
