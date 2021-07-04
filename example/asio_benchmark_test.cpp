@@ -52,15 +52,16 @@ void dump(std::string name, int n,
         "ns/op" << std::endl;
 }
 
-void task(asio::io_service &io, int task_id, int count, int *pcoro, Callback &cb) {
+void task(asio::io_service &io, int task_id, int count, int *pcoro, Callback cb) {
     if (count == 0) {
         -- *pcoro;
-        if (*pcoro == 0)
+        if (*pcoro == 0) {
             cb.resolve();
+        }
         return;
     }
 
-    yield(io).then([=, &io, &cb]() {
+    yield(io).then([=, &io]() {
         task(io, task_id, count - 1, pcoro, cb);
     });
 };

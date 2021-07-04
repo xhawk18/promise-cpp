@@ -32,7 +32,6 @@
 #include <chrono>
 #include "promise.hpp"
 #include "add_ons/simple_task/simple_task.hpp"
-#define PTI do {printf("l %d\n", __LINE__);} while(0)
 
 using namespace promise;
 namespace chrono       = std::chrono;
@@ -54,11 +53,11 @@ void task(Service &io, int task_id, int count, int *pcoro, Callback cb) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
-            cb.resolve(nullptr);
+            cb.resolve();
         return;
     }
 
-    io.yield().then([=, &io](const any &arg) {
+    io.yield().then([=, &io]() {
         task(io, task_id, count - 1, pcoro, cb);
     });
 };
@@ -73,7 +72,7 @@ Defer test_switch(Service &io, int coro) {
         for (int task_id = 0; task_id < coro; ++task_id) {
             task(io, task_id, N / coro, pcoro, cb);
         }
-    }).then([=](const any &arg) {
+    }).then([=]() {
         delete pcoro;
         steady_clock::time_point end = steady_clock::now();
         dump("BenchmarkSwitch_" + std::to_string(coro), N, start, end);
@@ -92,13 +91,13 @@ int main() {
         printf("In while ...\n");
 #endif
         //Sleep(5000);
-        test_switch(io, 1).then([&](const any &arg) -> any {
+        test_switch(io, 1).then([&]() {
             return test_switch(io, 1000);
-        }).then([&](const any &arg) {
+        }).then([&]() {
             return test_switch(io, 10000);
-        }).then([&](const any &arg) {
+        }).then([&]() {
             return test_switch(io, 100000);
-        }).then([&, cb](const any &arg) {
+        }).then([&, cb]() {
             if (i++ > 3) cb.doBreak();
             return test_switch(io, 1000000);
         }).then(cb);

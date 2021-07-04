@@ -203,9 +203,6 @@ Defer &Defer::then(const any &callbackOrOnResolved) {
     }
     else {
         return then(callbackOrOnResolved, nullptr);
-        //return then(callbackOrOnResolved, [](const any &arg) -> any {
-        //    return promise::reject(arg);
-        //}); //?? TODO: why not work?
     }
 }
 

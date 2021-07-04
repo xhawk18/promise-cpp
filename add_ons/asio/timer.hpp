@@ -69,7 +69,7 @@ inline Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
     auto timer = std::make_shared<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
     return newPromise([timer, &io](Callback &cb) {
         timer->async_wait([cb, timer](const boost::system::error_code& error_code) {
-            if (!timer) {
+            if (timer) {
                 //timer = nullptr;
                 cb.resolve();
             }
