@@ -52,7 +52,6 @@ namespace promise {
 
 class PromiseEventFilter : public QObject {
 private:
-    friend class Singleton<PromiseEventFilter>;
     PromiseEventFilter() {}
 
 public:
