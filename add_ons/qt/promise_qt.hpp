@@ -41,7 +41,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "../../promise.hpp"
+#include "../../include/promise.hpp"
 #include <chrono>
 #include <QObject>
 #include <QTimerEvent>
@@ -117,37 +117,37 @@ protected:
 inline Defer waitEvent(QObject      *object,
                        QEvent::Type  eventType,
                        bool          callSysHandler = false) {
-    Defer promise = newPromise();
+    auto listener = std::make_shared<PromiseEventFilter::Listeners::iterator>();
+    Defer promise = newPromise([listener, object, eventType, callSysHandler](Callback &cb) {
 
-    std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
-    auto listener = PromiseEventFilter::getSingleInstance().addEventListener(
-        object, eventType, [promise, callSysHandler, disableFilter](QObject *object, QEvent *event) {
-            (void)object;
-            if (event == nullptr) {
-                promise->reject();
-                return false;
+        std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
+        *listener = PromiseEventFilter::getSingleInstance().addEventListener(
+            object, eventType, [cb, callSysHandler, disableFilter](QObject *object, QEvent *event) {
+                (void)object;
+                if (event == nullptr) {
+                    cb.reject();
+                    return false;
+                }
+                // The next then function will be call immediately
+                // Be care that do not use event in the next event loop
+                else if (*disableFilter) {
+                    return false;
+                }
+                else if (callSysHandler) {
+                    *disableFilter = true;
+                    QApplication::sendEvent(object, event);
+                    *disableFilter = false;
+                    cb.resolve(event);
+                    return true;
+                }
+                else {
+                    cb.resolve(event);
+                    return false;
+                }
             }
-            // The next then function will be call immediately
-            // Be care that do not use event in the next event loop
-            else if (*disableFilter) {
-                return false;
-            }
-            else if (callSysHandler) {
-                *disableFilter = true;
-                QApplication::sendEvent(object, event);
-                *disableFilter = false;
-                promise->resolve(event);
-                return true;
-            }
-            else {
-                promise->resolve(event);
-                return false;
-            }
-        }
-    );
-
-    promise.finally([listener]() {
-        PromiseEventFilter::getSingleInstance().removeEventListener(listener);
+        );
+    }).finally([listener]() {
+        PromiseEventFilter::getSingleInstance().removeEventListener(*listener);
     });
     
     return promise;
@@ -166,8 +166,8 @@ public:
     static Defer delay(int time_ms) {
         int timerId = getInstance().startTimer(time_ms);
 
-        return newPromise([timerId](Defer &d) {
-            getInstance().defers_.insert({ timerId, d });
+        return newPromise([timerId](Callback &cb) {
+            getInstance().defers_.insert({ timerId, cb });
         }).finally([timerId]() {
             getInstance().killTimer(timerId);
             getInstance().defers_.erase(timerId);
@@ -192,13 +192,13 @@ protected:
         int timerId = event->timerId();
         auto found = this->defers_.find(timerId);
         if (found != this->defers_.end()) {
-            Defer d = found->second;
-            d.resolve();
+            Callback &cb = found->second;
+            cb.resolve();
         }
         QObject::timerEvent(event);
     }
 private:
-    std::map<int, promise::Defer>  defers_;
+    std::map<int, promise::Callback>  defers_;
 
     static QtTimerHolder &getInstance() {
         static QtTimerHolder s_qtTimerHolder_;
@@ -222,7 +222,7 @@ inline Defer setTimeout(const std::function<void(bool)> &func,
 
 
 inline void cancelDelay(Defer d) {
-    d.reject_pending();
+    d.reject();
 }
 
 inline void clearTimeout(Defer d) {

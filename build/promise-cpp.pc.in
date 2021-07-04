@@ -1,7 +1,0 @@
-prefix=@CMAKE_INSTALL_PREFIX@
-includedir=${prefix}/include
-
-Name: promise-cpp
-Description: C++ promise/A+ library in Javascript style.
-Version: @PROJECT_VERSION@
-Cflags: -I${includedir}

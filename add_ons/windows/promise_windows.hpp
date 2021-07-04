@@ -42,7 +42,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "../../promise.hpp"
+#include "../../include/promise.hpp"
 #include <chrono>
 #include <map>
 #include <windows.h>
@@ -58,9 +58,9 @@ public:
     static Defer delay(int time_ms) {
         UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
-        return newPromise([timerId](Defer &d) {
+        return newPromise([timerId](Callback &cb) {
             //printf("timerId = %d\n", (int)timerId);
-            WindowsTimerHolder::getDefers().insert({ timerId, d });
+            WindowsTimerHolder::getDefers().insert({ timerId, cb });
         }).then([timerId]() {
             WindowsTimerHolder::getDefers().erase(timerId);
             return promise::resolve();
@@ -96,7 +96,7 @@ protected:
         //printf("%d %d %d %d\n", (int)unnamedParam1, (int)unnamedParam2, (int)unnamedParam3, (int)unnamedParam4);
         auto found = getDefers().find(timerId);
         if (found != getDefers().end()) {
-            Defer d = found->second;
+            Callback d = found->second;
             d.resolve();
         }
     }
@@ -104,8 +104,8 @@ protected:
 private:
     friend void cancelDelay(Defer d);
 
-    inline static std::map<UINT_PTR, promise::Defer> &getDefers() {
-        static std::map<UINT_PTR, promise::Defer>  s_defers_;
+    inline static std::map<UINT_PTR, promise::Callback> &getDefers() {
+        static std::map<UINT_PTR, promise::Callback>  s_defers_;
         return s_defers_;
     }
 };
@@ -125,7 +125,7 @@ inline Defer setTimeout(const std::function<void(bool)> &func,
 
 
 inline void cancelDelay(Defer d) {
-    d.reject_pending();
+    d.reject();
 }
 
 inline void clearTimeout(Defer d) {
