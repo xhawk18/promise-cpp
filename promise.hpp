@@ -1364,10 +1364,21 @@ inline Defer resolve(const RET_ARG &... ret_arg){
     return newPromise([=](Defer &d){ d.resolve(ret_arg...); });
 }
 
+
+template <typename T, typename = void>
+struct is_iterable : std::false_type {};
+
+// this gets used only when we can call std::begin() and std::end() on that type
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>())),
+    decltype(std::end(std::declval<T>()))
+>> : std::true_type {};
+
 /* Returns a promise that resolves when all of the promises in the iterable
    argument have resolved, or rejects with the reason of the first passed
    promise that rejects. */
-inline Defer all(const std::initializer_list<Defer> &promise_list) {
+template<typename PROMISE_LIST, typename std::enable_if<is_iterable<PROMISE_LIST>::value>::type *dummy = nullptr>
+inline Defer all(const PROMISE_LIST &promise_list) {
     if(pm_size(promise_list) == 0){
         //return Promise::resolve<>()
     }
@@ -1411,16 +1422,17 @@ inline Defer all(const std::initializer_list<Defer> &promise_list) {
     });
 }
 
-template <typename ... PROMISE_LIST>
-inline Defer all(PROMISE_LIST ...promise_list) {
-    return all({ promise_list ... });
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Defer all(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return all(std::initializer_list<Defer>{ defer0, promise_list ... });
 }
 
 
 /* returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise. */
-inline Defer race(const std::initializer_list<Defer> &promise_list) {
+template<typename PROMISE_LIST, typename std::enable_if<is_iterable<PROMISE_LIST>::value>::type *dummy = nullptr>
+inline Defer race(const PROMISE_LIST &promise_list) {
     return newPromise([=](Defer d) {
         for (auto defer : promise_list) {
             defer.then([=](pm_any &arg) {
@@ -1433,13 +1445,13 @@ inline Defer race(const std::initializer_list<Defer> &promise_list) {
 }
 
 
-template <typename ... PROMISE_LIST>
-inline Defer race(PROMISE_LIST ...promise_list) {
-    return race({ promise_list ... });
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Defer race(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return race(std::initializer_list<Defer>{ defer0, promise_list ... });
 }
 
-
-inline Defer raceAndReject(const std::initializer_list<Defer> &promise_list) {
+template<typename PROMISE_LIST, typename std::enable_if<is_iterable<PROMISE_LIST>::value>::type *dummy = nullptr>
+inline Defer raceAndReject(const PROMISE_LIST &promise_list) {
     std::vector<Defer> copy_list = promise_list;
     return race(promise_list).finally([copy_list] {
         for (auto defer : copy_list) {
@@ -1448,12 +1460,13 @@ inline Defer raceAndReject(const std::initializer_list<Defer> &promise_list) {
     });
 }
 
-template <typename ... PROMISE_LIST>
-inline Defer raceAndReject(PROMISE_LIST ...promise_list) {
-    return raceAndReject({ promise_list ... });
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Defer raceAndReject(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return raceAndReject(std::initializer_list<Defer>{ defer0, promise_list ... });
 }
 
-inline Defer raceAndResolve(const std::initializer_list<Defer> &promise_list) {
+template<typename PROMISE_LIST, typename std::enable_if<is_iterable<PROMISE_LIST>::value>::type *dummy = nullptr>
+inline Defer raceAndResolve(const PROMISE_LIST &promise_list) {
     std::vector<Defer> copy_list = promise_list;
     return race(promise_list).finally([copy_list] {
         for (auto defer : copy_list) {
@@ -1462,9 +1475,9 @@ inline Defer raceAndResolve(const std::initializer_list<Defer> &promise_list) {
     });
 }
 
-template <typename ... PROMISE_LIST>
-inline Defer raceAndResolve(PROMISE_LIST ...promise_list) {
-    return raceAndReject({ promise_list ... });
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Defer raceAndResolve(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return raceAndReject(std::initializer_list<Defer>{ defer0, promise_list ... });
 }
 
 
