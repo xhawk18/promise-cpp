@@ -52,20 +52,17 @@ private:
 
     template<typename T>//, typename std::enable_if<!std::is_same<T, std::nullptr_t>::value>::type *dummy = 0>
     static std::function<Holder()> init(const T &t) {
-        return [t]() -> Holder {
+        auto pt = std::make_shared<T>(t);
+        return [pt]() -> Holder {
             return {
-                reinterpret_cast<const void *>(&reinterpret_cast<const char &>(t)),
+                reinterpret_cast<const void *>(&reinterpret_cast<const char &>(*pt)),
                 typeid(T),
-                [t](const any &arg) -> any {
-                    return anyCall(t, arg);
+                [&pt](const any &arg) -> any {
+                    return anyCall(*pt, arg);
                 }
             };
         };
     }
-
-    //static std::function<Holder()> init(const std::nullptr_t &t) {
-    //    return nullptr;
-    //}
 };
 
 
