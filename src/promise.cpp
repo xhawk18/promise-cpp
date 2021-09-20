@@ -181,7 +181,7 @@ void LoopCallback::reject() const {
 
 Defer &Defer::then(const any &callbackOrOnResolved) {
     if (callbackOrOnResolved.type() == typeid(Callback)) {
-        Callback &cb = callbackOrOnResolved.cast<Callback>();
+        Callback &cb = callbackOrOnResolved.cast<Callback &>();
         return then([cb](const any &arg) -> any {
             cb.resolve(arg);
             return nullptr;
@@ -191,7 +191,7 @@ Defer &Defer::then(const any &callbackOrOnResolved) {
         });
     }
     else if (callbackOrOnResolved.type() == typeid(LoopCallback)) {
-        LoopCallback &cb = callbackOrOnResolved.cast<LoopCallback>();
+        LoopCallback &cb = callbackOrOnResolved.cast<LoopCallback&>();
         return then([cb](const any &arg) -> any {
             (void)arg;
             cb.doContinue();

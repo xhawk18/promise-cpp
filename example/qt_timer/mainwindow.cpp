@@ -4,21 +4,6 @@
 #include <thread>
 
 using namespace promise;
-template<typename FUNC>
-inline any anyCall2 (const FUNC &func, const any &arg) {
-    const auto &stdFunc = call_traits<FUNC>::to_std_function(func);
-
-
-    printf("%s\n%s\n%s\n",
-        typeid(stdFunc).name(),
-        typeid(call_traits<FUNC>::result_type).name(),
-        typeid(call_traits<FUNC>::argument_type).name());
-
-    if (!stdFunc)
-        return nullptr;
-    else
-        return stdFuncCall<typename call_traits<FUNC>::result_type>(stdFunc, arg);
-}
 
 
 MainWindow::MainWindow(QWidget *parent)
