@@ -9,7 +9,6 @@ using namespace promise;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , timerHolder_()
 {
     ui->setupUi(this);
 
@@ -24,27 +23,27 @@ MainWindow::MainWindow(QWidget *parent)
     // delay tasks
 #if 1
     doWhile([=](LoopCallback &cb) {
-        timerHolder_.delay(1000).then([=]() {
+        delay(1000).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.yield();
+            return yield();
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then([=]() {
             updateText(__LINE__);
-            return timerHolder_.delay(1000);
+            return delay(1000);
         }).then(cb); //call doWhile
     });
 #endif

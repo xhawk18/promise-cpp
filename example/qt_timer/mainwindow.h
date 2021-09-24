@@ -17,9 +17,6 @@ public:
     ~MainWindow();
 
 private:
-    Ui::MainWindow *ui;
-    
-    // Promisified timer holder for QT application
-    promise::QtTimerHolder timerHolder_;
+    Ui::MainWindow *ui;   
 };
 #endif // MAINWINDOW_H

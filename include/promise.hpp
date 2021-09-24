@@ -31,6 +31,7 @@ struct Task {
  * Task state in TaskList always be kPending
  */
 struct Promise {
+    std::list<std::weak_ptr<SharedPromise>> owners_;
     std::list<std::shared_ptr<Task>> pendingTasks_;
     TaskState                        state_;
     any                              value_;
@@ -46,6 +47,8 @@ struct Callback {
     void reject(const any &arg) const;
     void resolve() const;
     void reject() const;
+
+    Defer getPromise() const;
 private:
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
@@ -58,6 +61,8 @@ struct LoopCallback {
     void reject(const any &) const;
     void doBreak() const;
     void reject() const;
+
+    Defer getPromise() const;
 private:
     Callback cb_;
 };
@@ -73,6 +78,9 @@ struct Defer {
     void reject(const any &arg) const;
     void resolve() const;
     void reject() const;
+
+    void clear();
+    operator bool() const;
 
     std::shared_ptr<SharedPromise> sharedPromise_;
 };

@@ -72,10 +72,22 @@ public: // structors
         return content ? content->call(arg) : pm_any();
     }
 
-    template<typename ValueType>
+    template<typename ValueType,
+        typename std::enable_if<!std::is_pointer<ValueType>::value>::type *dummy = nullptr>
     inline ValueType cast() const {
         return any_cast<ValueType>(*this);
     }
+
+    template<typename ValueType,
+        typename std::enable_if<std::is_pointer<ValueType>::value>::type *dummy = nullptr>
+    inline ValueType cast() const {
+        if (this->empty())
+            return nullptr;
+        else
+            return any_cast<ValueType>(*this);
+    }
+
+
 
 public: // modifiers
 

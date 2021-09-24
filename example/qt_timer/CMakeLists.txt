@@ -36,6 +36,8 @@ set(PROJECT_SOURCES
         ../../include/any.hpp
         ../../include/call_traits.hpp
         ../../src/promise.cpp
+        ../../add_ons/qt/promise_qt.hpp
+        ../../add_ons/qt/promise_qt.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -57,8 +59,8 @@ endif()
 target_link_libraries(qt_timer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_include_directories(qt_timer PRIVATE "../..")
 
-# ÉèÖÃvc debuggerÊ¹ÓÃµÄPATHÂ·¾¶
-# cmake 3.13 ¿ªÊ¼Ö§³Ö£¬µÍÓÚ´Ë°æ±¾ºöÂÔ
+# è®¾ç½®vc debuggerä½¿ç”¨çš„PATHè·¯å¾„
+# cmake 3.13 å¼€å§‹æ”¯æŒï¼Œä½äºæ­¤ç‰ˆæœ¬å¿½ç•¥
 string(REGEX REPLACE "[\\/]lib[\\/]cmake[\\/].*$" "/bin" MY_QT_BINARY_PATH ${QT_DIR})
 file(TO_NATIVE_PATH "${MY_QT_BINARY_PATH}" MY_QT_BINARY_PATH)
 message("PATH=$(PATH);${MY_QT_BINARY_PATH}")

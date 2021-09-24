@@ -35,8 +35,8 @@
  */
  
 #pragma once
-#ifndef INC_TYPE_FUNCTION_H_
-#define INC_TYPE_FUNCTION_H_
+#ifndef INC_CALL_TRAITS_HPP_
+#define INC_CALL_TRAITS_HPP_
 
 #include <type_traits>
 #include <functional>

@@ -5,58 +5,88 @@
 
 namespace promise {
 
-void healthyCheck(SharedPromise *sharedPromise) {
+void healthyCheck(int line, SharedPromise *sharedPromise, bool isCheckShared) {
     if (!sharedPromise->promise_) {
-        fprintf(stderr, "line = %d, SharedPromise = %p, promise_ is null\n", __LINE__, sharedPromise);
+        fprintf(stderr, "line = %d, %d, SharedPromise = %p, promise_ is null\n", line, __LINE__, sharedPromise);
         throw std::runtime_error("");
+    }
+
+    for (const auto &owner_ : sharedPromise->promise_->owners_) {
+        auto owner = owner_.lock();
+        if (owner && owner->promise_ != sharedPromise->promise_) {
+            fprintf(stderr, "line = %d, %d, SharedPromise = %p, owner->promise_ = %p, sharedPromise->promise_ = %p\n",
+                line, __LINE__,
+                sharedPromise,
+                owner->promise_.get(),
+                sharedPromise->promise_.get());
+            throw std::runtime_error("");
+        }
     }
 
     for (const std::shared_ptr<Task> &task : sharedPromise->promise_->pendingTasks_) {
         if (!task) {
-            fprintf(stderr, "line = %d, SharedPromise = %p, promise_ = %p, task is null\n", __LINE__,
+            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promise_ = %p, task is null\n", line, __LINE__,
                 sharedPromise, sharedPromise->promise_.get());
             throw std::runtime_error("");
         }
         if (task->state_ != TaskState::kPending) {
-            fprintf(stderr, "line = %d, SharedPromise = %p, promise_ = %p, task = %p, task->state_ = %d\n", __LINE__,
+            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promise_ = %p, task = %p, task->state_ = %d\n", line, __LINE__,
                 sharedPromise, sharedPromise->promise_.get(), task.get(), (int)task->state_);
             throw std::runtime_error("");
         }
         if (task->sharedPromise_.lock()->promise_ != sharedPromise->promise_) {
-            fprintf(stderr, "line = %d, SharedPromise = %p, promise_ = %p, task = %p, task->sharedPromise_ = %p, promise = %p\n", __LINE__,
+            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promise_ = %p, task = %p, task->sharedPromise_ = %p, promise = %p\n", line, __LINE__,
                 sharedPromise, sharedPromise->promise_.get(), task.get(), task->sharedPromise_.lock().get(), task->sharedPromise_.lock()->promise_.get());
             throw std::runtime_error("");
         }
 
-        if (task->sharedPromise_.lock().get() != sharedPromise) {
-            fprintf(stderr, "line = %d, SharedPromise = %p, promise_ = %p, task = %p, task->sharedPromise_ = %p\n", __LINE__,
+        if (isCheckShared && task->sharedPromise_.lock().get() != sharedPromise) {
+            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promise_ = %p, task = %p, task->sharedPromise_ = %p\n", line, __LINE__,
                 sharedPromise, sharedPromise->promise_.get(), task.get(), task->sharedPromise_.lock().get());
             throw std::runtime_error("");
         }
     }
 }
 
-void healthyCheck(Defer *defer) {
+void healthyCheck(int line, Defer *defer, bool isCheckShared) {
     if (!defer->sharedPromise_) {
-        fprintf(stderr, "line = %d, Defer = %p, sharedPromise_ is null\n", __LINE__, defer);
+        fprintf(stderr, "line = %d, %d, Defer = %p, sharedPromise_ is null\n", line, __LINE__, defer);
         throw std::runtime_error("");
     }
-    healthyCheck(defer->sharedPromise_.get());
+    healthyCheck(line, defer->sharedPromise_.get(), isCheckShared);
 }
 
 
 
 static void join(std::shared_ptr<SharedPromise> &left, std::shared_ptr<SharedPromise> &right) {
-    // healthyCheck(left.get());
-    // healthyCheck(right.get());
+    //healthyCheck(__LINE__, left.get(), true);
+    //healthyCheck(__LINE__, right.get(), true);
 
     for (const std::shared_ptr<Task> &task : right->promise_->pendingTasks_) {
         task->sharedPromise_ = left;
     }
     left->promise_->pendingTasks_.splice(left->promise_->pendingTasks_.end(), right->promise_->pendingTasks_);
-    right->promise_ = left->promise_;
 
-    // healthyCheck(left.get());
+    std::list<std::weak_ptr<SharedPromise>> owners;
+    owners.splice(owners.end(), right->promise_->owners_);
+
+    if(owners.size() > 100) {
+        fprintf(stderr, "Maybe memory leak, too many promise owners: %d", (int)owners.size());
+    }
+
+    for (const std::weak_ptr<SharedPromise> &owner_ : owners) {
+        std::shared_ptr<SharedPromise> owner = owner_.lock();
+        if (owner) {
+            owner->promise_ = left->promise_;
+            left->promise_->owners_.push_back(owner);
+        }
+    }
+
+    //fprintf(stderr, "left->promise_->owners_ size = %d\n", (int)left->promise_->owners_.size());
+
+
+    //healthyCheck(__LINE__, left.get(), true);
+    //healthyCheck(__LINE__, right.get(), false);
     // right must not be healthy now, so do not use healthyCheck(right.get());
 }
 
@@ -77,21 +107,28 @@ static void call(std::shared_ptr<Task> task) {
 
         try {
             if (promise->state_ == TaskState::kResolved) {
-                const any &value = task->onResolved_.call(promise->value_);
-                if (value.type() != typeid(Defer)) {
-                    promise->value_ = value;
-                    promise->state_ = TaskState::kResolved;
+                if (task->onResolved_.empty()
+                    || task->onResolved_.type() == typeid(std::nullptr_t)) {
+                    //to next resolved task
                 }
                 else {
-                    // join the promise
-                    Defer defer = value.cast<Defer>();
-                    join(defer.sharedPromise_, sharedPromise);
-                    sharedPromiseHolder = defer.sharedPromise_;
-                    promise = defer.sharedPromise_->promise_;
+                    const any &value = task->onResolved_.call(promise->value_);
+                    if (value.type() != typeid(Defer)) {
+                        promise->value_ = value;
+                        promise->state_ = TaskState::kResolved;
+                    }
+                    else {
+                        // join the promise
+                        Defer defer = value.cast<Defer>();
+                        join(defer.sharedPromise_, sharedPromise);
+                        sharedPromiseHolder = defer.sharedPromise_;
+                        promise = defer.sharedPromise_->promise_;
+                    }
                 }
             }
             else if (promise->state_ == TaskState::kRejected) {
-                if (task->onRejected_.empty()) {
+                if (task->onRejected_.empty()
+                    || task->onRejected_.type() == typeid(std::nullptr_t)) {
                     //to next rejected task
                     //promise->value_ = promise->value_;
                     //promise->state_ = TaskState::kRejected;
@@ -152,6 +189,10 @@ void Callback::reject() const {
     reject(nullptr);
 }
 
+Defer Callback::getPromise() const {
+    return Defer{ sharedPromise_ };
+}
+
 
 struct DoBreakTag {};
 
@@ -179,6 +220,11 @@ void LoopCallback::reject() const {
     cb_.reject();
 }
 
+Defer LoopCallback::getPromise() const {
+    return cb_.getPromise();
+}
+
+
 Defer &Defer::then(const any &callbackOrOnResolved) {
     if (callbackOrOnResolved.type() == typeid(Callback)) {
         Callback &cb = callbackOrOnResolved.cast<Callback &>();
@@ -202,7 +248,7 @@ Defer &Defer::then(const any &callbackOrOnResolved) {
         });
     }
     else {
-        return then(callbackOrOnResolved, nullptr);
+        return then(callbackOrOnResolved, any());
     }
 }
 
@@ -219,9 +265,7 @@ Defer &Defer::then(const any &onResolved, const any &onRejected) {
 }
 
 Defer &Defer::fail(const any &onRejected) {
-    return then([](const any &arg) -> any {
-        return arg;
-    }, onRejected);
+    return then(any(), onRejected);
 }
 
 Defer &Defer::always(const any &onAlways) {
@@ -269,10 +313,19 @@ void Defer::reject() const {
     reject(nullptr);
 }
 
+void Defer::clear() {
+    sharedPromise_.reset();
+}
+
+Defer::operator bool() const {
+    return sharedPromise_.operator bool();
+}
+
 Defer newPromise(const std::function<void(Callback &cb)> &run) {
     Defer defer;
     defer.sharedPromise_ = std::make_shared<SharedPromise>();
     defer.sharedPromise_->promise_ = std::make_shared<Promise>();
+    defer.sharedPromise_->promise_->owners_.push_back(defer.sharedPromise_);
     
     auto returnAsIs = [](const any &arg) -> any {
         return arg;
