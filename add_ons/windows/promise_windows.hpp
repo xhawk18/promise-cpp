@@ -42,7 +42,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "../../promise.hpp"
+#include "../../include/promise.hpp"
 #include <chrono>
 #include <map>
 #include <windows.h>
@@ -55,12 +55,12 @@ inline void clearTimeout(Defer d);
 struct WindowsTimerHolder {
     WindowsTimerHolder() {};
 public:
-    static Defer delay(int time_ms) {
+    static Promise delay(int time_ms) {
         UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
-        return newPromise([timerId](Defer &d) {
+        return newPromise([timerId](Defer &Defer) {
             //printf("timerId = %d\n", (int)timerId);
-            WindowsTimerHolder::getDefers().insert({ timerId, d });
+            WindowsTimerHolder::getDefers().insert({ timerId, Defer });
         }).then([timerId]() {
             WindowsTimerHolder::getDefers().erase(timerId);
             return promise::resolve();
@@ -72,12 +72,12 @@ public:
 
     }
 
-    static Defer yield() {
+    static Promise yield() {
         return delay(0);
     }
 
-    static Defer setTimeout(const std::function<void(bool)> &func,
-                     int time_ms) {
+    static Promise setTimeout(const std::function<void(bool)> &func,
+                              int time_ms) {
         return delay(time_ms).then([func]() {
             func(false);
         }, [func]() {
@@ -110,22 +110,22 @@ private:
     }
 };
 
-inline Defer delay(int time_ms) {
+inline Promise delay(int time_ms) {
     return WindowsTimerHolder::delay(time_ms);
 }
 
-inline Defer yield() {
+inline Promise yield() {
     return WindowsTimerHolder::yield();
 }
 
-inline Defer setTimeout(const std::function<void(bool)> &func,
+inline Promise setTimeout(const std::function<void(bool)> &func,
     int time_ms) {
     return WindowsTimerHolder::setTimeout(func, time_ms);
 }
 
 
 inline void cancelDelay(Defer d) {
-    d.reject_pending();
+    d.reject();
 }
 
 inline void clearTimeout(Defer d) {

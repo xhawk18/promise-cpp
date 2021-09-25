@@ -38,11 +38,12 @@
 #include <chrono>
 #include <thread>
 #include <utility>
-#include "../../promise.hpp"
+#include "../../include/promise.hpp"
 
 
 class Service {
     using Defer     = promise::Defer;
+    using Promise   = promise::Promise;
     using TimePoint = std::chrono::time_point<std::chrono::steady_clock>;
     using Timers    = std::multimap<TimePoint, Defer>;
     using Tasks     = std::deque<Defer>;
@@ -52,18 +53,18 @@ class Service {
 
 public:
     // delay for milliseconds
-    Defer delay(uint64_t time_ms) {
-        return promise::newPromise([&](Defer d) {
+    Promise delay(uint64_t time_ms) {
+        return promise::newPromise([&](Defer &defer) {
             TimePoint now = std::chrono::steady_clock::now();
             TimePoint time = now + std::chrono::milliseconds(time_ms);
-            timers_.emplace(time, d);
+            timers_.emplace(time, defer);
         });
     }
 
     // yield for other tasks to run
-    Defer yield() {
-        return promise::newPromise([&](Defer d) {
-            return tasks_.push_back(d);
+    Promise yield() {
+        return promise::newPromise([&](Defer &defer) {
+            return tasks_.push_back(defer);
         });
     }
 
@@ -74,8 +75,8 @@ public:
                 TimePoint now = std::chrono::steady_clock::now();
                 TimePoint time = timers_.begin()->first;
                 if(time <= now){
-                    Defer d = timers_.begin()->second;
-                    tasks_.push_back(d);
+                    Defer &defer = timers_.begin()->second;
+                    tasks_.push_back(defer);
                     timers_.erase(timers_.begin());
                 }
                 else if(tasks_.size() == 0)
@@ -87,9 +88,9 @@ public:
             // Check fixed size of tasks in this loop, so that timer have a chance to run.
             size_t size = tasks_.size();
             for(size_t i = 0; i < size; ++i){
-                Defer d = tasks_.front();
+                Defer defer = tasks_.front();
                 tasks_.pop_front();
-                d.resolve();
+                defer.resolve(nullptr);
             }
         }
    }

@@ -41,7 +41,7 @@
 //   void clearTimeout(Defer d);
 //
 
-#include "../../promise.hpp"
+#include "../../include/promise.hpp"
 #include <chrono>
 #include <QObject>
 #include <QTimerEvent>
@@ -52,182 +52,58 @@ namespace promise {
 
 class PromiseEventFilter : public QObject {
 private:
-    PromiseEventFilter() {}
+    PROMISE_API PromiseEventFilter();
 
 public:
     using Listener = std::function<bool(QObject *, QEvent *)>;
     using Listeners = std::multimap<std::pair<QObject *, QEvent::Type>, Listener>;
 
-    Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func) {
-        std::pair<QObject *, QEvent::Type> key = { object, eventType };
-        return listeners_.insert({ key, func });
-    }
-
-    void removeEventListener(Listeners::iterator itr) {
-        listeners_.erase(itr);
-    }
-
-    static inline PromiseEventFilter &getSingleInstance() {
-        static PromiseEventFilter promiseEventFilter;
-        return promiseEventFilter;
-    }
+    PROMISE_API Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
+    PROMISE_API void removeEventListener(Listeners::iterator itr);
+    PROMISE_API static PromiseEventFilter &getSingleInstance();
 
 protected:
-    bool eventFilter(QObject *object, QEvent *event) {
-        std::pair<QObject *, QEvent::Type> key = { object, event->type() };
-
-        // may not safe if one handler is removed by other
-        std::list<Listeners::iterator> itrs;
-        for(Listeners::iterator itr = listeners_.lower_bound(key);
-            itr != listeners_.end() && key == itr->first; ++itr) {
-            itrs.push_back(itr);
-        }
-        for(Listeners::iterator itr: itrs) {
-            itr->second(object, event);
-        }
-
-        if (event->type() == QEvent::Destroy) {
-            removeObjectFilters(object);
-        }
-
-        return QObject::eventFilter(object, event);
-    }
-
-    bool removeObjectFilters(QObject *object) {
-        std::pair<QObject *, QEvent::Type> key = { object, QEvent::None };
-
-        // checked one by one for safety (others may be removed)
-        while(true) {
-            Listeners::iterator itr = listeners_.lower_bound(key);
-            if(itr != listeners_.end() && itr->first.first == object) {
-                itr->second(object, nullptr);
-            }
-            else {
-                break;
-            }
-        }
-
-        return false;
-    }
-
+    PROMISE_API bool eventFilter(QObject *object, QEvent *event) override;
+    PROMISE_API bool removeObjectFilters(QObject *object);
     Listeners listeners_;
 };
 
 // Wait event will wait the event for only once
-inline Defer waitEvent(QObject      *object,
-                       QEvent::Type  eventType,
-                       bool          callSysHandler = false) {
-    Defer promise = newPromise();
-
-    std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
-    auto listener = PromiseEventFilter::getSingleInstance().addEventListener(
-        object, eventType, [promise, callSysHandler, disableFilter](QObject *object, QEvent *event) {
-            (void)object;
-            if (event == nullptr) {
-                promise->reject();
-                return false;
-            }
-            // The next then function will be call immediately
-            // Be care that do not use event in the next event loop
-            else if (*disableFilter) {
-                return false;
-            }
-            else if (callSysHandler) {
-                *disableFilter = true;
-                QApplication::sendEvent(object, event);
-                *disableFilter = false;
-                promise->resolve(event);
-                return true;
-            }
-            else {
-                promise->resolve(event);
-                return false;
-            }
-        }
-    );
-
-    promise.finally([listener]() {
-        PromiseEventFilter::getSingleInstance().removeEventListener(listener);
-    });
-    
-    return promise;
-}
-
-
-inline void cancelDelay(Defer d);
-inline void clearTimeout(Defer d);
+PROMISE_API Promise waitEvent(QObject      *object,
+                              QEvent::Type  eventType,
+                              bool          callSysHandler = false);
 
 struct QtTimerHolder: QObject {
-    QtTimerHolder() {
-    };
-    ~QtTimerHolder() {
-    }
+    PROMISE_API ~QtTimerHolder();
+private:
+    PROMISE_API QtTimerHolder();
 public:
-    static Defer delay(int time_ms) {
-        int timerId = getInstance().startTimer(time_ms);
-
-        return newPromise([timerId](Defer &d) {
-            getInstance().defers_.insert({ timerId, d });
-        }).finally([timerId]() {
-            getInstance().killTimer(timerId);
-            getInstance().defers_.erase(timerId);
-        });
-    }
-
-    static Defer yield() {
-        return delay(0);
-    }
-
-    static Defer setTimeout(const std::function<void(bool)> &func,
-                            int time_ms) {
-        return delay(time_ms).then([func]() {
-            func(false);
-        }, [func]() {
-            func(true);
-        });
-    }
+    PROMISE_API static Promise delay(int time_ms);
+    PROMISE_API static Promise yield();
+    PROMISE_API static Promise setTimeout(const std::function<void(bool)> &func,
+                              int time_ms);
 
 protected:
-    void timerEvent(QTimerEvent *event) {
-        int timerId = event->timerId();
-        auto found = this->defers_.find(timerId);
-        if (found != this->defers_.end()) {
-            Defer d = found->second;
-            d.resolve();
-        }
-        QObject::timerEvent(event);
-    }
+    PROMISE_API void timerEvent(QTimerEvent *event);
 private:
     std::map<int, promise::Defer>  defers_;
 
-    static QtTimerHolder &getInstance() {
-        static QtTimerHolder s_qtTimerHolder_;
-        return s_qtTimerHolder_;
-    }
+    PROMISE_API static QtTimerHolder &getInstance();
 };
 
 
-inline Defer delay(int time_ms) {
-    return QtTimerHolder::delay(time_ms);
-}
+PROMISE_API Promise delay(int time_ms);
+PROMISE_API Promise yield();
+PROMISE_API Promise setTimeout(const std::function<void(bool)> &func,
+                               int time_ms);
+PROMISE_API void cancelDelay(Promise promise);
+PROMISE_API void clearTimeout(Promise promise);
 
-inline Defer yield() {
-    return QtTimerHolder::yield();
-}
-
-inline Defer setTimeout(const std::function<void(bool)> &func,
-                        int time_ms) {
-    return QtTimerHolder::setTimeout(func, time_ms);
 }
 
 
-inline void cancelDelay(Defer d) {
-    d.reject_pending();
-}
+#ifdef PROMISE_HEADONLY
+#include "promise_qt.cpp"
+#endif
 
-inline void clearTimeout(Defer d) {
-    cancelDelay(d);
-}
-
-}
 #endif
