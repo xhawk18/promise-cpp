@@ -35,6 +35,7 @@ set(my_source
 include_directories(include .)
 
 add_executable(test0 ${my_source} example/test0.cpp)
+add_executable(simple_timer ${my_source} example/simple_timer.cpp)
 add_executable(simple_benchmark_test ${my_source} example/simple_benchmark_test.cpp)
 
 
