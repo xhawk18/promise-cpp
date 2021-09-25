@@ -166,7 +166,7 @@ Defer::Defer(const std::shared_ptr<Task> &task)
     , sharedPromise_(task->sharedPromise_.lock()) {
 }
 
-void Defer::resolve_impl(const any &arg) const {
+void Defer::resolve(const any &arg) const {
     if (task_->state_ != TaskState::kPending) return;
     std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kResolved;
@@ -174,7 +174,7 @@ void Defer::resolve_impl(const any &arg) const {
     call(task_);
 }
 
-void Defer::reject_impl(const any &arg) const {
+void Defer::reject(const any &arg) const {
     if (task_->state_ != TaskState::kPending) return;
     std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kRejected;
@@ -198,11 +198,11 @@ void DeferLoop::doContinue() const {
     defer_.resolve();
 }
 
-void DeferLoop::doBreak_impl(const any &arg) const {
-    defer_.reject(std::pair<DoBreakTag, any>(DoBreakTag(), arg));
+void DeferLoop::doBreak(const any &arg) const {
+    defer_.reject(DoBreakTag(), arg);
 }
 
-void DeferLoop::reject_impl(const any &arg) const {
+void DeferLoop::reject(const any &arg) const {
     defer_.reject(arg);
 }
 
@@ -291,14 +291,6 @@ void Promise::reject(const any &arg) const {
     }
 }
 
-void Promise::resolve() const {
-    resolve(nullptr);
-}
-
-void Promise::reject() const {
-    reject(nullptr);
-}
-
 void Promise::clear() {
     sharedPromise_.reset();
 }
@@ -340,8 +332,9 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
         return doWhile(run);
     }, [](const any &arg) -> any {
         return newPromise([arg](Defer &defer) {
-            if (arg.type() == typeid(std::pair<DoBreakTag, any>)) {
-                const any &result = arg.cast<std::pair<DoBreakTag, any>>().second;
+            if (arg.type() == typeid(std::tuple<DoBreakTag, any>)) {
+                std::tuple<DoBreakTag, any> &args = arg.cast<std::tuple<DoBreakTag, any> &>();
+                const any &result = std::get<1>(args);
                 defer.resolve(result);
             }
             else {

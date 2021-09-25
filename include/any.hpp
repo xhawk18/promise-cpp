@@ -43,33 +43,33 @@ namespace promise {
 // when:  July 2001
 // where: tested with BCC 5.5, MSVC 6.0, and g++ 2.95
 
-class pm_any;
+class any;
 template<typename ValueType>
-inline ValueType any_cast(const pm_any &operand);
+inline ValueType any_cast(const any &operand);
 
-class pm_any {
+class any {
 public: // structors
-    pm_any()
+    any()
         : content(0) {
     }
 
     template<typename ValueType>
-    pm_any(const ValueType & value)
+    any(const ValueType & value)
         : content(new holder<ValueType>(value)) {
     }
 
-    pm_any(const pm_any & other)
+    any(const any & other)
         : content(other.content ? other.content->clone() : 0) {
     }
 
-    ~pm_any() {
+    ~any() {
         if (content != nullptr) {
             delete(content);
         }
     }
 
-    pm_any call(const pm_any &arg) const {
-        return content ? content->call(arg) : pm_any();
+    any call(const any &arg) const {
+        return content ? content->call(arg) : any();
     }
 
     template<typename ValueType,
@@ -91,19 +91,19 @@ public: // structors
 
 public: // modifiers
 
-    pm_any & swap(pm_any & rhs) {
+    any & swap(any & rhs) {
         std::swap(content, rhs.content);
         return *this;
     }
 
     template<typename ValueType>
-    pm_any & operator=(const ValueType & rhs) {
-        pm_any(rhs).swap(*this);
+    any & operator=(const ValueType & rhs) {
+        any(rhs).swap(*this);
         return *this;
     }
 
-    pm_any & operator=(const pm_any & rhs) {
-        pm_any(rhs).swap(*this);
+    any & operator=(const any & rhs) {
+        any(rhs).swap(*this);
         return *this;
     }
 
@@ -113,7 +113,7 @@ public: // queries
     }
     
     void clear() {
-        pm_any().swap(*this);
+        any().swap(*this);
     }
 
     const std::type_info & type() const {
@@ -129,7 +129,7 @@ public: // types (public so any_cast can be non-friend)
     public: // queries
         virtual const std::type_info & type() const = 0;
         virtual placeholder * clone() const = 0;
-        virtual pm_any call(const pm_any &arg) const = 0;
+        virtual any call(const any &arg) const = 0;
     };
 
     template<typename ValueType>
@@ -148,7 +148,7 @@ public: // types (public so any_cast can be non-friend)
             return new holder(held);
         }
 
-        virtual pm_any call(const pm_any &arg) const {
+        virtual any call(const any &arg) const {
             return any_call(held, arg);
         }
     public: // representation
@@ -168,6 +168,7 @@ public:
     bad_any_cast(const std::type_index &from, const std::type_index &to)
         : from_(from)
         , to_(to) {
+        fprintf(stderr, "bad_any_cast: from = %s, to = %s\n", from.name(), to.name());
     }
     virtual const char * what() const throw() {
         return "bad_any_cast";
@@ -175,8 +176,8 @@ public:
 };
 
 template<typename ValueType>
-ValueType * any_cast(pm_any *operand) {
-    typedef typename pm_any::template holder<ValueType> holder_t;
+ValueType * any_cast(any *operand) {
+    typedef typename any::template holder<ValueType> holder_t;
     return operand &&
         operand->type() == typeid(ValueType)
         ? &static_cast<holder_t *>(operand->content)->held
@@ -184,12 +185,12 @@ ValueType * any_cast(pm_any *operand) {
 }
 
 template<typename ValueType>
-inline const ValueType * any_cast(const pm_any *operand) {
-    return any_cast<ValueType>(const_cast<pm_any *>(operand));
+inline const ValueType * any_cast(const any *operand) {
+    return any_cast<ValueType>(const_cast<any *>(operand));
 }
 
 template<typename ValueType>
-ValueType any_cast(pm_any & operand) {
+ValueType any_cast(any & operand) {
     typedef typename std::remove_cvref<ValueType>::type nonref;
 
     nonref *result = any_cast<nonref>(&operand);
@@ -199,59 +200,82 @@ ValueType any_cast(pm_any & operand) {
 }
 
 template<typename ValueType>
-inline ValueType any_cast(const pm_any &operand) {
+inline ValueType any_cast(const any &operand) {
     typedef typename std::remove_cvref<ValueType>::type nonref;
-    return any_cast<nonref &>(const_cast<pm_any &>(operand));
+    return any_cast<nonref &>(const_cast<any &>(operand));
 }
 
 
 
-#if 0
-template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
-    std::function<RET(const pm_any &)>
->::value && !std::is_same<RET, void>::value>::type *dummy = nullptr>
-inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
-    return func(arg);
-}
+template<typename RET, typename NOCVR_ARGS, typename FUNC>
+struct any_call_t;
 
-template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
-    std::function<void(const pm_any &)>
->::value>::type *dummy = nullptr>
-inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
-    func(arg);
-    return nullptr;
-}
+template<typename RET, typename ...NOCVR_ARGS, typename FUNC>
+struct any_call_t<RET, std::tuple<NOCVR_ARGS...>, FUNC> {
 
-template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
-    std::function<RET()>
->::value && !std::is_same<RET, void>::value>::type *dummy = nullptr>
-inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
-    (void)arg;
-    return func();
-}
+    static inline RET call(const typename FUNC::fun_type &func, const any &arg) {
+        return call(func, arg, std::make_index_sequence<sizeof...(NOCVR_ARGS)>());
+    }
 
-template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
-    std::function<void()>
->::value>::type *dummy = nullptr>
-inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
-    (void)arg;
-    func();
-    return nullptr;
-}
-#endif
+    template<size_t ...I>
+    static inline RET call(const typename FUNC::fun_type &func, const any &arg, const std::index_sequence<I...> &) {
+        using nocvr_argument_type = std::tuple<NOCVR_ARGS...>;
+        using any_arguemnt_type = std::vector<any>;
 
+        const any_arguemnt_type &args = (arg.type() != typeid(any_arguemnt_type)
+            ? any_arguemnt_type{ arg }
+            : any_cast<any_arguemnt_type &>(arg));
+        if(args.size() < sizeof...(NOCVR_ARGS))
+            throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
+
+        return func(any_cast<typename std::tuple_element<I, nocvr_argument_type>::type &>(args[I])...);
+    }
+};
+
+
+template<typename RET, typename FUNC>
+struct any_call_t<RET, std::tuple<any>, FUNC> {
+    static inline RET call(const typename FUNC::fun_type &func, const any &arg) {
+        using any_arguemnt_type = std::vector<any>;
+        if (arg.type() != typeid(any_arguemnt_type))
+            return (func(const_cast<any &>(arg)));
+
+        any_arguemnt_type &args = any_cast<any_arguemnt_type &>(arg);
+        if (args.size() == 0)
+            return (func(any()));
+        else if(args.size() == 1)
+            return (func(args[0]));
+        else
+            return (func(const_cast<any &>(arg)));
+    }
+};
+
+template<typename RET, typename NOCVR_ARGS, typename FUNC>
+struct any_call_with_ret_t {
+    static inline any call(const typename FUNC::fun_type &func, const any &arg) {
+        return any_call_t<RET, NOCVR_ARGS, FUNC>::call(func, arg);
+    }
+};
+
+template<typename NOCVR_ARGS, typename FUNC>
+struct any_call_with_ret_t<void, NOCVR_ARGS, FUNC> {
+    static inline any call(const typename FUNC::fun_type &func, const any &arg) {
+        any_call_t<void, NOCVR_ARGS, FUNC>::call(func, arg);
+        return any();
+    }
+};
 
 template<typename FUNC>
-inline pm_any any_call(const FUNC &func, const pm_any &arg) {
-    const auto &stdFunc = call_traits<FUNC>::to_std_function(func);
+inline any any_call(const FUNC &func, const any &arg) {
+    using func_t = call_traits<FUNC>;
+    using nocvr_argument_type = typename tuple_remove_cvref<func_t::argument_type>::type;
+    const auto &stdFunc = func_t::to_std_function(func);
     if (!stdFunc)
-        return pm_any();
-    else
-        return any_call_stdFunc<typename call_traits<FUNC>::result_type>(stdFunc, arg);
+        return any();
+
+    return any_call_with_ret_t<typename call_traits<FUNC>::result_type, nocvr_argument_type, func_t>::call(stdFunc, arg);
 }
 
-
-using any = pm_any;
 
 // Copyright Kevlin Henney, 2000, 2001, 2002. All rights reserved.
 //

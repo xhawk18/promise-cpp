@@ -3,6 +3,7 @@
 #define INC_PROMISE_HPP_
 
 #include <list>
+#include <vector>
 #include <memory>
 #include <functional>
 #include "any.hpp"
@@ -37,28 +38,36 @@ struct PromiseHolder {
     any                                     value_;
 };
 
+// Check if ...ARGS only has one any type
+template<typename ...ARGS>
+struct is_one_any : public std::is_same<typename tuple_remove_cvref<std::tuple<ARGS...>>::type, std::tuple<any>> {
+};
+
 struct SharedPromise {
     std::shared_ptr<PromiseHolder> promiseHolder_;
 };
 
 struct Defer {
-    template<typename ...ARGS>
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void resolve(ARGS &&...args) const {
-        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+        resolve(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
-    template<typename ...ARGS>
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void reject(ARGS &&...args) const {
-        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+        reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
+
+    void resolve(const any &arg) const;
+    void reject(const any &arg) const;
 
     Promise getPromise() const;
 
 private:
     friend struct Promise;
     friend Promise newPromise(const std::function<void(Defer &defer)> &run);
-    void resolve_impl(const any &arg) const;
-    void reject_impl(const any &arg) const;
     Defer(const std::shared_ptr<Task> &task);
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
@@ -66,21 +75,26 @@ private:
 
 struct DeferLoop {
     void doContinue() const;
-    template<typename ...ARGS>
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void doBreak(ARGS &&...args) const {
-        doBreak_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+        doBreak(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
-    template<typename ...ARGS>
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void reject(ARGS &&...args) const {
-        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+        reject_impl(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
+
+    void doBreak(const any &arg) const;
+    void reject(const any &arg) const;
+
+
     Promise getPromise() const;
 
 private:
     friend Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
-    void doBreak_impl(const any &arg) const;
-    void reject_impl(const any &arg) const;
     DeferLoop(const Defer &cb);
     Defer defer_;
 };
@@ -92,10 +106,19 @@ struct Promise {
     Promise &always(const any &onAlways);
     Promise &finally(const any &onFinally);
 
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
+    inline void resolve(ARGS &&...args) const {
+        resolve(any{ std::vector<any>{std::forward<ARGS>(args)...} });
+    }
+    template<typename ...ARGS,
+        typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
+    inline void reject(ARGS &&...args) const {
+        reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
+    }
+
     void resolve(const any &arg) const;
     void reject(const any &arg) const;
-    void resolve() const;
-    void reject() const;
 
     void clear();
     operator bool() const;
