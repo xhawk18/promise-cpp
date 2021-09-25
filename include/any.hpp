@@ -206,15 +206,7 @@ inline ValueType any_cast(const pm_any &operand) {
 
 
 
-
-template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
-    std::function<RET()>
->::value && !std::is_same<RET, void>::value>::type *dummy = nullptr>
-inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
-    (void)arg;
-    return func();
-}
-
+#if 0
 template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
     std::function<RET(const pm_any &)>
 >::value && !std::is_same<RET, void>::value>::type *dummy = nullptr>
@@ -230,6 +222,13 @@ inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
     return nullptr;
 }
 
+template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
+    std::function<RET()>
+>::value && !std::is_same<RET, void>::value>::type *dummy = nullptr>
+inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
+    (void)arg;
+    return func();
+}
 
 template<typename RET, typename FUNC, typename std::enable_if<std::is_same<FUNC,
     std::function<void()>
@@ -239,6 +238,7 @@ inline pm_any any_call_stdFunc(const FUNC &func, const pm_any &arg) {
     func();
     return nullptr;
 }
+#endif
 
 
 template<typename FUNC>

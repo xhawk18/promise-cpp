@@ -42,28 +42,46 @@ struct SharedPromise {
 };
 
 struct Defer {
-    Defer(const std::shared_ptr<Task> &task);
-    void resolve(const any &arg) const;
-    void reject(const any &arg) const;
-    void resolve() const;
-    void reject() const;
+    template<typename ...ARGS>
+    inline void resolve(ARGS &&...args) const {
+        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+    }
+
+    template<typename ...ARGS>
+    inline void reject(ARGS &&...args) const {
+        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+    }
 
     Promise getPromise() const;
+
 private:
+    friend struct Promise;
+    friend Promise newPromise(const std::function<void(Defer &defer)> &run);
+    void resolve_impl(const any &arg) const;
+    void reject_impl(const any &arg) const;
+    Defer(const std::shared_ptr<Task> &task);
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
 struct DeferLoop {
-    DeferLoop(const Defer &cb);
     void doContinue() const;
-    void doBreak(const any &) const;
-    void reject(const any &) const;
-    void doBreak() const;
-    void reject() const;
+    template<typename ...ARGS>
+    inline void doBreak(ARGS &&...args) const {
+        doBreak_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+    }
 
+    template<typename ...ARGS>
+    inline void reject(ARGS &&...args) const {
+        reject_impl(std::tuple<typename std::remove_cvref<ARGS>::type...>{std::forward<ARGS>(args)...});
+    }
     Promise getPromise() const;
+
 private:
+    friend Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
+    void doBreak_impl(const any &arg) const;
+    void reject_impl(const any &arg) const;
+    DeferLoop(const Defer &cb);
     Defer defer_;
 };
 
@@ -88,11 +106,15 @@ struct Promise {
 
 Promise newPromise(const std::function<void(Defer &defer)> &run);
 Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
-Promise reject(const any &arg);
-Promise resolve(const any &arg);
-Promise reject();
-Promise resolve();
+template<typename ...ARGS>
+inline Promise resolve(ARGS &&...args) {
+    return newPromise([&args...](Defer &defer) { defer.resolve(std::forward<ARGS>(args)...); });
+}
 
+template<typename ...ARGS>
+inline Promise reject(ARGS &&...args) {
+    return newPromise([&args...](Defer &defer) { defer.reject(std::forward<ARGS>(args)...); });
+}
 
 
 /* Returns a promise that resolves when all of the promises in the iterable

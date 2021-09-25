@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string>
 #include "promise.hpp"
 using namespace promise;
 
@@ -42,6 +43,8 @@ int main() {
 
     Promise b = a;
     Promise c = b;
+
+    resolve(3, 4, std::string("ss"));
 
     newPromise([](Defer &defer) {
         defer.resolve(nullptr);

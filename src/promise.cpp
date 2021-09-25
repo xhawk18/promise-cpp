@@ -91,13 +91,13 @@ static void join(std::shared_ptr<SharedPromise> &left, std::shared_ptr<SharedPro
 }
 
 static void call(std::shared_ptr<Task> task) {
-    std::shared_ptr<SharedPromise> sharedPromiseHolder; //Holder for temporarily created promise
+    //std::shared_ptr<SharedPromise> sharedPromiseHolder; //Holder for temporarily created promise
 
     while (true) {
         if (task->state_ != TaskState::kPending) return;
 
         std::shared_ptr<SharedPromise> sharedPromise = task->sharedPromise_.lock();
-        std::shared_ptr<PromiseHolder> promiseHolder = sharedPromise->promiseHolder_;
+        std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise->promiseHolder_;
         if (promiseHolder->state_ == TaskState::kPending) return;
         task->state_ = promiseHolder->state_;
 
@@ -121,8 +121,8 @@ static void call(std::shared_ptr<Task> task) {
                         // join the promise
                         Promise promise = value.cast<Promise>();
                         join(promise.sharedPromise_, sharedPromise);
-                        sharedPromiseHolder = promise.sharedPromise_;
-                        promiseHolder = promise.sharedPromise_->promiseHolder_;
+                        //sharedPromiseHolder = promise.sharedPromise_;
+                        assert(promiseHolder == promise.sharedPromise_->promiseHolder_);
                     }
                 }
             }
@@ -143,8 +143,8 @@ static void call(std::shared_ptr<Task> task) {
                         // join the promise
                         Promise promise = value.cast<Promise>();
                         join(promise.sharedPromise_, sharedPromise);
-                        sharedPromiseHolder = promise.sharedPromise_;
-                        promiseHolder = promise.sharedPromise_->promiseHolder_;
+                        //sharedPromiseHolder = promise.sharedPromise_;
+                        assert(promiseHolder == promise.sharedPromise_->promiseHolder_);
                     }
                 }
             }
@@ -166,28 +166,22 @@ Defer::Defer(const std::shared_ptr<Task> &task)
     , sharedPromise_(task->sharedPromise_.lock()) {
 }
 
-void Defer::resolve(const any &arg) const {
+void Defer::resolve_impl(const any &arg) const {
     if (task_->state_ != TaskState::kPending) return;
-    std::shared_ptr<PromiseHolder> promiseHolder = sharedPromise_->promiseHolder_;
+    std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kResolved;
     promiseHolder->value_ = arg;
     call(task_);
 }
 
-void Defer::reject(const any &arg) const {
+void Defer::reject_impl(const any &arg) const {
     if (task_->state_ != TaskState::kPending) return;
-    std::shared_ptr<PromiseHolder> promiseHolder = sharedPromise_->promiseHolder_;
+    std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kRejected;
     promiseHolder->value_ = arg;
     call(task_);
 }
 
-void Defer::resolve() const {
-    resolve(nullptr);
-}
-void Defer::reject() const {
-    reject(nullptr);
-}
 
 Promise Defer::getPromise() const {
     return Promise{ sharedPromise_ };
@@ -204,20 +198,12 @@ void DeferLoop::doContinue() const {
     defer_.resolve();
 }
 
-void DeferLoop::doBreak(const any &arg) const {
+void DeferLoop::doBreak_impl(const any &arg) const {
     defer_.reject(std::pair<DoBreakTag, any>(DoBreakTag(), arg));
 }
 
-void DeferLoop::reject(const any &arg) const {
+void DeferLoop::reject_impl(const any &arg) const {
     defer_.reject(arg);
-}
-
-void DeferLoop::doBreak() const {
-    defer_.reject(std::pair<DoBreakTag, any>(DoBreakTag(), nullptr));
-}
-
-void DeferLoop::reject() const {
-    defer_.reject();
 }
 
 Promise DeferLoop::getPromise() const {
@@ -371,14 +357,6 @@ Promise reject(const any &arg) {
 
 Promise resolve(const any &arg) {
     return newPromise([arg](Defer &defer) { defer.resolve(arg); });
-}
-
-Promise reject() {
-    return newPromise([](Defer &defer) { defer.reject(nullptr); });
-}
-
-Promise resolve() {
-    return newPromise([](Defer &defer) { defer.resolve(nullptr); });
 }
 
 Promise all(const std::list<Promise> &promise_list) {
