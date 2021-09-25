@@ -23,6 +23,7 @@
     - [Promise::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#promisethenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
     - [Promise::then(FUNC_ON_RESOLVED on_resolved)](#promisethenfunc_on_resolved-on_resolved)
     - [Promise::then(Defer d)](#promisethendefer-d)
+    - [Promise::then(DeferLoop d)](#promisethendeferloop-d)
     - [Promise::then(Promise promise)](#promisethenpromise-promise)
     - [Promise::fail(FUNC_ON_REJECTED on_rejected)](#promisefailfunc_on_rejected-on_rejected)
     - [Promise::finally(FUNC_ON_FINALLY on_finally)](#promisefinallyfunc_on_finally-on_finally)
@@ -325,7 +326,7 @@ A promise object will passed as parameter when call func, which can be resolved 
 for example --
 
 ```cpp
-doWhile([](Defer d){
+doWhile([](DeferLoop d){
     // Add code here for your task in "while loop"
     
     // Call "d.doContinue()" to continue with the "while loop",
@@ -340,8 +341,8 @@ doWhile([](Defer d){
 
 ### Promise::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)
 Return the chaining promise object, where on_resolved is the function to be called when 
-previous promise object calls function resolve, on_rejected is the function to be called
-when previous promise object calls function reject.
+previous promise object was resolved, on_rejected is the function to be called
+when previous promise object was rejected.
 for example --
 
 ```cpp
@@ -361,7 +362,7 @@ return newPromise([](Defer d){
 
 ### Promise::then(FUNC_ON_RESOLVED on_resolved)
 Return the chaining promise object, where on_resolved is the function to be called when 
-previous promise object calls function resolve.
+previous promise object was resolved.
 for example --
 
 ```cpp
@@ -374,15 +375,19 @@ return newPromise([](Defer d){
 
 ### Promise::then(Defer d)
 Return the chaining promise object, where d is the callback function be called when 
-previous promise object calls function resolve or reject.
+previous promise object was resolved or rejected.
+
+### Promise::then(DeferLoop d)
+Return the chaining promise object, where d is the callback function be called when 
+previous promise object was resolved or rejected.
 
 ### Promise::then(Promise promise)
 Return the chaining promise object, where "promise" is the promise object be called when 
-previous promise object calls function resolve or reject.
+previous promise object was resolved or rejected.
 
 ### Promise::fail(FUNC_ON_REJECTED on_rejected)
 Return the chaining promise object, where on_rejected is the function to be called when
-previous promise object calls function reject.
+previous promise object was rejected.
 
 This function is usually named "catch" in most implements of Promise library. 
   https://www.promisejs.org/api/
@@ -401,7 +406,7 @@ return newPromise([](Defer d){
 
 ### Promise::finally(FUNC_ON_FINALLY on_finally)
 Return the chaining promise object, where on_finally is the function to be called whenever
-the previous promise object is be resolved or rejected.
+the previous promise object was resolved or rejected.
 
 The returned promise object will keeps the resolved/rejected state of current promise object.
 
@@ -417,7 +422,7 @@ return newPromise([](Defer d){
 
 ### Promise::always(FUNC_ON_ALWAYS on_always)
 Return the chaining promise object, where on_always is the function to be called whenever
-the previous promise object is be resolved or rejected.
+the previous promise object was resolved or rejected.
 
 The returned promise object will be in resolved state whenever current promise object is
 resolved or rejected.
@@ -605,5 +610,5 @@ handleUncaughtException([](Promise &d) {
 
 ### about multithread
 
-The "Defer" object is not thread safe by default for better performance.
+The "Promise" object is not thread safe by default for better performance.
 
