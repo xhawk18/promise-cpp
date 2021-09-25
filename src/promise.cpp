@@ -9,6 +9,7 @@
 namespace promise {
 
 PROMISE_API static void healthyCheck(int line, PromiseHolder *promiseHolder) {
+#ifndef NDEBUG
     if (!promiseHolder) {
         fprintf(stderr, "line = %d, %d, promiseHolder is null\n", line, __LINE__);
         throw std::runtime_error("");
@@ -41,21 +42,27 @@ PROMISE_API static void healthyCheck(int line, PromiseHolder *promiseHolder) {
             throw std::runtime_error("");
         }
     }
+#endif
 }
 
 void Promise::dump() const {
+#ifndef NDEBUG
     printf("Promise = %p, SharedPromise = %p\n", this, this->sharedPromise_.get());
     if (this->sharedPromise_)
         this->sharedPromise_->dump();
+#endif
 }
 
 void SharedPromise::dump() const {
+#ifndef NDEBUG
     printf("SharedPromise = %p, PromiseHolder = %p\n", this, this->promiseHolder_.get());
     if (this->promiseHolder_)
         this->promiseHolder_->dump();
+#endif
 }
 
 void PromiseHolder::dump() const {
+#ifndef NDEBUG
     printf("PromiseHolder = %p, owners = %d, pendingTasks = %d\n", this, (int)this->owners_.size(), (int)this->pendingTasks_.size());
     for (const auto &owner_ : owners_) {
         auto owner = owner_.lock();
@@ -70,6 +77,7 @@ void PromiseHolder::dump() const {
             printf("  task = %p\n", task.get());
         }
     }
+#endif
 }
 
 PROMISE_API static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
