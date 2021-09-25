@@ -54,8 +54,8 @@ private:
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
-struct LoopDefer {
-    LoopDefer(const Defer &cb);
+struct DeferLoop {
+    DeferLoop(const Defer &cb);
     void doContinue() const;
     void doBreak(const any &) const;
     void reject(const any &) const;
@@ -87,7 +87,7 @@ struct Promise {
 
 
 Promise newPromise(const std::function<void(Defer &defer)> &run);
-Promise doWhile(const std::function<void(LoopDefer &defer)> &run);
+Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
 Promise reject(const any &arg);
 Promise resolve(const any &arg);
 Promise reject();

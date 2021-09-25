@@ -84,7 +84,7 @@ int main() {
     Service io;
 
     int i = 0;
-    doWhile([&](LoopDefer &defer) {
+    doWhile([&](DeferLoop &loop) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else
@@ -95,12 +95,12 @@ int main() {
             return test_switch(io, 1000);
         }).then([&]() {
             return test_switch(io, 10000);
-        //}).then([&]() {
-        //    return test_switch(io, 100000);
-        //}).then([&, cb]() {
-            //if (i++ > 3) cb.doBreak();
-        //    return test_switch(io, 1000000);
-        }).then(defer);
+        }).then([&]() {
+            return test_switch(io, 100000);
+        }).then([&, loop]() {
+            if (i++ > 3) loop.doBreak();
+            return test_switch(io, 1000000);
+        }).then(loop);
     });
 
     io.run();

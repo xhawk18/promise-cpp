@@ -87,7 +87,7 @@ Promise test_switch(asio::io_service &io, int coro)
 int main() {
     asio::io_service io;
 
-    doWhile([&](LoopDefer &defer) {
+    doWhile([&](DeferLoop &loop) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else
@@ -102,7 +102,7 @@ int main() {
             return test_switch(io, 100000);
         }).then([&]() {
             return test_switch(io, 1000000);
-        }).then(defer);
+        }).then(loop);
     });
 
     io.run();

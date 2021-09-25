@@ -196,31 +196,31 @@ Promise Defer::getPromise() const {
 
 struct DoBreakTag {};
 
-LoopDefer::LoopDefer(const Defer &defer)
+DeferLoop::DeferLoop(const Defer &defer)
     : defer_(defer) {
 }
 
-void LoopDefer::doContinue() const {
+void DeferLoop::doContinue() const {
     defer_.resolve();
 }
 
-void LoopDefer::doBreak(const any &arg) const {
+void DeferLoop::doBreak(const any &arg) const {
     defer_.reject(std::pair<DoBreakTag, any>(DoBreakTag(), arg));
 }
 
-void LoopDefer::reject(const any &arg) const {
+void DeferLoop::reject(const any &arg) const {
     defer_.reject(arg);
 }
 
-void LoopDefer::doBreak() const {
+void DeferLoop::doBreak() const {
     defer_.reject(std::pair<DoBreakTag, any>(DoBreakTag(), nullptr));
 }
 
-void LoopDefer::reject() const {
+void DeferLoop::reject() const {
     defer_.reject();
 }
 
-Promise LoopDefer::getPromise() const {
+Promise DeferLoop::getPromise() const {
     return defer_.getPromise();
 }
 
@@ -236,14 +236,14 @@ Promise &Promise::then(const any &callbackOrOnResolved) {
             return nullptr;
         });
     }
-    else if (callbackOrOnResolved.type() == typeid(LoopDefer)) {
-        LoopDefer &defer = callbackOrOnResolved.cast<LoopDefer &>();
-        return then([defer](const any &arg) -> any {
+    else if (callbackOrOnResolved.type() == typeid(DeferLoop)) {
+        DeferLoop &loop = callbackOrOnResolved.cast<DeferLoop &>();
+        return then([loop](const any &arg) -> any {
             (void)arg;
-            defer.doContinue();
+            loop.doContinue();
             return nullptr;
-        }, [defer](const any &arg) ->any {
-            defer.reject(arg);
+        }, [loop](const any &arg) ->any {
+            loop.reject(arg);
             return nullptr;
         });
     }
@@ -344,11 +344,11 @@ Promise newPromise(const std::function<void(Defer &defer)> &run) {
     return promise;
 }
 
-Promise doWhile(const std::function<void(LoopDefer &defer)> &run) {
+Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
 
     return newPromise([run](Defer &defer) {
-        LoopDefer loopCb(defer);
-        run(loopCb);
+        DeferLoop loop(defer);
+        run(loop);
     }).then([run](const any &arg) -> any {
         (void)arg;
         return doWhile(run);
