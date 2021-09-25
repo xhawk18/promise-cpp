@@ -32,6 +32,8 @@
   - [Class DeferLoop - type of callback object for doWhile.](#class-deferloop---type-of-callback-object-for-dowhile)
     - [DeferLoop::doContinue();](#deferloopdocontinue)
     - [DeferLoop::doBreak(const RET_ARG... &ret_arg);](#deferloopdobreakconst-ret_arg-ret_arg)
+  - [And more ...](#and-more-)
+    - [about exceptions](#about-exceptions)
     - [about the chaining parameter](#about-the-chaining-parameter)
     - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
       - [Resolved parameters](#resolved-parameters)
@@ -106,7 +108,7 @@ This sample code shows converting a timer callback to promise object.
 ```cpp
 #include <stdio.h>
 #include <boost/asio.hpp>
-#include "asio/timer.hpp"
+#include "add_ons/asio/timer.hpp"
 
 using namespace promise;
 using namespace boost::asio;
@@ -181,7 +183,7 @@ void test3(int n) {
     printf("n = %d\n", n);
 }
 
-Promise run(Defer &next){
+Promise run(Promise &next){
 
     return newPromise([](Defer d){
         output_func_name();
@@ -216,9 +218,9 @@ Promise run(Defer &next){
     }).fail([](uint64_t n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).then(test1)
-    .then(test2)
-    .then(test3)
+    }).then(&test1)
+    .then(&test2)
+    .then(&test3)
     .always([]() {
         output_func_name();
     });
@@ -482,8 +484,6 @@ doWhile([i](DeferLoop d) {
 Break the doWhile loop (ret_arg will be transferred).
 
 (please see the example above)
-
-```
 
 ## And more ...
 
