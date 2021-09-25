@@ -248,14 +248,16 @@ struct any_call_t<RET, std::tuple<NOCVR_ARG>, FUNC> {
             }
         }
 
+        if (typeid(NOCVR_ARG) == typeid(any_arguemnt_type)) {
+            return func(any_cast<NOCVR_ARG &>(arg));
+        }
+
         const any_arguemnt_type &args = (arg.type() != typeid(any_arguemnt_type)
             ? any_arguemnt_type{ arg }
             : any_cast<any_arguemnt_type &>(arg));
         if(args.size() < 1)
             throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
-
         //printf("[%s] [%s]\n", args[0].type().name(), typeid(NOCVR_ARG).name());
-
         return func(any_cast<NOCVR_ARG &>(args[0]));
     }
 };

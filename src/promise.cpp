@@ -106,10 +106,11 @@ static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<Pro
 }
 
 static void call(std::shared_ptr<Task> task) {
+    std::shared_ptr<PromiseHolder> promiseHolder; //Can hold the temporarily created promise
     while (true) {
         if (task->state_ != TaskState::kPending) return;
 
-        std::shared_ptr<PromiseHolder> promiseHolder = task->promiseHolder_.lock();
+        promiseHolder = task->promiseHolder_.lock();
         if (promiseHolder->state_ == TaskState::kPending) return;
         task->state_ = promiseHolder->state_;
 
