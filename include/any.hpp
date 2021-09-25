@@ -168,7 +168,7 @@ public:
     bad_any_cast(const std::type_index &from, const std::type_index &to)
         : from_(from)
         , to_(to) {
-        fprintf(stderr, "bad_any_cast: from = %s, to = %s\n", from.name(), to.name());
+        //fprintf(stderr, "bad_any_cast: from = %s, to = %s\n", from.name(), to.name());
     }
     virtual const char * what() const throw() {
         return "bad_any_cast";
@@ -276,6 +276,7 @@ inline any any_call(const FUNC &func, const any &arg) {
     return any_call_with_ret_t<typename call_traits<FUNC>::result_type, nocvr_argument_type, func_t>::call(stdFunc, arg);
 }
 
+using pm_any = any;
 
 // Copyright Kevlin Henney, 2000, 2001, 2002. All rights reserved.
 //

@@ -10,7 +10,6 @@
 
 namespace promise {
 
-
 enum TaskState {
     kPending,
     kResolved,
@@ -20,9 +19,10 @@ enum TaskState {
 struct PromiseHolder;
 struct SharedPromise;
 struct Promise;
+
 struct Task {
     TaskState state_;
-    std::weak_ptr<SharedPromise> sharedPromise_;
+    std::weak_ptr<PromiseHolder> promiseHolder_;
     any                          onResolved_;
     any                          onRejected_;
 };
@@ -36,6 +36,11 @@ struct PromiseHolder {
     std::list<std::shared_ptr<Task>>        pendingTasks_;
     TaskState                               state_;
     any                                     value_;
+
+    void dump() const;
+    static any *getUncaughtExceptionHandler();
+    static void onUncaughtException(const any &arg);
+    static void handleUncaughtException(const any &onUncaughtException);
 };
 
 // Check if ...ARGS only has one any type
@@ -45,6 +50,7 @@ struct is_one_any : public std::is_same<typename tuple_remove_cvref<std::tuple<A
 
 struct SharedPromise {
     std::shared_ptr<PromiseHolder> promiseHolder_;
+    void dump() const;
 };
 
 struct Defer {
@@ -122,6 +128,8 @@ struct Promise {
 
     void clear();
     operator bool() const;
+
+    void dump() const;
 
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
@@ -205,6 +213,9 @@ inline Promise raceAndResolve(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
     return raceAndResolve(std::list<Promise>{ defer0, promise_list ... });
 }
 
+inline void handleUncaughtException(const any &onUncaughtException) {
+    PromiseHolder::handleUncaughtException(onUncaughtException);
+}
 
 } // namespace promise
 #endif

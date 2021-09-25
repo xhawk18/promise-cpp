@@ -5,70 +5,83 @@
 
 namespace promise {
 
-void healthyCheck(int line, SharedPromise *sharedPromise, bool isCheckShared) {
-    if (!sharedPromise->promiseHolder_) {
-        fprintf(stderr, "line = %d, %d, SharedPromise = %p, promiseHolder_ is null\n", line, __LINE__, sharedPromise);
+void healthyCheck(int line, PromiseHolder *promiseHolder) {
+    if (!promiseHolder) {
+        fprintf(stderr, "line = %d, %d, promiseHolder is null\n", line, __LINE__);
         throw std::runtime_error("");
     }
 
-    for (const auto &owner_ : sharedPromise->promiseHolder_->owners_) {
+    for (const auto &owner_ : promiseHolder->owners_) {
         auto owner = owner_.lock();
-        if (owner && owner->promiseHolder_ != sharedPromise->promiseHolder_) {
-            fprintf(stderr, "line = %d, %d, SharedPromise = %p, owner->promiseHolder_ = %p, sharedPromise->promiseHolder_ = %p\n",
+        if (owner && owner->promiseHolder_.get() != promiseHolder) {
+            fprintf(stderr, "line = %d, %d, owner->promiseHolder_ = %p, promiseHolder = %p\n",
                 line, __LINE__,
-                sharedPromise,
                 owner->promiseHolder_.get(),
-                sharedPromise->promiseHolder_.get());
+                promiseHolder);
             throw std::runtime_error("");
         }
     }
 
-    for (const std::shared_ptr<Task> &task : sharedPromise->promiseHolder_->pendingTasks_) {
+    for (const std::shared_ptr<Task> &task : promiseHolder->pendingTasks_) {
         if (!task) {
-            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promiseHolder_ = %p, task is null\n", line, __LINE__,
-                sharedPromise, sharedPromise->promiseHolder_.get());
+            fprintf(stderr, "line = %d, %d, promiseHolder = %p, task is null\n", line, __LINE__, promiseHolder);
             throw std::runtime_error("");
         }
         if (task->state_ != TaskState::kPending) {
-            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promiseHolder_ = %p, task = %p, task->state_ = %d\n", line, __LINE__,
-                sharedPromise, sharedPromise->promiseHolder_.get(), task.get(), (int)task->state_);
+            fprintf(stderr, "line = %d, %d, promiseHolder = %p, task = %p, task->state_ = %d\n", line, __LINE__,
+                promiseHolder, task.get(), (int)task->state_);
             throw std::runtime_error("");
         }
-        if (task->sharedPromise_.lock()->promiseHolder_ != sharedPromise->promiseHolder_) {
-            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promiseHolder_ = %p, task = %p, task->sharedPromise_ = %p, promise = %p\n", line, __LINE__,
-                sharedPromise, sharedPromise->promiseHolder_.get(), task.get(), task->sharedPromise_.lock().get(), task->sharedPromise_.lock()->promiseHolder_.get());
-            throw std::runtime_error("");
-        }
-
-        if (isCheckShared && task->sharedPromise_.lock().get() != sharedPromise) {
-            fprintf(stderr, "line = %d, %d, SharedPromise = %p, promiseHolder_ = %p, task = %p, task->sharedPromise_ = %p\n", line, __LINE__,
-                sharedPromise, sharedPromise->promiseHolder_.get(), task.get(), task->sharedPromise_.lock().get());
+        if (task->promiseHolder_.lock().get() != promiseHolder) {
+            fprintf(stderr, "line = %d, %d, promiseHolder = %p, task = %p, task->promiseHolder_ = %p\n", line, __LINE__,
+                promiseHolder, task.get(), task->promiseHolder_.lock().get());
             throw std::runtime_error("");
         }
     }
 }
 
-void healthyCheck(int line, Promise *promise, bool isCheckShared) {
-    if (!promise->sharedPromise_) {
-        fprintf(stderr, "line = %d, %d, Promise = %p, sharedPromise_ is null\n", line, __LINE__, promise);
-        throw std::runtime_error("");
-    }
-    healthyCheck(line, promise->sharedPromise_.get(), isCheckShared);
+void Promise::dump() const {
+    printf("Promise = %p, SharedPromise = %p\n", this, this->sharedPromise_.get());
+    if (this->sharedPromise_)
+        this->sharedPromise_->dump();
 }
 
+void SharedPromise::dump() const {
+    printf("SharedPromise = %p, PromiseHolder = %p\n", this, this->promiseHolder_.get());
+    if (this->promiseHolder_)
+        this->promiseHolder_->dump();
+}
 
-
-static void join(std::shared_ptr<SharedPromise> &left, std::shared_ptr<SharedPromise> &right) {
-    //healthyCheck(__LINE__, left.get(), true);
-    //healthyCheck(__LINE__, right.get(), true);
-
-    for (const std::shared_ptr<Task> &task : right->promiseHolder_->pendingTasks_) {
-        task->sharedPromise_ = left;
+void PromiseHolder::dump() const {
+    printf("PromiseHolder = %p, owners = %d, pendingTasks = %d\n", this, (int)this->owners_.size(), (int)this->pendingTasks_.size());
+    for (const auto &owner_ : owners_) {
+        auto owner = owner_.lock();
+        printf("  owner = %p\n", owner.get());
     }
-    left->promiseHolder_->pendingTasks_.splice(left->promiseHolder_->pendingTasks_.end(), right->promiseHolder_->pendingTasks_);
+    for (const auto &task : pendingTasks_) {
+        if (task) {
+            auto promiseHolder = task->promiseHolder_.lock();
+            printf("  task = %p, PromiseHolder = %p\n", task.get(), promiseHolder.get());
+        }
+        else {
+            printf("  task = %p\n", task.get());
+        }
+    }
+}
+
+static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
+    healthyCheck(__LINE__, left->promiseHolder_.get());
+    healthyCheck(__LINE__, right.get());
+    //left->dump();
+    //right->dump();
+
+    for (const std::shared_ptr<Task> &task : right->pendingTasks_) {
+        task->promiseHolder_ = left->promiseHolder_;
+    }
+    left->promiseHolder_->pendingTasks_.splice(left->promiseHolder_->pendingTasks_.end(), right->pendingTasks_);
 
     std::list<std::weak_ptr<SharedPromise>> owners;
-    owners.splice(owners.end(), right->promiseHolder_->owners_);
+    owners.splice(owners.end(), right->owners_);
 
     if(owners.size() > 100) {
         fprintf(stderr, "Maybe memory leak, too many promise owners: %d", (int)owners.size());
@@ -82,22 +95,20 @@ static void join(std::shared_ptr<SharedPromise> &left, std::shared_ptr<SharedPro
         }
     }
 
+    //left->dump();
+    //right->dump();
     //fprintf(stderr, "left->promiseHolder_->owners_ size = %d\n", (int)left->promiseHolder_->owners_.size());
 
 
-    //healthyCheck(__LINE__, left.get(), true);
-    //healthyCheck(__LINE__, right.get(), false);
-    // right must not be healthy now, so do not use healthyCheck(right.get());
+    healthyCheck(__LINE__, left->promiseHolder_.get());
+    healthyCheck(__LINE__, right.get());
 }
 
 static void call(std::shared_ptr<Task> task) {
-    //std::shared_ptr<SharedPromise> sharedPromiseHolder; //Holder for temporarily created promise
-
     while (true) {
         if (task->state_ != TaskState::kPending) return;
 
-        std::shared_ptr<SharedPromise> sharedPromise = task->sharedPromise_.lock();
-        std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise->promiseHolder_;
+        std::shared_ptr<PromiseHolder> promiseHolder = task->promiseHolder_.lock();
         if (promiseHolder->state_ == TaskState::kPending) return;
         task->state_ = promiseHolder->state_;
 
@@ -120,9 +131,8 @@ static void call(std::shared_ptr<Task> task) {
                     else {
                         // join the promise
                         Promise promise = value.cast<Promise>();
-                        join(promise.sharedPromise_, sharedPromise);
-                        //sharedPromiseHolder = promise.sharedPromise_;
-                        assert(promiseHolder == promise.sharedPromise_->promiseHolder_);
+                        join(promise.sharedPromise_, task->promiseHolder_.lock());
+                        promiseHolder = promise.sharedPromise_->promiseHolder_;
                     }
                 }
             }
@@ -134,17 +144,21 @@ static void call(std::shared_ptr<Task> task) {
                     //promiseHolder->state_ = TaskState::kRejected;
                 }
                 else {
-                    const any &value = task->onRejected_.call(promiseHolder->value_);
-                    if (value.type() != typeid(Promise)) {
-                        promiseHolder->value_ = value;
-                        promiseHolder->state_ = TaskState::kResolved;
+                    try {
+                        const any &value = task->onRejected_.call(promiseHolder->value_);
+                        if (value.type() != typeid(Promise)) {
+                            promiseHolder->value_ = value;
+                            promiseHolder->state_ = TaskState::kResolved;
+                        }
+                        else {
+                            // join the promise
+                            Promise promise = value.cast<Promise>();
+                            join(promise.sharedPromise_, task->promiseHolder_.lock());
+                            promiseHolder = promise.sharedPromise_->promiseHolder_;
+                        }
                     }
-                    else {
-                        // join the promise
-                        Promise promise = value.cast<Promise>();
-                        join(promise.sharedPromise_, sharedPromise);
-                        //sharedPromiseHolder = promise.sharedPromise_;
-                        assert(promiseHolder == promise.sharedPromise_->promiseHolder_);
+                    catch (const bad_any_cast &) {
+                        //just go through if argument type is not match
                     }
                 }
             }
@@ -156,14 +170,20 @@ static void call(std::shared_ptr<Task> task) {
 
         // get next
         std::list<std::shared_ptr<Task>> &pendingTasks2 = promiseHolder->pendingTasks_;
-        if (pendingTasks2.size() == 0) return;
+        if (pendingTasks2.size() == 0) {
+            if (promiseHolder->state_ == TaskState::kRejected) {
+                PromiseHolder::onUncaughtException(promiseHolder->value_);
+            }
+            return;
+        }
+
         task = pendingTasks2.front();
     }
 }
 
 Defer::Defer(const std::shared_ptr<Task> &task)
     : task_(task)
-    , sharedPromise_(task->sharedPromise_.lock()) {
+    , sharedPromise_(std::shared_ptr<SharedPromise>(new SharedPromise{ task->promiseHolder_.lock() })) {
 }
 
 void Defer::resolve(const any &arg) const {
@@ -211,6 +231,26 @@ Promise DeferLoop::getPromise() const {
 }
 
 
+any *PromiseHolder::getUncaughtExceptionHandler() {
+    static any onUncaughtException;
+    return &onUncaughtException;
+}
+
+void PromiseHolder::onUncaughtException(const any &arg) {
+    any *onUncaughtException = getUncaughtExceptionHandler();
+    if (onUncaughtException != nullptr && !onUncaughtException->empty()) {
+        onUncaughtException->call(arg);
+    }
+    else {
+        throw arg;
+    }
+}
+
+void PromiseHolder::handleUncaughtException(const any &onUncaughtException) {
+    (*getUncaughtExceptionHandler()) = onUncaughtException;
+}
+
+
 Promise &Promise::then(const any &callbackOrOnResolved) {
     if (callbackOrOnResolved.type() == typeid(Defer)) {
         Defer &defer = callbackOrOnResolved.cast<Defer &>();
@@ -241,7 +281,7 @@ Promise &Promise::then(const any &callbackOrOnResolved) {
 Promise &Promise::then(const any &onResolved, const any &onRejected) {
     std::shared_ptr<Task> task = std::make_shared<Task>(Task {
         TaskState::kPending,
-        sharedPromise_,
+        sharedPromise_->promiseHolder_,
         onResolved,
         onRejected
     });
