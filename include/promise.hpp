@@ -16,9 +16,9 @@ enum TaskState {
     kRejected
 };
 
-struct Promise;
+struct PromiseHolder;
 struct SharedPromise;
-struct Defer;
+struct Promise;
 struct Task {
     TaskState state_;
     std::weak_ptr<SharedPromise> sharedPromise_;
@@ -30,49 +30,49 @@ struct Task {
 /* 
  * Task state in TaskList always be kPending
  */
-struct Promise {
+struct PromiseHolder {
     std::list<std::weak_ptr<SharedPromise>> owners_;
-    std::list<std::shared_ptr<Task>> pendingTasks_;
-    TaskState                        state_;
-    any                              value_;
+    std::list<std::shared_ptr<Task>>        pendingTasks_;
+    TaskState                               state_;
+    any                                     value_;
 };
 
 struct SharedPromise {
-    std::shared_ptr<Promise> promise_;
+    std::shared_ptr<PromiseHolder> promiseHolder_;
 };
 
-struct Callback {
-    Callback(const std::shared_ptr<Task> &task);
+struct Defer {
+    Defer(const std::shared_ptr<Task> &task);
     void resolve(const any &arg) const;
     void reject(const any &arg) const;
     void resolve() const;
     void reject() const;
 
-    Defer getPromise() const;
+    Promise getPromise() const;
 private:
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
-struct LoopCallback {
-    LoopCallback(const Callback &cb);
+struct LoopDefer {
+    LoopDefer(const Defer &cb);
     void doContinue() const;
     void doBreak(const any &) const;
     void reject(const any &) const;
     void doBreak() const;
     void reject() const;
 
-    Defer getPromise() const;
+    Promise getPromise() const;
 private:
-    Callback cb_;
+    Defer defer_;
 };
 
-struct Defer {
-    Defer &then(const any &callbackOrOnResolved);
-    Defer &then(const any &onResolved, const any &onRejected);
-    Defer &fail(const any &onRejected);
-    Defer &always(const any &onAlways);
-    Defer &finally(const any &onFinally);
+struct Promise {
+    Promise &then(const any &deferOrOnResolved);
+    Promise &then(const any &onResolved, const any &onRejected);
+    Promise &fail(const any &onRejected);
+    Promise &always(const any &onAlways);
+    Promise &finally(const any &onFinally);
 
     void resolve(const any &arg) const;
     void reject(const any &arg) const;
@@ -86,44 +86,78 @@ struct Defer {
 };
 
 
-Defer newPromise(const std::function<void(Callback &cb)> &run);
-Defer doWhile(const std::function<void(LoopCallback &cb)> &run);
-Defer reject(const any &arg);
-Defer resolve(const any &arg);
-Defer reject();
-Defer resolve();
+Promise newPromise(const std::function<void(Defer &defer)> &run);
+Promise doWhile(const std::function<void(LoopDefer &defer)> &run);
+Promise reject(const any &arg);
+Promise resolve(const any &arg);
+Promise reject();
+Promise resolve();
 
 
 
 /* Returns a promise that resolves when all of the promises in the iterable
    argument have resolved, or rejects with the reason of the first passed
    promise that rejects. */
-Defer all(const std::initializer_list<Defer> &promise_list);
-template <typename ... PROMISE_LIST>
-inline Defer all(PROMISE_LIST ...promise_list) {
-    return all({ promise_list ... });
+Promise all(const std::list<Promise> &promise_list);
+template<typename PROMISE_LIST,
+    typename std::enable_if<is_iterable<PROMISE_LIST>::value
+                            && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
+    >::type *dummy = nullptr>
+inline Promise all(const PROMISE_LIST &promise_list) {
+    std::list<Promise> copy_list = { std::begin(promise_list), std::end(promise_list) };
+    return all(copy_list);
+}
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Promise all(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return all(std::list<Promise>{ defer0, promise_list ... });
 }
 
 
 /* returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise. */
-Defer race(const std::initializer_list<Defer> &promise_list);
-template <typename ... PROMISE_LIST>
-inline Defer race(PROMISE_LIST ...promise_list) {
-    return race({ promise_list ... });
+Promise race(const std::list<Promise> &promise_list);
+template<typename PROMISE_LIST,
+    typename std::enable_if<is_iterable<PROMISE_LIST>::value
+                            && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
+    >::type *dummy = nullptr>
+inline Promise race(const PROMISE_LIST &promise_list) {
+    std::list<Promise> copy_list = { std::begin(promise_list), std::end(promise_list) };
+    return race(copy_list);
+}
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Promise race(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return race(std::list<Promise>{ defer0, promise_list ... });
 }
 
-Defer raceAndReject(const std::initializer_list<Defer> &promise_list);
-template <typename ... PROMISE_LIST>
-inline Defer raceAndReject(PROMISE_LIST ...promise_list) {
-    return raceAndReject({ promise_list ... });
+
+Promise raceAndReject(const std::list<Promise> &promise_list);
+template<typename PROMISE_LIST,
+    typename std::enable_if<is_iterable<PROMISE_LIST>::value
+                            && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
+    >::type *dummy = nullptr>
+inline Promise raceAndReject(const PROMISE_LIST &promise_list) {
+    std::list<Promise> copy_list = { std::begin(promise_list), std::end(promise_list) };
+    return raceAndReject(copy_list);
+}
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Promise raceAndReject(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return raceAndReject(std::list<Promise>{ defer0, promise_list ... });
 }
 
-Defer raceAndResolve(const std::initializer_list<Defer> &promise_list);
-template <typename ... PROMISE_LIST>
-inline Defer raceAndResolve(PROMISE_LIST ...promise_list) {
-    return raceAndReject({ promise_list ... });
+
+Promise raceAndResolve(const std::list<Promise> &promise_list);
+template<typename PROMISE_LIST,
+    typename std::enable_if<is_iterable<PROMISE_LIST>::value
+                            && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
+    >::type *dummy = nullptr>
+inline Promise raceAndResolve(const PROMISE_LIST &promise_list) {
+    std::list<Promise> copy_list = { std::begin(promise_list), std::end(promise_list) };
+    return raceAndResolve(copy_list);
+}
+template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
+inline Promise raceAndResolve(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
+    return raceAndResolve(std::list<Promise>{ defer0, promise_list ... });
 }
 
 

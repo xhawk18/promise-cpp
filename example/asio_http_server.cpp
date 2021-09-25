@@ -75,13 +75,13 @@ struct Session {
 };
 
 // Promisified functions
-Defer async_accept(tcp::acceptor &acceptor) {
-    return newPromise([&](Callback &cb) {
+Promise async_accept(tcp::acceptor &acceptor) {
+    return newPromise([&](Defer &defer) {
         // Look up the domain name
         auto socket = std::make_shared<tcp::socket>(static_cast<asio::io_context &>(acceptor.get_executor().context()));
         acceptor.async_accept(*socket,
             [=](boost::system::error_code err) {
-            setPromise(cb, err, "resolve", socket);
+            setPromise(defer, err, "resolve", socket);
         });
     });
 }
@@ -155,7 +155,7 @@ path_cat(
 // contents of the request, so the interface requires the
 // caller to pass a generic lambda for receiving the response.
 template<class Send>
-Defer
+Promise
 handle_request(
     std::shared_ptr<Session> session,
     Send&& send)
@@ -281,7 +281,7 @@ struct send_lambda
     }
 
     template<bool isRequest, class Body, class Fields>
-    Defer
+    Promise
     operator()(http::message<isRequest, Body, Fields>&& msg) const
     {
         // Determine if we should close the connection after
@@ -301,7 +301,7 @@ void
 do_session(
     std::shared_ptr<Session> session)
 {
-    doWhile([=](LoopCallback &cb){
+    doWhile([=](LoopDefer &defer){
         std::cout << "read new http request ... " << std::endl;
         //<1> Read a request
         session->req_ = {};
@@ -325,12 +325,12 @@ do_session(
             boost::system::error_code &err = result.cast<boost::system::error_code>();
             //<4> Keep-alive or close the connection.
             if (!err && !session->close_) {
-                cb.doContinue();//continue doWhile ...
+                defer.doContinue();//continue doWhile ...
             }
             else {
                 std::cout << "shutdown..." << std::endl;
                 session->socket_.shutdown(tcp::socket::shutdown_send, err);
-                cb.doBreak(); //break from doWhile
+                defer.doBreak(); //break from doWhile
             }
         });
     });
@@ -369,7 +369,7 @@ do_listen(
         return fail(ec, "listen");
 
     auto doc_root_ = std::make_shared<std::string>(doc_root);
-    doWhile([acceptor, doc_root_](LoopCallback &cb){
+    doWhile([acceptor, doc_root_](LoopDefer &defer){
         async_accept(*acceptor).then([=](const any &result) {
             std::shared_ptr<tcp::socket> socket = result.cast<std::shared_ptr<tcp::socket>>();
             std::cout << "accepted" << std::endl;
@@ -377,7 +377,7 @@ do_listen(
             do_session(session);
         }).fail([](const any &result) {
             const boost::system::error_code &err = result.cast<boost::system::error_code>();
-        }).then(cb);
+        }).then(defer);
     });
 }
 

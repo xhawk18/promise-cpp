@@ -32,7 +32,7 @@
 using namespace promise;
 namespace asio = boost::asio;
 
-Defer testTimer(asio::io_service &io) {
+Promise testTimer(asio::io_service &io) {
 
     return delay(io, 3000).then([&] {
         printf("timer after 3000 ms!\n");
@@ -91,7 +91,7 @@ int main() {
     testPromiseRace(io);
     testPromiseAll(io);
 
-    Defer timer = testTimer(io);
+    Promise timer = testTimer(io);
 
     delay(io, 4500).then([=] {
         printf("clearTimeout\n");

@@ -42,29 +42,29 @@
 
 
 class Service {
-    using Callback  = promise::Callback;
     using Defer     = promise::Defer;
+    using Promise   = promise::Promise;
     using TimePoint = std::chrono::time_point<std::chrono::steady_clock>;
-    using Timers    = std::multimap<TimePoint, Callback>;
-    using Tasks     = std::deque<Callback>;
+    using Timers    = std::multimap<TimePoint, Defer>;
+    using Tasks     = std::deque<Defer>;
 
     Timers timers_;
     Tasks  tasks_;
 
 public:
     // delay for milliseconds
-    Defer delay(uint64_t time_ms) {
-        return promise::newPromise([&](Callback &cb) {
+    Promise delay(uint64_t time_ms) {
+        return promise::newPromise([&](Defer &defer) {
             TimePoint now = std::chrono::steady_clock::now();
             TimePoint time = now + std::chrono::milliseconds(time_ms);
-            timers_.emplace(time, cb);
+            timers_.emplace(time, defer);
         });
     }
 
     // yield for other tasks to run
-    Defer yield() {
-        return promise::newPromise([&](Callback &cb) {
-            return tasks_.push_back(cb);
+    Promise yield() {
+        return promise::newPromise([&](Defer &defer) {
+            return tasks_.push_back(defer);
         });
     }
 
@@ -75,8 +75,8 @@ public:
                 TimePoint now = std::chrono::steady_clock::now();
                 TimePoint time = timers_.begin()->first;
                 if(time <= now){
-                    Callback &cb = timers_.begin()->second;
-                    tasks_.push_back(cb);
+                    Defer &defer = timers_.begin()->second;
+                    tasks_.push_back(defer);
                     timers_.erase(timers_.begin());
                 }
                 else if(tasks_.size() == 0)
@@ -88,9 +88,9 @@ public:
             // Check fixed size of tasks in this loop, so that timer have a chance to run.
             size_t size = tasks_.size();
             for(size_t i = 0; i < size; ++i){
-                Callback cb = tasks_.front();
+                Defer defer = tasks_.front();
                 tasks_.pop_front();
-                cb.resolve(nullptr);
+                defer.resolve(nullptr);
             }
         }
    }

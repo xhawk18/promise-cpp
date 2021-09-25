@@ -69,35 +69,35 @@ protected:
 };
 
 // Wait event will wait the event for only once
-Defer waitEvent(QObject      *object,
-                QEvent::Type  eventType,
-                bool          callSysHandler = false);
+Promise waitEvent(QObject      *object,
+                  QEvent::Type  eventType,
+                  bool          callSysHandler = false);
 
 struct QtTimerHolder: QObject {
     ~QtTimerHolder();
 private:
     QtTimerHolder();
 public:
-    static Defer delay(int time_ms);
-    static Defer yield();
-    static Defer setTimeout(const std::function<void(bool)> &func,
-                            int time_ms);
+    static Promise delay(int time_ms);
+    static Promise yield();
+    static Promise setTimeout(const std::function<void(bool)> &func,
+                              int time_ms);
 
 protected:
     void timerEvent(QTimerEvent *event);
 private:
-    std::map<int, promise::Callback>  defers_;
+    std::map<int, promise::Defer>  defers_;
 
     static QtTimerHolder &getInstance();
 };
 
 
-Defer delay(int time_ms);
-Defer yield();
-Defer setTimeout(const std::function<void(bool)> &func,
+Promise delay(int time_ms);
+Promise yield();
+Promise setTimeout(const std::function<void(bool)> &func,
                           int time_ms);
-void cancelDelay(Defer d);
-void clearTimeout(Defer d);
+void cancelDelay(Promise promise);
+void clearTimeout(Promise promise);
 
 }
 #endif

@@ -5,33 +5,33 @@ using namespace promise;
 
 
 int main() {
-    Defer a0;
+    Promise a0;
     a0.sharedPromise_ = std::make_shared<SharedPromise>();
-    a0.sharedPromise_->promise_ = std::make_shared<Promise>();
-    Defer a1 = a0;
+    a0.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
+    Promise a1 = a0;
     
-    printf("%p %p, %p %p\n", a0.sharedPromise_.get(), (a0.sharedPromise_->promise_).get(),
-                             a1.sharedPromise_.get(), (a1.sharedPromise_->promise_).get());
+    printf("%p %p, %p %p\n", a0.sharedPromise_.get(), (a0.sharedPromise_->promiseHolder_).get(),
+                             a1.sharedPromise_.get(), (a1.sharedPromise_->promiseHolder_).get());
     
     
-    Defer b0;
+    Promise b0;
     b0.sharedPromise_ = std::make_shared<SharedPromise>();
-    b0.sharedPromise_->promise_ = std::make_shared<Promise>();
-    Defer b1 = b0;
+    b0.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
+    Promise b1 = b0;
 
-    printf("%p %p, %p %p\n", b0.sharedPromise_.get(), (b0.sharedPromise_->promise_).get(),
-                             b1.sharedPromise_.get(), (b1.sharedPromise_->promise_).get());
-
-
-    b0.sharedPromise_->promise_ = a0.sharedPromise_->promise_;
-    printf("%p %p, %p %p\n", b0.sharedPromise_.get(), (b0.sharedPromise_->promise_).get(),
-                             b1.sharedPromise_.get(), (b1.sharedPromise_->promise_).get());
+    printf("%p %p, %p %p\n", b0.sharedPromise_.get(), (b0.sharedPromise_->promiseHolder_).get(),
+                             b1.sharedPromise_.get(), (b1.sharedPromise_->promiseHolder_).get());
 
 
+    b0.sharedPromise_->promiseHolder_ = a0.sharedPromise_->promiseHolder_;
+    printf("%p %p, %p %p\n", b0.sharedPromise_.get(), (b0.sharedPromise_->promiseHolder_).get(),
+                             b1.sharedPromise_.get(), (b1.sharedPromise_->promiseHolder_).get());
 
-    Defer a = newPromise([](Callback &callback) {
-        callback.reject(15);
-        callback.resolve(13);
+
+
+    Promise a = newPromise([](Defer &defer) {
+        defer.reject(15);
+        defer.resolve(13);
     })/*/.then([](const any &x) {
         printf("resolved xx = %d\n", x.cast<int>());
     }, [](const any &x) {
@@ -40,11 +40,11 @@ int main() {
         return 18;
     })*/;
 
-    Defer b = a;
-    Defer c = b;
+    Promise b = a;
+    Promise c = b;
 
-    newPromise([](Callback &callback) {
-        callback.resolve(nullptr);
+    newPromise([](Defer &defer) {
+        defer.resolve(nullptr);
     }).then([=](const any &) {
         //console.log(a)
         printf("a = ?\n");

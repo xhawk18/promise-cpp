@@ -22,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // delay tasks
 #if 1
-    doWhile([=](LoopCallback &cb) {
+    doWhile([=](LoopDefer &defer) {
         delay(1000).then([=]() {
             updateText(__LINE__);
             return delay(1000);
@@ -44,7 +44,7 @@ MainWindow::MainWindow(QWidget *parent)
         }).then([=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then(cb); //call doWhile
+        }).then(defer); //call doWhile
     });
 #endif
 

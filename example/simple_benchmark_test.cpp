@@ -49,28 +49,28 @@ void dump(std::string name, int n,
         "ns/op" << std::endl;
 }
 
-void task(Service &io, int task_id, int count, int *pcoro, Callback cb) {
+void task(Service &io, int task_id, int count, int *pcoro, Defer defer) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
-            cb.resolve();
+            defer.resolve();
         return;
     }
 
     io.yield().then([=, &io]() {
-        task(io, task_id, count - 1, pcoro, cb);
+        task(io, task_id, count - 1, pcoro, defer);
     });
 };
 
 
-Defer test_switch(Service &io, int coro) {
+Promise test_switch(Service &io, int coro) {
     steady_clock::time_point start = steady_clock::now();
 
     int *pcoro = new int(coro);
 
-    return newPromise([=, &io](Callback &cb){
+    return newPromise([=, &io](Defer &defer){
         for (int task_id = 0; task_id < coro; ++task_id) {
-            task(io, task_id, N / coro, pcoro, cb);
+            task(io, task_id, N / coro, pcoro, defer);
         }
     }).then([=]() {
         delete pcoro;
@@ -84,7 +84,7 @@ int main() {
     Service io;
 
     int i = 0;
-    doWhile([&](LoopCallback &cb) {
+    doWhile([&](LoopDefer &defer) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else
@@ -95,12 +95,12 @@ int main() {
             return test_switch(io, 1000);
         }).then([&]() {
             return test_switch(io, 10000);
-        }).then([&]() {
-            return test_switch(io, 100000);
-        }).then([&, cb]() {
-            if (i++ > 3) cb.doBreak();
-            return test_switch(io, 1000000);
-        }).then(cb);
+        //}).then([&]() {
+        //    return test_switch(io, 100000);
+        //}).then([&, cb]() {
+            //if (i++ > 3) cb.doBreak();
+        //    return test_switch(io, 1000000);
+        }).then(defer);
     });
 
     io.run();

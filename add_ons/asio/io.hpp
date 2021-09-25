@@ -36,48 +36,48 @@
 namespace promise{
 
 template<typename RESULT>
-inline void setPromise(Callback cb,
+inline void setPromise(Defer defer,
     boost::system::error_code err,
     const char *errorString,
     const RESULT &result) {
     if (err) {
         std::cerr << errorString << ": " << err.message() << "\n";
-        cb.reject(err);
+        defer.reject(err);
     }
     else
-        cb.resolve(result);
+        defer.resolve(result);
 }
 
 // Promisified functions
 template<typename Resolver>
-inline Defer async_resolve(
+inline Promise async_resolve(
     Resolver &resolver,
     const std::string &host, const std::string &port) {
-    return newPromise([&](Callback &cb) {
+    return newPromise([&](Defer &defer) {
         // Look up the domain name
         resolver.async_resolve(
             host,
             port,
-            [cb](boost::system::error_code err,
+            [defer](boost::system::error_code err,
                 typename Resolver::results_type results) {
-                setPromise(cb, err, "resolve", results);
+                setPromise(defer, err, "resolve", results);
         });
     });
 }
 
 template<typename ResolverResult, typename Socket>
-inline Defer async_connect(
+inline Promise async_connect(
     Socket &socket,
     const ResolverResult &results) {
-    return newPromise([&](Callback &cb) {
+    return newPromise([&](Defer &defer) {
         // Make the connection on the IP address we get from a lookup
         boost::asio::async_connect(
             socket,
             results.begin(),
             results.end(),
-            [cb](boost::system::error_code err,
+            [defer](boost::system::error_code err,
                 typename ResolverResult::iterator i) {
-                setPromise(cb, err, "connect", i);
+                setPromise(defer, err, "connect", i);
         });
     });
 }
@@ -85,27 +85,27 @@ inline Defer async_connect(
 
 
 template<typename Stream, typename Buffer, typename Content>
-inline Defer async_read(Stream &stream,
+inline Promise async_read(Stream &stream,
     Buffer &buffer,
     Content &content) {
     //read
-    return newPromise([&](Callback &cb) {
+    return newPromise([&](Defer &defer) {
         boost::beast::http::async_read(stream, buffer, content,
-            [cb](boost::system::error_code err,
+            [defer](boost::system::error_code err,
                 std::size_t bytes_transferred) {
-                setPromise(cb, err, "read", bytes_transferred);
+                setPromise(defer, err, "read", bytes_transferred);
         });
     });
 }
 
 template<typename Stream, typename Content>
-inline Defer async_write(Stream &stream, Content &content) {
-    return newPromise([&](Callback &cb) {
+inline Promise async_write(Stream &stream, Content &content) {
+    return newPromise([&](Defer &defer) {
         //write
         boost::beast::http::async_write(stream, content,
-            [cb](boost::system::error_code err,
+            [defer](boost::system::error_code err,
                 std::size_t bytes_transferred) {
-                setPromise(cb, err, "write", bytes_transferred);
+                setPromise(defer, err, "write", bytes_transferred);
         });
     });
 }

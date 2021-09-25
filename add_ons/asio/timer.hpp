@@ -31,14 +31,14 @@
 // Promisified timer based on promise-cpp and boost::asio
 //
 // Functions --
-//   Defer yield(boost::asio::io_service &io);
-//   Defer delay(boost::asio::io_service &io, uint64_t time_ms);
-//   void cancelDelay(Defer d);
+//   Promise yield(boost::asio::io_service &io);
+//   Promise delay(boost::asio::io_service &io, uint64_t time_ms);
+//   void cancelDelay(Promise promise);
 // 
-//   Defer setTimeout(boost::asio::io_service &io,
-//                    const std::function<void(bool /*cancelled*/)> &func,
-//                    uint64_t time_ms);
-//   void clearTimeout(Defer d);
+//   Promise setTimeout(boost::asio::io_service &io,
+//                      const std::function<void(bool /*cancelled*/)> &func,
+//                      uint64_t time_ms);
+//   void clearTimeout(Promise promise);
 //
 
 #include "../../include/promise.hpp"
@@ -48,30 +48,29 @@
 
 namespace promise {
 
-inline Defer yield(boost::asio::io_service &io){
-    auto defer = newPromise([&io](Callback &cb) {
+inline Promise yield(boost::asio::io_service &io){
+    auto promise = newPromise([&io](Defer &defer) {
 #if BOOST_VERSION >= 106600
-        boost::asio::defer(io, [cb]() {
-            cb.resolve();
+        boost::asio::defer(io, [defer]() {
+            defer.resolve();
         });
 #else
-        io.post([cb]() {
-            cb.resolve();
+        io.post([defer]() {
+            defer.resolve();
         });
 #endif
     });
 
-    //pm_assert(defer->next_.operator->() == nullptr);
-    return defer;
+    return promise;
 }
 
-inline Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
+inline Promise delay(boost::asio::io_service &io, uint64_t time_ms) {
     auto timer = std::make_shared<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
-    return newPromise([timer, &io](Callback &cb) {
-        timer->async_wait([cb, timer](const boost::system::error_code& error_code) {
+    return newPromise([timer, &io](Defer &defer) {
+        timer->async_wait([defer, timer](const boost::system::error_code& error_code) {
             if (timer) {
                 //timer = nullptr;
-                cb.resolve();
+                defer.resolve();
             }
         });
     }).finally([timer]() {
@@ -79,13 +78,13 @@ inline Defer delay(boost::asio::io_service &io, uint64_t time_ms) {
     });
 }
 
-inline void cancelDelay(Defer d) {
-    d.reject();
+inline void cancelDelay(Promise promise) {
+    promise.reject();
 }
 
-inline Defer setTimeout(boost::asio::io_service &io,
-                 const std::function<void(bool)> &func,
-                 uint64_t time_ms) {
+inline Promise setTimeout(boost::asio::io_service &io,
+                          const std::function<void(bool)> &func,
+                          uint64_t time_ms) {
     return delay(io, time_ms).then([func]() {
         func(false);
     }, [func]() {
@@ -93,12 +92,12 @@ inline Defer setTimeout(boost::asio::io_service &io,
     });
 }
 
-inline void clearTimeout(Defer d) {
-    cancelDelay(d);
+inline void clearTimeout(Promise promise) {
+    cancelDelay(promise);
 }
 
 #if 0
-inline Defer wait(boost::asio::io_service &io, Defer d, uint64_t time_ms) {
+inline Promise wait(boost::asio::io_service &io, Defer d, uint64_t time_ms) {
     return newPromise([&io, d, time_ms](Defer &dTimer) {
         boost::asio::steady_timer *timer =
             pm_new<boost::asio::steady_timer>(io, std::chrono::milliseconds(time_ms));
