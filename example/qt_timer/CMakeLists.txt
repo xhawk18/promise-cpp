@@ -28,17 +28,17 @@ find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
-        ../../include/promise.hpp
-        ../../include/any.hpp
-        ../../include/add_ons.hpp
-        ../../include/call_traits.hpp
-        ../../src/promise.cpp
-        ../../add_ons/qt/promise_qt.hpp
-        ../../add_ons/qt/promise_qt.cpp
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
+    ../../include/promise.hpp
+    ../../include/any.hpp
+    ../../include/add_ons.hpp
+    ../../include/call_traits.hpp
+    ../../src/promise.cpp
+    ../../add_ons/qt/promise_qt.hpp
+    ../../add_ons/qt/promise_qt.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -58,10 +58,10 @@ else()
 endif()
 
 target_link_libraries(qt_timer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-target_include_directories(qt_timer PRIVATE "../..")
+#target_include_directories(qt_timer PRIVATE "../..")
 
-# 设置vc debugger使用的PATH路径
-# cmake 3.13 开始支持，低于此版本忽略
+# Set vc debugger PATH
+# Supported by cmake 3.13 or higher, ignored by lower version.
 string(REGEX REPLACE "[\\/]lib[\\/]cmake[\\/].*$" "/bin" MY_QT_BINARY_PATH ${QT_DIR})
 file(TO_NATIVE_PATH "${MY_QT_BINARY_PATH}" MY_QT_BINARY_PATH)
 message("PATH=$(PATH);${MY_QT_BINARY_PATH}")

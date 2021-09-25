@@ -106,11 +106,11 @@ BOOL CmfctimerDlg::OnInitDialog()
 
     // Update text on the dialog
     auto updateText = [=](int sourceLine) {
-        std::wstringstream os;
+        std::stringstream os;
         os << "thread id   = " << std::this_thread::get_id() << "\n"
            << "source line = " << sourceLine;
         CWnd *label = GetDlgItem(IDC_STATIC);
-        label->SetWindowText(os.str().c_str());
+        label->SetWindowTextA(os.str().c_str());
         //os.str();
     };
     updateText(__LINE__);
