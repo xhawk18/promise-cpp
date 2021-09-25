@@ -34,6 +34,7 @@ set(PROJECT_SOURCES
         mainwindow.ui
         ../../include/promise.hpp
         ../../include/any.hpp
+        ../../include/add_ons.hpp
         ../../include/call_traits.hpp
         ../../src/promise.cpp
         ../../add_ons/qt/promise_qt.hpp

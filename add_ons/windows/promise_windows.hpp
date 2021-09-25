@@ -55,12 +55,12 @@ inline void clearTimeout(Defer d);
 struct WindowsTimerHolder {
     WindowsTimerHolder() {};
 public:
-    static Defer delay(int time_ms) {
+    static Promise delay(int time_ms) {
         UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
-        return newPromise([timerId](Callback &cb) {
+        return newPromise([timerId](Defer &Defer) {
             //printf("timerId = %d\n", (int)timerId);
-            WindowsTimerHolder::getDefers().insert({ timerId, cb });
+            WindowsTimerHolder::getDefers().insert({ timerId, Defer });
         }).then([timerId]() {
             WindowsTimerHolder::getDefers().erase(timerId);
             return promise::resolve();
@@ -72,12 +72,12 @@ public:
 
     }
 
-    static Defer yield() {
+    static Promise yield() {
         return delay(0);
     }
 
-    static Defer setTimeout(const std::function<void(bool)> &func,
-                     int time_ms) {
+    static Promise setTimeout(const std::function<void(bool)> &func,
+                              int time_ms) {
         return delay(time_ms).then([func]() {
             func(false);
         }, [func]() {
@@ -96,7 +96,7 @@ protected:
         //printf("%d %d %d %d\n", (int)unnamedParam1, (int)unnamedParam2, (int)unnamedParam3, (int)unnamedParam4);
         auto found = getDefers().find(timerId);
         if (found != getDefers().end()) {
-            Callback d = found->second;
+            Defer d = found->second;
             d.resolve();
         }
     }
@@ -104,21 +104,21 @@ protected:
 private:
     friend void cancelDelay(Defer d);
 
-    inline static std::map<UINT_PTR, promise::Callback> &getDefers() {
-        static std::map<UINT_PTR, promise::Callback>  s_defers_;
+    inline static std::map<UINT_PTR, promise::Defer> &getDefers() {
+        static std::map<UINT_PTR, promise::Defer>  s_defers_;
         return s_defers_;
     }
 };
 
-inline Defer delay(int time_ms) {
+inline Promise delay(int time_ms) {
     return WindowsTimerHolder::delay(time_ms);
 }
 
-inline Defer yield() {
+inline Promise yield() {
     return WindowsTimerHolder::yield();
 }
 
-inline Defer setTimeout(const std::function<void(bool)> &func,
+inline Promise setTimeout(const std::function<void(bool)> &func,
     int time_ms) {
     return WindowsTimerHolder::setTimeout(func, time_ms);
 }

@@ -117,7 +117,7 @@ BOOL CmfctimerDlg::OnInitDialog()
 
     // delay tasks
     using namespace promise;
-    doWhile([=](LoopCallback &cb) {
+    doWhile([=](DeferLoop &loop) {
         promise::delay(1000).then([=]() {
             updateText(__LINE__);
             return promise::delay(1000);
@@ -139,7 +139,7 @@ BOOL CmfctimerDlg::OnInitDialog()
         }).then([=]() {
             updateText(__LINE__);
             return promise::delay(1000);
-        }).then(cb); //call doWhile
+        }).then(loop); //call doWhile
     });
 
     return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE

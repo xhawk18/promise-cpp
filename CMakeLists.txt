@@ -28,6 +28,7 @@ use_cxx11()
 set(my_source
     include/promise.hpp
     include/any.hpp
+    include/add_ons.hpp
     include/call_traits.hpp
     src/promise.cpp)
 
