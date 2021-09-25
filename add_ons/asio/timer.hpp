@@ -121,7 +121,7 @@ inline Defer wait(boost::asio::io_service &io, Defer d, uint64_t time_ms) {
                 timer->cancel();
                 pm_delete(timer);
             }
-        }).call(dTimer);
+        }).then(dTimer);
         
         timer->async_wait([=](const boost::system::error_code& error_code) {
             if (!dTimer->any_.empty()) {
