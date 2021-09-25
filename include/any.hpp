@@ -232,6 +232,34 @@ struct any_call_t<RET, std::tuple<NOCVR_ARGS...>, FUNC> {
     }
 };
 
+template<typename RET, typename NOCVR_ARG, typename FUNC>
+struct any_call_t<RET, std::tuple<NOCVR_ARG>, FUNC> {
+
+    static inline RET call(const typename FUNC::fun_type &func, const any &arg) {
+        using nocvr_argument_type = std::tuple<NOCVR_ARG>;
+        using any_arguemnt_type = std::vector<any>;
+
+        if (arg.type() == typeid(std::exception_ptr)) {
+            try {
+                std::rethrow_exception(any_cast<std::exception_ptr>(arg));
+            }
+            catch (const NOCVR_ARG &ex_arg) {
+                return func(const_cast<NOCVR_ARG &>(ex_arg));
+            }
+        }
+
+        const any_arguemnt_type &args = (arg.type() != typeid(any_arguemnt_type)
+            ? any_arguemnt_type{ arg }
+            : any_cast<any_arguemnt_type &>(arg));
+        if(args.size() < 1)
+            throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
+
+        //printf("[%s] [%s]\n", args[0].type().name(), typeid(NOCVR_ARG).name());
+
+        return func(any_cast<NOCVR_ARG &>(args[0]));
+    }
+};
+
 
 template<typename RET, typename FUNC>
 struct any_call_t<RET, std::tuple<any>, FUNC> {

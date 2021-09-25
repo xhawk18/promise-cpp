@@ -32,6 +32,7 @@ struct Task {
  * Task state in TaskList always be kPending
  */
 struct PromiseHolder {
+    ~PromiseHolder();
     std::list<std::weak_ptr<SharedPromise>> owners_;
     std::list<std::shared_ptr<Task>>        pendingTasks_;
     TaskState                               state_;

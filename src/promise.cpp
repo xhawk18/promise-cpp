@@ -82,6 +82,7 @@ static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<Pro
 
     std::list<std::weak_ptr<SharedPromise>> owners;
     owners.splice(owners.end(), right->owners_);
+    right->state_ = TaskState::kResolved;
 
     if(owners.size() > 100) {
         fprintf(stderr, "Maybe memory leak, too many promise owners: %d", (int)owners.size());
@@ -113,8 +114,10 @@ static void call(std::shared_ptr<Task> task) {
         task->state_ = promiseHolder->state_;
 
         std::list<std::shared_ptr<Task>> &pendingTasks = promiseHolder->pendingTasks_;
+        //promiseHolder->dump();
         assert(pendingTasks.front() == task);
         pendingTasks.pop_front();
+        //promiseHolder->dump();
 
         try {
             if (promiseHolder->state_ == TaskState::kResolved) {
@@ -131,7 +134,7 @@ static void call(std::shared_ptr<Task> task) {
                     else {
                         // join the promise
                         Promise promise = value.cast<Promise>();
-                        join(promise.sharedPromise_, task->promiseHolder_.lock());
+                        join(promise.sharedPromise_, promiseHolder);
                         promiseHolder = promise.sharedPromise_->promiseHolder_;
                     }
                 }
@@ -153,7 +156,7 @@ static void call(std::shared_ptr<Task> task) {
                         else {
                             // join the promise
                             Promise promise = value.cast<Promise>();
-                            join(promise.sharedPromise_, task->promiseHolder_.lock());
+                            join(promise.sharedPromise_, promiseHolder);
                             promiseHolder = promise.sharedPromise_->promiseHolder_;
                         }
                     }
@@ -171,9 +174,6 @@ static void call(std::shared_ptr<Task> task) {
         // get next
         std::list<std::shared_ptr<Task>> &pendingTasks2 = promiseHolder->pendingTasks_;
         if (pendingTasks2.size() == 0) {
-            if (promiseHolder->state_ == TaskState::kRejected) {
-                PromiseHolder::onUncaughtException(promiseHolder->value_);
-            }
             return;
         }
 
@@ -231,6 +231,12 @@ Promise DeferLoop::getPromise() const {
 }
 
 
+PromiseHolder::~PromiseHolder() {
+    if (this->state_ == TaskState::kRejected) {
+        PromiseHolder::onUncaughtException(this->value_);
+    }
+}
+
 any *PromiseHolder::getUncaughtExceptionHandler() {
     static any onUncaughtException;
     return &onUncaughtException;
@@ -239,10 +245,17 @@ any *PromiseHolder::getUncaughtExceptionHandler() {
 void PromiseHolder::onUncaughtException(const any &arg) {
     any *onUncaughtException = getUncaughtExceptionHandler();
     if (onUncaughtException != nullptr && !onUncaughtException->empty()) {
-        onUncaughtException->call(arg);
+        try {
+            onUncaughtException->call(arg);
+        }
+        catch (...) {
+            // std::rethrow_exception(std::current_exception());
+            fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
+        }
     }
     else {
-        throw arg;
+        //throw arg;
+        fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
     }
 }
 
@@ -301,12 +314,18 @@ Promise &Promise::always(const any &onAlways) {
 Promise &Promise::finally(const any &onFinally) {
     return then([onFinally](const any &arg)->any {
         return newPromise([onFinally, arg](Defer &defer) {
-            onFinally.call(arg);
+            try {
+                onFinally.call(arg);
+            }
+            catch (bad_any_cast &) {}
             defer.resolve(arg);
         });
     }, [onFinally](const any &arg)->any {
         return newPromise([onFinally, arg](Defer &defer) {
-            onFinally.call(arg);
+            try {
+                onFinally.call(arg);
+            }
+            catch (bad_any_cast &) {}
             defer.reject(arg);
         });
     });
