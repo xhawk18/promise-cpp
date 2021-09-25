@@ -583,8 +583,8 @@ The reject parameters follows the the same omit rule as resolved parameters.
 To copy the promise object is allowed and effective, please do that when you need.
 
 ```cpp
-Defer d = newPromise([](Defer d){});
-Defer d1 = d;  //It's safe and effective
+Promise d = newPromise([](Defer d){});
+Promise d1 = d;  //It's safe and effective
 ```
 
 ### handle uncaught exceptional or rejected parameters
