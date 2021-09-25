@@ -1477,7 +1477,7 @@ inline Defer raceAndResolve(const PROMISE_LIST &promise_list) {
 
 template <typename PROMISE0, typename ... PROMISE_LIST, typename std::enable_if<!is_iterable<PROMISE0>::value>::type *dummy = nullptr>
 inline Defer raceAndResolve(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
-    return raceAndReject(std::initializer_list<Defer>{ defer0, promise_list ... });
+    return raceAndResolve(std::initializer_list<Defer>{ defer0, promise_list ... });
 }
 
 
