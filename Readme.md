@@ -23,6 +23,7 @@
     - [Promise::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#promisethenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
     - [Promise::then(FUNC_ON_RESOLVED on_resolved)](#promisethenfunc_on_resolved-on_resolved)
     - [Promise::then(Defer d)](#promisethendefer-d)
+    - [Promise::then(Promise promise)](#promisethenpromise-promise)
     - [Promise::fail(FUNC_ON_REJECTED on_rejected)](#promisefailfunc_on_rejected-on_rejected)
     - [Promise::finally(FUNC_ON_FINALLY on_finally)](#promisefinallyfunc_on_finally-on_finally)
     - [Promise::always(FUNC_ON_ALWAYS on_always)](#promisealwaysfunc_on_always-on_always)
@@ -372,7 +373,11 @@ return newPromise([](Defer d){
 ```
 
 ### Promise::then(Defer d)
-Return the chaining promise object, where d is the promise object be called when 
+Return the chaining promise object, where d is the callback function be called when 
+previous promise object calls function resolve or reject.
+
+### Promise::then(Promise promise)
+Return the chaining promise object, where "promise" is the promise object be called when 
 previous promise object calls function resolve or reject.
 
 ### Promise::fail(FUNC_ON_REJECTED on_rejected)

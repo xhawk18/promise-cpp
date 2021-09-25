@@ -113,7 +113,7 @@ private:
 };
 
 struct Promise {
-    PROMISE_API Promise &then(const any &deferOrOnResolved);
+    PROMISE_API Promise &then(const any &deferOrPromiseOrOnResolved);
     PROMISE_API Promise &then(const any &onResolved, const any &onRejected);
     PROMISE_API Promise &fail(const any &onRejected);
     PROMISE_API Promise &always(const any &onAlways);

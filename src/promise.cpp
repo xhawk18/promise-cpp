@@ -268,9 +268,9 @@ void PromiseHolder::handleUncaughtException(const any &onUncaughtException) {
 }
 
 
-Promise &Promise::then(const any &deferOrOnResolved) {
-    if (deferOrOnResolved.type() == typeid(Defer)) {
-        Defer &defer = deferOrOnResolved.cast<Defer &>();
+Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
+    if (deferOrPromiseOrOnResolved.type() == typeid(Defer)) {
+        Defer &defer = deferOrPromiseOrOnResolved.cast<Defer &>();
         return then([defer](const any &arg) -> any {
             defer.resolve(arg);
             return nullptr;
@@ -279,8 +279,8 @@ Promise &Promise::then(const any &deferOrOnResolved) {
             return nullptr;
         });
     }
-    else if (deferOrOnResolved.type() == typeid(DeferLoop)) {
-        DeferLoop &loop = deferOrOnResolved.cast<DeferLoop &>();
+    else if (deferOrPromiseOrOnResolved.type() == typeid(DeferLoop)) {
+        DeferLoop &loop = deferOrPromiseOrOnResolved.cast<DeferLoop &>();
         return then([loop](const any &arg) -> any {
             (void)arg;
             loop.doContinue();
@@ -290,8 +290,19 @@ Promise &Promise::then(const any &deferOrOnResolved) {
             return nullptr;
         });
     }
+    else if (deferOrPromiseOrOnResolved.type() == typeid(Promise)) {
+        Promise &promise = deferOrPromiseOrOnResolved.cast<Promise &>();
+        if (promise.sharedPromise_ && promise.sharedPromise_->promiseHolder_) {
+            join(this->sharedPromise_, promise.sharedPromise_->promiseHolder_);
+            if (this->sharedPromise_->promiseHolder_->pendingTasks_.size() > 0) {
+                std::shared_ptr<Task> task = this->sharedPromise_->promiseHolder_->pendingTasks_.front();
+                call(task);
+            }
+        }
+        return *this;
+    }
     else {
-        return then(deferOrOnResolved, any());
+        return then(deferOrPromiseOrOnResolved, any());
     }
 }
 
@@ -386,7 +397,16 @@ Promise newPromise(const std::function<void(Defer &defer)> &run) {
 }
 
 Promise newPromise() {
-    return newPromise([](Defer &){});
+    Promise promise;
+    promise.sharedPromise_ = std::make_shared<SharedPromise>();
+    promise.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
+    promise.sharedPromise_->promiseHolder_->owners_.push_back(promise.sharedPromise_);
+
+    auto returnAsIs = [](const any &arg) -> any {
+        return arg;
+    };
+    promise.then(returnAsIs);
+    return promise;
 }
 
 Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
