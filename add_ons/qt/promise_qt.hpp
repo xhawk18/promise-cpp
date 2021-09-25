@@ -52,52 +52,58 @@ namespace promise {
 
 class PromiseEventFilter : public QObject {
 private:
-    PromiseEventFilter();
+    PROMISE_API PromiseEventFilter();
 
 public:
     using Listener = std::function<bool(QObject *, QEvent *)>;
     using Listeners = std::multimap<std::pair<QObject *, QEvent::Type>, Listener>;
 
-    Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
-    void removeEventListener(Listeners::iterator itr);
-    static PromiseEventFilter &getSingleInstance();
+    PROMISE_API Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
+    PROMISE_API void removeEventListener(Listeners::iterator itr);
+    PROMISE_API static PromiseEventFilter &getSingleInstance();
 
 protected:
-    bool eventFilter(QObject *object, QEvent *event) override;
-    bool removeObjectFilters(QObject *object);
+    PROMISE_API bool eventFilter(QObject *object, QEvent *event) override;
+    PROMISE_API bool removeObjectFilters(QObject *object);
     Listeners listeners_;
 };
 
 // Wait event will wait the event for only once
-Promise waitEvent(QObject      *object,
-                  QEvent::Type  eventType,
-                  bool          callSysHandler = false);
+PROMISE_API Promise waitEvent(QObject      *object,
+                              QEvent::Type  eventType,
+                              bool          callSysHandler = false);
 
 struct QtTimerHolder: QObject {
-    ~QtTimerHolder();
+    PROMISE_API ~QtTimerHolder();
 private:
-    QtTimerHolder();
+    PROMISE_API QtTimerHolder();
 public:
-    static Promise delay(int time_ms);
-    static Promise yield();
-    static Promise setTimeout(const std::function<void(bool)> &func,
+    PROMISE_API static Promise delay(int time_ms);
+    PROMISE_API static Promise yield();
+    PROMISE_API static Promise setTimeout(const std::function<void(bool)> &func,
                               int time_ms);
 
 protected:
-    void timerEvent(QTimerEvent *event);
+    PROMISE_API void timerEvent(QTimerEvent *event);
 private:
     std::map<int, promise::Defer>  defers_;
 
-    static QtTimerHolder &getInstance();
+    PROMISE_API static QtTimerHolder &getInstance();
 };
 
 
-Promise delay(int time_ms);
-Promise yield();
-Promise setTimeout(const std::function<void(bool)> &func,
-                          int time_ms);
-void cancelDelay(Promise promise);
-void clearTimeout(Promise promise);
+PROMISE_API Promise delay(int time_ms);
+PROMISE_API Promise yield();
+PROMISE_API Promise setTimeout(const std::function<void(bool)> &func,
+                               int time_ms);
+PROMISE_API void cancelDelay(Promise promise);
+PROMISE_API void clearTimeout(Promise promise);
 
 }
+
+
+#ifdef PROMISE_HEADONLY
+#include "promise_qt.cpp"
+#endif
+
 #endif

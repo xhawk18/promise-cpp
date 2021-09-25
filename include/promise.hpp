@@ -2,6 +2,12 @@
 #ifndef INC_PROMISE_HPP_
 #define INC_PROMISE_HPP_
 
+#ifdef PROMISE_HEADONLY
+#define PROMISE_API inline
+#else
+#define PROMISE_API
+#endif
+
 #include <list>
 #include <vector>
 #include <memory>
@@ -32,16 +38,16 @@ struct Task {
  * Task state in TaskList always be kPending
  */
 struct PromiseHolder {
-    ~PromiseHolder();
+    PROMISE_API ~PromiseHolder();
     std::list<std::weak_ptr<SharedPromise>> owners_;
     std::list<std::shared_ptr<Task>>        pendingTasks_;
     TaskState                               state_;
     any                                     value_;
 
-    void dump() const;
-    static any *getUncaughtExceptionHandler();
-    static void onUncaughtException(const any &arg);
-    static void handleUncaughtException(const any &onUncaughtException);
+    PROMISE_API void dump() const;
+    PROMISE_API static any *getUncaughtExceptionHandler();
+    PROMISE_API static void onUncaughtException(const any &arg);
+    PROMISE_API static void handleUncaughtException(const any &onUncaughtException);
 };
 
 // Check if ...ARGS only has one any type
@@ -51,7 +57,7 @@ struct is_one_any : public std::is_same<typename tuple_remove_cvref<std::tuple<A
 
 struct SharedPromise {
     std::shared_ptr<PromiseHolder> promiseHolder_;
-    void dump() const;
+    PROMISE_API void dump() const;
 };
 
 struct Defer {
@@ -67,21 +73,20 @@ struct Defer {
         reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
-    void resolve(const any &arg) const;
-    void reject(const any &arg) const;
+    PROMISE_API void resolve(const any &arg) const;
+    PROMISE_API void reject(const any &arg) const;
 
-    Promise getPromise() const;
+    PROMISE_API Promise getPromise() const;
 
 private:
     friend struct Promise;
     friend Promise newPromise(const std::function<void(Defer &defer)> &run);
-    Defer(const std::shared_ptr<Task> &task);
+    PROMISE_API Defer(const std::shared_ptr<Task> &task);
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
 struct DeferLoop {
-    void doContinue() const;
     template<typename ...ARGS,
         typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void doBreak(ARGS &&...args) const {
@@ -94,24 +99,25 @@ struct DeferLoop {
         reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
-    void doBreak(const any &arg) const;
-    void reject(const any &arg) const;
+    PROMISE_API void doContinue() const;
+    PROMISE_API void doBreak(const any &arg) const;
+    PROMISE_API void reject(const any &arg) const;
 
 
-    Promise getPromise() const;
+    PROMISE_API Promise getPromise() const;
 
 private:
     friend Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
-    DeferLoop(const Defer &cb);
+    PROMISE_API DeferLoop(const Defer &cb);
     Defer defer_;
 };
 
 struct Promise {
-    Promise &then(const any &deferOrOnResolved);
-    Promise &then(const any &onResolved, const any &onRejected);
-    Promise &fail(const any &onRejected);
-    Promise &always(const any &onAlways);
-    Promise &finally(const any &onFinally);
+    PROMISE_API Promise &then(const any &deferOrOnResolved);
+    PROMISE_API Promise &then(const any &onResolved, const any &onRejected);
+    PROMISE_API Promise &fail(const any &onRejected);
+    PROMISE_API Promise &always(const any &onAlways);
+    PROMISE_API Promise &finally(const any &onFinally);
 
     template<typename ...ARGS,
         typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
@@ -124,20 +130,20 @@ struct Promise {
         reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
-    void resolve(const any &arg) const;
-    void reject(const any &arg) const;
+    PROMISE_API void resolve(const any &arg) const;
+    PROMISE_API void reject(const any &arg) const;
 
-    void clear();
-    operator bool() const;
+    PROMISE_API void clear();
+    PROMISE_API operator bool() const;
 
-    void dump() const;
+    PROMISE_API void dump() const;
 
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
 
-Promise newPromise(const std::function<void(Defer &defer)> &run);
-Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
+PROMISE_API Promise newPromise(const std::function<void(Defer &defer)> &run);
+PROMISE_API Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
 template<typename ...ARGS>
 inline Promise resolve(ARGS &&...args) {
     return newPromise([&args...](Defer &defer) { defer.resolve(std::forward<ARGS>(args)...); });
@@ -152,7 +158,7 @@ inline Promise reject(ARGS &&...args) {
 /* Returns a promise that resolves when all of the promises in the iterable
    argument have resolved, or rejects with the reason of the first passed
    promise that rejects. */
-Promise all(const std::list<Promise> &promise_list);
+PROMISE_API Promise all(const std::list<Promise> &promise_list);
 template<typename PROMISE_LIST,
     typename std::enable_if<is_iterable<PROMISE_LIST>::value
                             && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
@@ -170,7 +176,7 @@ inline Promise all(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
 /* returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise. */
-Promise race(const std::list<Promise> &promise_list);
+PROMISE_API Promise race(const std::list<Promise> &promise_list);
 template<typename PROMISE_LIST,
     typename std::enable_if<is_iterable<PROMISE_LIST>::value
                             && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
@@ -185,7 +191,7 @@ inline Promise race(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
 }
 
 
-Promise raceAndReject(const std::list<Promise> &promise_list);
+PROMISE_API Promise raceAndReject(const std::list<Promise> &promise_list);
 template<typename PROMISE_LIST,
     typename std::enable_if<is_iterable<PROMISE_LIST>::value
                             && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
@@ -200,7 +206,7 @@ inline Promise raceAndReject(PROMISE0 defer0, PROMISE_LIST ...promise_list) {
 }
 
 
-Promise raceAndResolve(const std::list<Promise> &promise_list);
+PROMISE_API Promise raceAndResolve(const std::list<Promise> &promise_list);
 template<typename PROMISE_LIST,
     typename std::enable_if<is_iterable<PROMISE_LIST>::value
                             && !std::is_same<PROMISE_LIST, std::list<Promise>>::value
@@ -219,4 +225,9 @@ inline void handleUncaughtException(const any &onUncaughtException) {
 }
 
 } // namespace promise
+
+#ifdef PROMISE_HEADONLY
+#include "../src/promise.cpp"
+#endif
+
 #endif

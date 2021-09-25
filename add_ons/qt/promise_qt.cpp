@@ -1,3 +1,6 @@
+#ifndef INC_PROMISE_QT_CPP_
+#define INC_PROMISE_QT_CPP_
+
 /*
  * Copyright (c) 2021, xhawk18
  * at gmail.com
@@ -213,3 +216,5 @@ void clearTimeout(Promise promise) {
 }
 
 }
+
+#endif

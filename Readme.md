@@ -47,7 +47,7 @@
 
 ## What is promise-cpp ?
 
-Promise-cpp is **header only** library that implements promise/A+ standard.
+Promise-cpp is **header only** library that implements promise/A+ standard. (To support header only, compiled with macro PROMISE_HEADONLY)
   
 Promise-cpp is easy to use, just #include "promise.hpp" is enough. With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 

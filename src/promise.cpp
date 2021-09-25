@@ -1,3 +1,6 @@
+#ifndef INC_PROMISE_CPP_
+#define INC_PROMISE_CPP_
+
 #include "promise.hpp"
 #include <cassert>
 #include <stdexcept>
@@ -5,7 +8,7 @@
 
 namespace promise {
 
-void healthyCheck(int line, PromiseHolder *promiseHolder) {
+PROMISE_API static void healthyCheck(int line, PromiseHolder *promiseHolder) {
     if (!promiseHolder) {
         fprintf(stderr, "line = %d, %d, promiseHolder is null\n", line, __LINE__);
         throw std::runtime_error("");
@@ -69,7 +72,7 @@ void PromiseHolder::dump() const {
     }
 }
 
-static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
+PROMISE_API static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
     healthyCheck(__LINE__, left->promiseHolder_.get());
     healthyCheck(__LINE__, right.get());
     //left->dump();
@@ -105,7 +108,7 @@ static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<Pro
     healthyCheck(__LINE__, right.get());
 }
 
-static void call(std::shared_ptr<Task> task) {
+PROMISE_API static void call(std::shared_ptr<Task> task) {
     std::shared_ptr<PromiseHolder> promiseHolder; //Can hold the temporarily created promise
     while (true) {
         if (task->state_ != TaskState::kPending) return;
@@ -404,6 +407,7 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
     });
 }
 
+#if 0
 Promise reject(const any &arg) {
     return newPromise([arg](Defer &defer) { defer.reject(arg); });
 }
@@ -411,6 +415,7 @@ Promise reject(const any &arg) {
 Promise resolve(const any &arg) {
     return newPromise([arg](Defer &defer) { defer.resolve(arg); });
 }
+#endif
 
 Promise all(const std::list<Promise> &promise_list) {
     if (promise_list.size() == 0) {
@@ -470,3 +475,4 @@ Promise raceAndResolve(const std::list<Promise> &promise_list) {
  
 } // namespace promise
 
+#endif
