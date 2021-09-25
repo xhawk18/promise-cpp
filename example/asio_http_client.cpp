@@ -77,8 +77,7 @@ void do_session(
     //<1> Resolve the host
     async_resolve(session->resolver_, host, port)
 
-    .then([=](const any &result) {
-        tcp::resolver::results_type &results = result.cast<tcp::resolver::results_type>();
+    .then([=](tcp::resolver::results_type &results) {
         //<2> Connect to the host
         return async_connect(session->socket_, results);
 
@@ -86,14 +85,12 @@ void do_session(
         //<3> Write the request
         return async_write(session->socket_, session->req_);
 
-    }).then([=](const any &result) {
-        size_t bytes_transferred = result.cast<size_t>();
+    }).then([=](size_t bytes_transferred) {
         boost::ignore_unused(bytes_transferred);
         //<4> Read the response
         return async_read(session->socket_, session->buffer_, session->res_);
 
-    }).then([=](const any &result) {
-        size_t bytes_transferred = result.cast<size_t>();
+    }).then([=](size_t bytes_transferred) {
         boost::ignore_unused(bytes_transferred);
         //<5> Write the message to standard out
         std::cout << session->res_ << std::endl;
@@ -101,13 +98,11 @@ void do_session(
     }).then([]() {
         //<6> success, return default error_code
         return boost::system::error_code();
-    }, [](const any &result) {
-        const boost::system::error_code err = result.cast<boost::system::error_code>();
+    }, [](const boost::system::error_code err) {
         //<6> failed, return the error_code
         return err;
 
-    }).then([=](const any &result) {
-        boost::system::error_code &err = result.cast<boost::system::error_code>();
+    }).then([=](boost::system::error_code &err) {
         //<7> Gracefully close the socket
         std::cout << "shutdown..." << std::endl;
         session->socket_.shutdown(tcp::socket::shutdown_both, err);
