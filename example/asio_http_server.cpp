@@ -316,13 +316,11 @@ do_session(
         }).then([]() {
             //<3> success, return default error_code
             return boost::system::error_code();
-        }, [](const any &result) {
-            const boost::system::error_code &err = result.cast<boost::system::error_code>();
+        }, [](const boost::system::error_code err) {
             //<3> failed, return the error_code
             return err;
 
-        }).then([=](const any &result) {
-            boost::system::error_code &err = result.cast<boost::system::error_code>();
+        }).then([=](boost::system::error_code &err) {
             //<4> Keep-alive or close the connection.
             if (!err && !session->close_) {
                 loop.doContinue();//continue doWhile ...
@@ -370,13 +368,11 @@ do_listen(
 
     auto doc_root_ = std::make_shared<std::string>(doc_root);
     doWhile([acceptor, doc_root_](DeferLoop &loop){
-        async_accept(*acceptor).then([=](const any &result) {
-            std::shared_ptr<tcp::socket> socket = result.cast<std::shared_ptr<tcp::socket>>();
+        async_accept(*acceptor).then([=](std::shared_ptr<tcp::socket> socket) {
             std::cout << "accepted" << std::endl;
             auto session = std::make_shared<Session>(*socket, *doc_root_);
             do_session(session);
-        }).fail([](const any &result) {
-            const boost::system::error_code &err = result.cast<boost::system::error_code>();
+        }).fail([](const boost::system::error_code err) {
         }).then(loop);
     });
 }
