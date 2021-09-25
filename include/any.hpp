@@ -271,8 +271,10 @@ struct any_call_t<RET, std::tuple<any>, FUNC> {
             return (func(const_cast<any &>(arg)));
 
         any_arguemnt_type &args = any_cast<any_arguemnt_type &>(arg);
-        if (args.size() == 0)
-            return (func(any()));
+        if (args.size() == 0) {
+            any empty;
+            return (func(empty));
+        }
         else if(args.size() == 1)
             return (func(args[0]));
         else
@@ -298,7 +300,7 @@ struct any_call_with_ret_t<void, NOCVR_ARGS, FUNC> {
 template<typename FUNC>
 inline any any_call(const FUNC &func, const any &arg) {
     using func_t = call_traits<FUNC>;
-    using nocvr_argument_type = typename tuple_remove_cvref<func_t::argument_type>::type;
+    using nocvr_argument_type = typename tuple_remove_cvref<typename func_t::argument_type>::type;
     const auto &stdFunc = func_t::to_std_function(func);
     if (!stdFunc)
         return any();

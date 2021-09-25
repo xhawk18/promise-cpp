@@ -120,10 +120,12 @@ void test_promise_all() {
 }
 
 int main(int argc, char **argv) {
-    handleUncaughtException([](long n, int m) {
+    handleUncaughtException([](Promise &d) {
         printf("UncaughtException\n");
         
-        printf("UncaughtException parameters = %d %d\n", (int)n, m);
+        d.fail([](long n, int m) {
+            printf("UncaughtException parameters = %d %d\n", (int)n, m);
+        });
     });
 
     test_promise_all();

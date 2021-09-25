@@ -11,25 +11,27 @@
     - [Sample code 1](#sample-code-1)
     - [Sample code 2](#sample-code-2)
   - [Global functions](#global-functions)
-    - [Defer newPromise(FUNC func);](#defer-newpromisefunc-func)
-    - [Defer resolve(const RET_ARG... &ret_arg);](#defer-resolveconst-ret_arg-ret_arg)
-    - [Defer reject(const RET_ARG... &ret_arg);](#defer-rejectconst-ret_arg-ret_arg)
-    - [Defer all(const PROMISE_LIST &promise_list);](#defer-allconst-promise_list-promise_list)
-    - [Defer race(const PROMISE_LIST &promise_list);](#defer-raceconst-promise_list-promise_list)
-    - [Defer raceAndReject(const PROMISE_LIST &promise_list);](#defer-raceandrejectconst-promise_list-promise_list)
-    - [Defer raceAndResolve(const PROMISE_LIST &promise_list);](#defer-raceandresolveconst-promise_list-promise_list)
-    - [Defer doWhile(FUNC func);](#defer-dowhilefunc-func)
-  - [Class Defer - type of promise object.](#class-defer---type-of-promise-object)
+    - [Promise newPromise(FUNC func);](#promise-newpromisefunc-func)
+    - [Promise resolve(const RET_ARG... &ret_arg);](#promise-resolveconst-ret_arg-ret_arg)
+    - [Promise reject(const RET_ARG... &ret_arg);](#promise-rejectconst-ret_arg-ret_arg)
+    - [Promise all(const PROMISE_LIST &promise_list);](#promise-allconst-promise_list-promise_list)
+    - [Promise race(const PROMISE_LIST &promise_list);](#promise-raceconst-promise_list-promise_list)
+    - [Promise raceAndReject(const PROMISE_LIST &promise_list);](#promise-raceandrejectconst-promise_list-promise_list)
+    - [Promise raceAndResolve(const PROMISE_LIST &promise_list);](#promise-raceandresolveconst-promise_list-promise_list)
+    - [Promise doWhile(FUNC func);](#promise-dowhilefunc-func)
+  - [Class Promise - type of promise object](#class-promise---type-of-promise-object)
+    - [Promise::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#promisethenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
+    - [Promise::then(FUNC_ON_RESOLVED on_resolved)](#promisethenfunc_on_resolved-on_resolved)
+    - [Promise::then(Defer d)](#promisethendefer-d)
+    - [Promise::fail(FUNC_ON_REJECTED on_rejected)](#promisefailfunc_on_rejected-on_rejected)
+    - [Promise::finally(FUNC_ON_FINALLY on_finally)](#promisefinallyfunc_on_finally-on_finally)
+    - [Promise::always(FUNC_ON_ALWAYS on_always)](#promisealwaysfunc_on_always-on_always)
+  - [Class Defer - type of callback object for promise object.](#class-defer---type-of-callback-object-for-promise-object)
     - [Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
     - [Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
-    - [Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)](#deferthenfunc_on_resolved-on_resolved-func_on_rejected-on_rejected)
-    - [Defer::then(FUNC_ON_RESOLVED on_resolved)](#deferthenfunc_on_resolved-on_resolved)
-    - [Defer::then(Defer d)](#deferthendefer-d)
-    - [Defer::fail(FUNC_ON_REJECTED on_rejected)](#deferfailfunc_on_rejected-on_rejected)
-    - [Defer::finally(FUNC_ON_FINALLY on_finally)](#deferfinallyfunc_on_finally-on_finally)
-    - [Defer::always(FUNC_ON_ALWAYS on_always)](#deferalwaysfunc_on_always-on_always)
-    - [Defer::doContinue(const RET_ARG... &ret_arg);](#deferdocontinueconst-ret_arg-ret_arg)
-    - [Defer::doBreak(const RET_ARG... &ret_arg);](#deferdobreakconst-ret_arg-ret_arg)
+  - [Class DeferLoop - type of callback object for doWhile.](#class-deferloop---type-of-callback-object-for-dowhile)
+    - [DeferLoop::doContinue();](#deferloopdocontinue)
+    - [DeferLoop::doBreak(const RET_ARG... &ret_arg);](#deferloopdobreakconst-ret_arg-ret_arg)
     - [about the chaining parameter](#about-the-chaining-parameter)
     - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
       - [Resolved parameters](#resolved-parameters)
@@ -38,7 +40,6 @@
     - [copy the promise object](#copy-the-promise-object)
     - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
     - [about multithread](#about-multithread)
-    - [working in embedded chips ?](#working-in-embedded-chips-)
 
 <!-- /TOC -->
 
@@ -56,25 +57,25 @@ Promise-cpp can be the base component in event-looped asychronized programming, 
 
 ### Examples list 
 
-* [test/test0.cpp](test/test0.cpp): a simple test code for promise resolve/reject operations. (no dependencies)
+* [example/test0.cpp](example/test0.cpp): a simple test code for promise resolve/reject operations. (no dependencies)
 
-* [test/simple_timer.cpp](test/simple_timer.cpp): simple promisified timer. (no dependencies)
+* [example/simple_timer.cpp](example/simple_timer.cpp): simple promisified timer. (no dependencies)
 
-* [test/simple_benchmark_test.cpp](test/simple_benchmark_test.cpp): benchmark test for simple promisified asynchronized tasks. (no dependencies)
+* [example/simple_benchmark_test.cpp](example/simple_benchmark_test.cpp): benchmark test for simple promisified asynchronized tasks. (no dependencies)
 
-* [test/asio_timer.cpp](test/asio_timer.cpp): promisified timer based on asio callback timer. (boost::asio required)
+* [example/asio_timer.cpp](example/asio_timer.cpp): promisified timer based on asio callback timer. (boost::asio required)
 
-* [test/asio_benchmark_test.cpp](test/asio_benchmark_test.cpp): benchmark test for promisified asynchronized tasks in asio. (boost::asio required)
+* [example/asio_benchmark_test.cpp](example/asio_benchmark_test.cpp): benchmark test for promisified asynchronized tasks in asio. (boost::asio required)
 
-* [test/asio_http_client.cpp](test/asio_http_client.cpp): promisified flow for asynchronized http client. (boost::asio, boost::beast required)
+* [example/asio_http_client.cpp](example/asio_http_client.cpp): promisified flow for asynchronized http client. (boost::asio, boost::beast required)
 
-* [test/asio_http_server.cpp](test/asio_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
+* [example/asio_http_server.cpp](example/asio_http_server.cpp): promisified flow for asynchronized http server. (boost::asio, boost::beast required)
 
-* [test/qt_timer](test/qt_timer):  promisified timer in QT gui thread. (QT required)
+* [example/qt_timer](example/qt_timer):  promisified timer in QT gui thread. (QT required)
 
-* [test/mfc_timer](test/mfc_timer):  promisified timer in windows MFC gui thread.
+* [example/mfc_timer](example/mfc_timer):  promisified timer in windows MFC gui thread.
 
-Please check folder ["build"](build) to get the codelite/msvc projects for the test code above, or use cmake to build from [CMakeLists.txt](CMakeLists.txt).
+Please use cmake to build from [CMakeLists.txt](CMakeLists.txt).
 
 ### Compiler required
 
@@ -88,20 +89,15 @@ The library has passed test on these compilers --
 
 ### Build tips
 
-Some of the [examples](test) use boost::asio as io service, and use boost::beast as http service. 
-You need to install [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
+Some of the [examples](example) use boost::asio as io service, and use boost::beast as http service. 
+You need to [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
  or higher to build the examples.
 
 For examples, on windows, you can build boost library in these steps --
 
 ```
-> cd *boost_source_folder*
-> bootstrap.bat
-> b2.exe stage variant=release runtime-link=static threading=multi
-> b2.exe stage variant=debug runtime-link=static threading=multi
+> cmake -DBOOST_ROOT=/path/to/boost_1_70_0 /path/to/promise/source
 ```
-
-After have boost installed, modify path of boost library in the example's project file according to the real path.
 
 ### Sample code 1
 
@@ -115,8 +111,8 @@ This sample code shows converting a timer callback to promise object.
 using namespace promise;
 using namespace boost::asio;
 
-/* Convert callback to a promise (Defer) */
-Defer myDelay(boost::asio::io_service &io, uint64_t time_ms) {
+/* Convert callback to a promise */
+Promise myDelay(boost::asio::io_service &io, uint64_t time_ms) {
     return newPromise([&io, time_ms](Defer &d) {
         setTimeout(io, [d](bool cancelled) {
             if (cancelled)
@@ -128,7 +124,7 @@ Defer myDelay(boost::asio::io_service &io, uint64_t time_ms) {
 }
 
 
-Defer testTimer(io_service &io) {
+Promise testTimer(io_service &io) {
 
     return myDelay(io, 3000).then([&] {
         printf("timer after 3000 ms!\n");
@@ -146,7 +142,7 @@ Defer testTimer(io_service &io) {
 int main() {
     io_service io;
 
-    Defer timer = testTimer(io);
+    Promise timer = testTimer(io);
 
     delay(io, 4500).then([=] {
         printf("clearTimeout\n");
@@ -185,7 +181,7 @@ void test3(int n) {
     printf("n = %d\n", n);
 }
 
-Defer run(Defer &next){
+Promise run(Defer &next){
 
     return newPromise([](Defer d){
         output_func_name();
@@ -229,7 +225,7 @@ Defer run(Defer &next){
 }
 
 int main(int argc, char **argv) {
-    Defer next;
+    Promise next;
 
     run(next);
     printf("======  after call run ======\n");
@@ -245,8 +241,8 @@ int main(int argc, char **argv) {
 
 ## Global functions
 
-### Defer newPromise(FUNC func);
-Creates a new Defer object with a user-defined function.
+### Promise newPromise(FUNC func);
+Creates a new Promise object with a user-defined function.
 The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
 for example --
 
@@ -255,7 +251,7 @@ return newPromise([](Defer d){
 })
 ```
 
-### Defer resolve(const RET_ARG... &ret_arg);
+### Promise resolve(const RET_ARG... &ret_arg);
 Returns a promise that is resolved with the given value.
 for example --
 
@@ -263,7 +259,7 @@ for example --
 return resolve(3, '2');
 ```
 
-### Defer reject(const RET_ARG... &ret_arg);
+### Promise reject(const RET_ARG... &ret_arg);
 Returns a promise that is rejected with the given arguments.
 for example --
 
@@ -271,18 +267,18 @@ for example --
 return reject("some_error");
 ```
 
-### Defer all(const PROMISE_LIST &promise_list);
+### Promise all(const PROMISE_LIST &promise_list);
 Wait until all promise objects in "promise_list" are resolved or one of which is rejected.
-The "promise_list" can be any container that has Defer as element type.
+The "promise_list" can be any container that has Promise object as element type.
 
-> for (Defer &defer : promise_list) { ... }
+> for (Promise &promise : promise_list) { ... }
 
 for example --
 
 ```cpp
-Defer d0 = newPromise([](Defer d){ /* ... */ });
-Defer d1 = newPromise([](Defer d){ /* ... */ });
-std::vector<Defer> promise_list = { d0, d1 };
+Promise d0 = newPromise([](Defer d){ /* ... */ });
+Promise d1 = newPromise([](Defer d){ /* ... */ });
+std::vector<Promise> promise_list = { d0, d1 };
 
 all(promise_list).then([](){
     /* code here for all promise objects are resolved */
@@ -291,20 +287,20 @@ all(promise_list).then([](){
 });
 ```
 
-### Defer race(const PROMISE_LIST &promise_list);
+### Promise race(const PROMISE_LIST &promise_list);
 Returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise.
-The "promise_list" can be any container that has Defer as element type.
+The "promise_list" can be any container that has Promise object as element type.
 
-> for (Defer &defer : promise_list) { ... }
+> for (Promise &promise : promise_list) { ... }
 
 for example --
 
 ```cpp
-Defer d0 = newPromise([](Defer d){ /* ... */ });
-Defer d1 = newPromise([](Defer d){ /* ... */ });
-std::vector<Defer> promise_list = { d0, d1 };
+Promise d0 = newPromise([](Defer d){ /* ... */ });
+Promise d1 = newPromise([](Defer d){ /* ... */ });
+std::vector<Promise> promise_list = { d0, d1 };
 
 race(promise_list).then([](){
     /* code here for one of the promise objects is resolved */
@@ -313,15 +309,15 @@ race(promise_list).then([](){
 });
 ```
 
-### Defer raceAndReject(const PROMISE_LIST &promise_list);
+### Promise raceAndReject(const PROMISE_LIST &promise_list);
 Same as function race(), and reject all depending promises object in the list.
 
-### Defer raceAndResolve(const PROMISE_LIST &promise_list);
+### Promise raceAndResolve(const PROMISE_LIST &promise_list);
 Same as function race(), and resove all depending promises object in the list.
 
-### Defer doWhile(FUNC func);
+### Promise doWhile(FUNC func);
 "While loop" for promisied task.
-A promise(Defer) object will passed as parameter when call func, which can be resolved to continue with the "while loop", or be rejected to break from the "while loop". 
+A promise object will passed as parameter when call func, which can be resolved to continue with the "while loop", or be rejected to break from the "while loop". 
 
 for example --
 
@@ -329,17 +325,107 @@ for example --
 doWhile([](Defer d){
     // Add code here for your task in "while loop"
     
-    // Call "d.doContinue();" or "d.resolve();" to continue with the "while loop",
+    // Call "d.doContinue()" to continue with the "while loop",
     
-    // or call "d.doBreak(); or "d.reject();" to break from the "while loop", in this case,
+    // or call "d.doBreak()" to break from the "while loop", in this case,
     // the returned promise object will be in resolved status.
 });
 
 ```
 
-## Class Defer - type of promise object.
+## Class Promise - type of promise object
 
-class Defer is the type of promise object.
+### Promise::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)
+Return the chaining promise object, where on_resolved is the function to be called when 
+previous promise object calls function resolve, on_rejected is the function to be called
+when previous promise object calls function reject.
+for example --
+
+```cpp
+return newPromise([](Defer d){
+    d.resolve(9567, 'A');
+}).then(
+
+    /* function on_resolved */ [](int n, char ch){
+        printf("%d %c\n", n, ch);   //will print 9567 here
+    },
+
+    /* function on_rejected */ [](){
+        printf("promise rejected\n"); //will not run to here in this code 
+    }
+);
+```
+
+### Promise::then(FUNC_ON_RESOLVED on_resolved)
+Return the chaining promise object, where on_resolved is the function to be called when 
+previous promise object calls function resolve.
+for example --
+
+```cpp
+return newPromise([](Defer d){
+    d.resolve(9567);
+}).then([](int n){
+    printf("%d\n", n);  b //will print 9567 here
+});
+```
+
+### Promise::then(Defer d)
+Return the chaining promise object, where d is the promise object be called when 
+previous promise object calls function resolve or reject.
+
+### Promise::fail(FUNC_ON_REJECTED on_rejected)
+Return the chaining promise object, where on_rejected is the function to be called when
+previous promise object calls function reject.
+
+This function is usually named "catch" in most implements of Promise library. 
+  https://www.promisejs.org/api/
+
+In promise_cpp, function name "fail" is used instead of "catch", since "catch" is a keyword of c++.
+
+for example --
+
+```cpp
+return newPromise([](Defer d){
+    d.reject(-1, std::string("oh, no!"));
+}).fail([](int err, string &str){
+    printf("%d, %s\n", err, str.c_str());   //will print "-1, oh, no!" here
+});
+```
+
+### Promise::finally(FUNC_ON_FINALLY on_finally)
+Return the chaining promise object, where on_finally is the function to be called whenever
+the previous promise object is be resolved or rejected.
+
+The returned promise object will keeps the resolved/rejected state of current promise object.
+
+for example --
+
+```cpp
+return newPromise([](Defer d){
+    d.reject(std::string("oh, no!"));
+}).finally([](){
+    printf("in finally\n");   //will print "in finally" here
+});
+```
+
+### Promise::always(FUNC_ON_ALWAYS on_always)
+Return the chaining promise object, where on_always is the function to be called whenever
+the previous promise object is be resolved or rejected.
+
+The returned promise object will be in resolved state whenever current promise object is
+resolved or rejected.
+
+for example --
+
+```cpp
+return newPromise([](Defer d){
+    d.reject(std::string("oh, no!"));
+}).always([](){
+    printf("in always\n");   //will print "in always" here
+});
+```
+
+## Class Defer - type of callback object for promise object.
 
 ### Defer::resolve(const RET_ARG... &ret_arg);
 Resolve the promise object with arguments, where you can put any number of ret_arg with any type.
@@ -367,105 +453,16 @@ return newPromise([](Defer d){
 })
 ```
 
-### Defer::then(FUNC_ON_RESOLVED on_resolved, FUNC_ON_REJECTED on_rejected)
-Return the chaining promise object, where on_resolved is the function to be called when 
-previous promise object calls function resolve, on_rejected is the function to be called
-when previous promise object calls function reject.
-for example --
+## Class DeferLoop - type of callback object for doWhile.
 
-```cpp
-return newPromise([](Defer d){
-    d.resolve(9567, 'A');
-}).then(
-
-    /* function on_resolved */ [](int n, char ch){
-        printf("%d %c\n", n, ch);   //will print 9567 here
-    },
-
-    /* function on_rejected */ [](){
-        printf("promise rejected\n"); //will not run to here in this code 
-    }
-);
-```
-
-### Defer::then(FUNC_ON_RESOLVED on_resolved)
-Return the chaining promise object, where on_resolved is the function to be called when 
-previous promise object calls function resolve.
-for example --
-
-```cpp
-return newPromise([](Defer d){
-    d.resolve(9567);
-}).then([](int n){
-    printf("%d\n", n);  b //will print 9567 here
-});
-```
-
-### Defer::then(Defer d)
-Return the chaining promise object, where d is the promise object be called when 
-previous promise object calls function resolve or reject.
-
-### Defer::fail(FUNC_ON_REJECTED on_rejected)
-Return the chaining promise object, where on_rejected is the function to be called when
-previous promise object calls function reject.
-
-This function is usually named "catch" in most implements of Promise library. 
-  https://www.promisejs.org/api/
-
-In promise_cpp, function name "fail" is used instead of "catch", since "catch" is a keyword of c++.
-
-for example --
-
-```cpp
-return newPromise([](Defer d){
-    d.reject(-1, std::string("oh, no!"));
-}).fail([](int err, string &str){
-    printf("%d, %s\n", err, str.c_str());   //will print "-1, oh, no!" here
-});
-```
-
-### Defer::finally(FUNC_ON_FINALLY on_finally)
-Return the chaining promise object, where on_finally is the function to be called whenever
-the previous promise object is be resolved or rejected.
-
-The returned promise object will keeps the resolved/rejected state of current promise object.
-
-for example --
-
-```cpp
-return newPromise([](Defer d){
-    d.reject(std::string("oh, no!"));
-}).finally([](){
-    printf("in finally\n");   //will print "in finally" here
-});
-```
-
-### Defer::always(FUNC_ON_ALWAYS on_always)
-Return the chaining promise object, where on_always is the function to be called whenever
-the previous promise object is be resolved or rejected.
-
-The returned promise object will be in resolved state whenever current promise object is
-resolved or rejected.
-
-for example --
-
-```cpp
-return newPromise([](Defer d){
-    d.reject(std::string("oh, no!"));
-}).always([](){
-    printf("in always\n");   //will print "in always" here
-});
-```
-
-### Defer::doContinue(const RET_ARG... &ret_arg);
-Continue the doWhile loop (ret_arg will be ignored). This function is essentially a alias of 
-[Defer::resolve(const RET_ARG... &ret_arg);](#deferresolveconst-ret_arg-ret_arg)
+### DeferLoop::doContinue();
+Continue the doWhile loop.
 
 for example --
 
 ```cpp
 static int *i = new int(0);
-doWhile([i](Defer d) {
+doWhile([i](DeferLoop d) {
     if(*i < 10) {
         ++ (*i);
         d.doContinue();
@@ -481,9 +478,8 @@ doWhile([i](Defer d) {
 })
 ```
 
-### Defer::doBreak(const RET_ARG... &ret_arg);
-Break the doWhile loop (ret_arg will be transferred). This function is essentially a alias of 
-[Defer::reject(const RET_ARG... &ret_arg);](#deferrejectconst-ret_arg-ret_arg)
+### DeferLoop::doBreak(const RET_ARG... &ret_arg);
+Break the doWhile loop (ret_arg will be transferred).
 
 (please see the example above)
 
@@ -591,7 +587,7 @@ Defer d1 = d;  //It's safe and effective
 The uncaught exceptional or rejected parameters are ignored by default. We can specify a handler function to do with these parameters --
 
 ```
-handleUncaughtException([](Defer &d) {
+handleUncaughtException([](Promise &d) {
     d.fail([](int n, int m) {
         //go here if the uncaught parameters match types "int n, int m".
     }).fail([](char c) {
@@ -606,16 +602,3 @@ handleUncaughtException([](Defer &d) {
 
 The "Defer" object is not thread safe by default for better performance.
 
-To make it workable with multithread, define PM_MULTITHREAD before include "promise.hpp"
-
-```
-#define PM_MULTITHREAD
-#include "promise.hpp"
-```
-
-### working in embedded chips ?
-
-Yes, it works!
-Please use [promise_embed](https://github.com/xhawk18/promise_embed), which is the special version optimized for embedded chips, such as Cortex M0/M3(STM32, etc...).
-
-[Promise_embed](https://github.com/xhawk18/promise_embed) provides multitask function in single thread even through there's no operation system.

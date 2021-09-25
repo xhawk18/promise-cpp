@@ -91,7 +91,7 @@ struct DeferLoop {
     template<typename ...ARGS,
         typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void reject(ARGS &&...args) const {
-        reject_impl(any{ std::vector<any>{std::forward<ARGS>(args)...} });
+        reject(any{ std::vector<any>{std::forward<ARGS>(args)...} });
     }
 
     void doBreak(const any &arg) const;

@@ -247,7 +247,7 @@ void PromiseHolder::onUncaughtException(const any &arg) {
     any *onUncaughtException = getUncaughtExceptionHandler();
     if (onUncaughtException != nullptr && !onUncaughtException->empty()) {
         try {
-            onUncaughtException->call(arg);
+            onUncaughtException->call(reject(arg));
         }
         catch (...) {
             // std::rethrow_exception(std::current_exception());
@@ -265,9 +265,9 @@ void PromiseHolder::handleUncaughtException(const any &onUncaughtException) {
 }
 
 
-Promise &Promise::then(const any &callbackOrOnResolved) {
-    if (callbackOrOnResolved.type() == typeid(Defer)) {
-        Defer &defer = callbackOrOnResolved.cast<Defer &>();
+Promise &Promise::then(const any &deferOrOnResolved) {
+    if (deferOrOnResolved.type() == typeid(Defer)) {
+        Defer &defer = deferOrOnResolved.cast<Defer &>();
         return then([defer](const any &arg) -> any {
             defer.resolve(arg);
             return nullptr;
@@ -276,8 +276,8 @@ Promise &Promise::then(const any &callbackOrOnResolved) {
             return nullptr;
         });
     }
-    else if (callbackOrOnResolved.type() == typeid(DeferLoop)) {
-        DeferLoop &loop = callbackOrOnResolved.cast<DeferLoop &>();
+    else if (deferOrOnResolved.type() == typeid(DeferLoop)) {
+        DeferLoop &loop = deferOrOnResolved.cast<DeferLoop &>();
         return then([loop](const any &arg) -> any {
             (void)arg;
             loop.doContinue();
@@ -288,7 +288,7 @@ Promise &Promise::then(const any &callbackOrOnResolved) {
         });
     }
     else {
-        return then(callbackOrOnResolved, any());
+        return then(deferOrOnResolved, any());
     }
 }
 

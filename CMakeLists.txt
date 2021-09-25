@@ -20,7 +20,9 @@ set(my_source
     include/any.hpp
     include/add_ons.hpp
     include/call_traits.hpp
-    src/promise.cpp)
+    src/promise.cpp
+    Readme.md
+)
 
 include_directories(include .)
 
@@ -29,7 +31,7 @@ add_executable(simple_timer ${my_source} example/simple_timer.cpp)
 add_executable(simple_benchmark_test ${my_source} example/simple_benchmark_test.cpp)
 
 
-find_package(Boost 1.66.0 COMPONENTS)
+find_package(Boost)
 if(NOT Boost_FOUND)
     message(WARNING "Boost not found, so asio projects will not be compiled")
 else()
