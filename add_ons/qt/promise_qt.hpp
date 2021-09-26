@@ -47,57 +47,93 @@
 #include <QTimerEvent>
 #include <QApplication>
 
+#ifdef PROMISE_HEADONLY
+#define PROMISE_QT_API inline
+#elif defined PROMISE_BUILD_SHARED
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(promise_qt_EXPORTS) // add by CMake 
+#    ifdef __GNUC__
+#      define  PROMISE_QT_API __attribute__(dllexport)
+#    else
+#      define  PROMISE_QT_API __declspec(dllexport)
+#    endif
+#  else
+#    ifdef __GNUC__
+#      define  PROMISE_QT_API __attribute__(dllimport)
+#    else
+#      define  PROMISE_QT_API __declspec(dllimport)
+#    endif
+#  endif // promise_qt_EXPORTS
+
+#elif defined __GNUC__
+#  if __GNUC__ >= 4
+#    define PROMISE_QT_API __attribute__ ((visibility ("default")))
+#  else
+#    define PROMISE_QT_API
+#  endif
+
+#elif defined __clang__
+#  define PROMISE_QT_API __attribute__ ((visibility ("default")))
+#else
+#   error "Do not know how to export classes for this platform"
+#endif
+
+#else
+#define PROMISE_QT_API
+#endif
+
 namespace promise {
 
 
 class PromiseEventFilter : public QObject {
 private:
-    PROMISE_API PromiseEventFilter();
+    PROMISE_QT_API PromiseEventFilter();
 
 public:
     using Listener = std::function<bool(QObject *, QEvent *)>;
     using Listeners = std::multimap<std::pair<QObject *, QEvent::Type>, Listener>;
 
-    PROMISE_API Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
-    PROMISE_API void removeEventListener(Listeners::iterator itr);
-    PROMISE_API static PromiseEventFilter &getSingleInstance();
+    PROMISE_QT_API Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
+    PROMISE_QT_API void removeEventListener(Listeners::iterator itr);
+    PROMISE_QT_API static PromiseEventFilter &getSingleInstance();
 
 protected:
-    PROMISE_API bool eventFilter(QObject *object, QEvent *event) override;
-    PROMISE_API bool removeObjectFilters(QObject *object);
+    PROMISE_QT_API bool eventFilter(QObject *object, QEvent *event) override;
+    PROMISE_QT_API bool removeObjectFilters(QObject *object);
     Listeners listeners_;
 };
 
 // Wait event will wait the event for only once
-PROMISE_API Promise waitEvent(QObject      *object,
-                              QEvent::Type  eventType,
-                              bool          callSysHandler = false);
+PROMISE_QT_API Promise waitEvent(QObject      *object,
+                                 QEvent::Type  eventType,
+                                 bool          callSysHandler = false);
 
 struct QtTimerHolder: QObject {
-    PROMISE_API ~QtTimerHolder();
+    PROMISE_QT_API ~QtTimerHolder();
 private:
-    PROMISE_API QtTimerHolder();
+    PROMISE_QT_API QtTimerHolder();
 public:
-    PROMISE_API static Promise delay(int time_ms);
-    PROMISE_API static Promise yield();
-    PROMISE_API static Promise setTimeout(const std::function<void(bool)> &func,
+    PROMISE_QT_API static Promise delay(int time_ms);
+    PROMISE_QT_API static Promise yield();
+    PROMISE_QT_API static Promise setTimeout(const std::function<void(bool)> &func,
                               int time_ms);
 
 protected:
-    PROMISE_API void timerEvent(QTimerEvent *event);
+    PROMISE_QT_API void timerEvent(QTimerEvent *event);
 private:
     std::map<int, promise::Defer>  defers_;
 
-    PROMISE_API static QtTimerHolder &getInstance();
+    PROMISE_QT_API static QtTimerHolder &getInstance();
 };
 
 
-PROMISE_API Promise delay(int time_ms);
-PROMISE_API Promise yield();
-PROMISE_API Promise setTimeout(const std::function<void(bool)> &func,
+PROMISE_QT_API Promise delay(int time_ms);
+PROMISE_QT_API Promise yield();
+PROMISE_QT_API Promise setTimeout(const std::function<void(bool)> &func,
                                int time_ms);
-PROMISE_API void cancelDelay(Promise promise);
-PROMISE_API void clearTimeout(Promise promise);
+PROMISE_QT_API void cancelDelay(Promise promise);
+PROMISE_QT_API void clearTimeout(Promise promise);
 
 }
 

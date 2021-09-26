@@ -26,12 +26,10 @@ set(PROJECT_SOURCES
     ../../include/any.hpp
     ../../include/add_ons.hpp
     ../../include/call_traits.hpp
-    ../../src/promise.cpp
     ../../add_ons/windows/promise_windows.hpp
 )
 
 add_executable(mfc_timer WIN32 ${PROJECT_SOURCES})
 target_compile_definitions(mfc_timer PRIVATE _AFXDLL)
-#target_link_libraries(mfc_timer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
-#target_include_directories(mfc_timer PRIVATE "../..")
+target_link_libraries(mfc_timer PRIVATE promise)
 

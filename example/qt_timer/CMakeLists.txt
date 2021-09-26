@@ -36,9 +36,7 @@ set(PROJECT_SOURCES
     ../../include/any.hpp
     ../../include/add_ons.hpp
     ../../include/call_traits.hpp
-    ../../src/promise.cpp
     ../../add_ons/qt/promise_qt.hpp
-    ../../add_ons/qt/promise_qt.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -57,7 +55,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(qt_timer PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(qt_timer PRIVATE promise promise_qt Qt${QT_VERSION_MAJOR}::Widgets)
 #target_include_directories(qt_timer PRIVATE "../..")
 
 # Set vc debugger PATH

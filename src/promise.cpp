@@ -8,7 +8,7 @@
 
 namespace promise {
 
-PROMISE_API static void healthyCheck(int line, PromiseHolder *promiseHolder) {
+static inline void healthyCheck(int line, PromiseHolder *promiseHolder) {
 #ifndef NDEBUG
     if (!promiseHolder) {
         fprintf(stderr, "line = %d, %d, promiseHolder is null\n", line, __LINE__);
@@ -80,7 +80,7 @@ void PromiseHolder::dump() const {
 #endif
 }
 
-PROMISE_API static void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
+static inline void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
     healthyCheck(__LINE__, left->promiseHolder_.get());
     healthyCheck(__LINE__, right.get());
     //left->dump();
@@ -116,7 +116,7 @@ PROMISE_API static void join(std::shared_ptr<SharedPromise> &left, const std::sh
     healthyCheck(__LINE__, right.get());
 }
 
-PROMISE_API static void call(std::shared_ptr<Task> task) {
+static inline void call(std::shared_ptr<Task> task) {
     std::shared_ptr<PromiseHolder> promiseHolder; //Can hold the temporarily created promise
     while (true) {
         if (task->state_ != TaskState::kPending) return;

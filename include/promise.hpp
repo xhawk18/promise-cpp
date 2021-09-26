@@ -4,9 +4,40 @@
 
 #ifdef PROMISE_HEADONLY
 #define PROMISE_API inline
+#elif defined PROMISE_BUILD_SHARED
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(promise_EXPORTS) // add by CMake 
+#    ifdef __GNUC__
+#      define  PROMISE_API __attribute__(dllexport)
+#    else
+#      define  PROMISE_API __declspec(dllexport)
+#    endif
+#  else
+#    ifdef __GNUC__
+#      define  PROMISE_API __attribute__(dllimport)
+#    else
+#      define  PROMISE_API __declspec(dllimport)
+#    endif
+#  endif // promise_EXPORTS
+
+#elif defined __GNUC__
+#  if __GNUC__ >= 4
+#    define PROMISE_API __attribute__ ((visibility ("default")))
+#  else
+#    define PROMISE_API
+#  endif
+
+#elif defined __clang__
+#  define PROMISE_API __attribute__ ((visibility ("default")))
+#else
+#   error "Do not know how to export classes for this platform"
+#endif
+
 #else
 #define PROMISE_API
 #endif
+
 
 #include <list>
 #include <vector>
@@ -80,7 +111,7 @@ struct Defer {
 
 private:
     friend struct Promise;
-    friend Promise newPromise(const std::function<void(Defer &defer)> &run);
+    friend PROMISE_API Promise newPromise(const std::function<void(Defer &defer)> &run);
     PROMISE_API Defer(const std::shared_ptr<Task> &task);
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
@@ -107,7 +138,7 @@ struct DeferLoop {
     PROMISE_API Promise getPromise() const;
 
 private:
-    friend Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
+    friend PROMISE_API Promise doWhile(const std::function<void(DeferLoop &loop)> &run);
     PROMISE_API DeferLoop(const Defer &cb);
     Defer defer_;
 };
