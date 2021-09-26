@@ -117,7 +117,7 @@ public:
     PROMISE_QT_API static Promise delay(int time_ms);
     PROMISE_QT_API static Promise yield();
     PROMISE_QT_API static Promise setTimeout(const std::function<void(bool)> &func,
-                              int time_ms);
+                                             int time_ms);
 
 protected:
     PROMISE_QT_API void timerEvent(QTimerEvent *event);
@@ -131,7 +131,7 @@ private:
 PROMISE_QT_API Promise delay(int time_ms);
 PROMISE_QT_API Promise yield();
 PROMISE_QT_API Promise setTimeout(const std::function<void(bool)> &func,
-                               int time_ms);
+                                  int time_ms);
 PROMISE_QT_API void cancelDelay(Promise promise);
 PROMISE_QT_API void clearTimeout(Promise promise);
 
