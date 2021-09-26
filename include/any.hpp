@@ -305,6 +305,17 @@ inline any any_call(const FUNC &func, const any &arg) {
     if (!stdFunc)
         return any();
 
+    if (arg.type() == typeid(std::exception_ptr)) {
+        try {
+            std::rethrow_exception(any_cast<std::exception_ptr>(arg));
+        }
+        catch (const any &ex_arg) {
+            return any_call_with_ret_t<typename call_traits<FUNC>::result_type, nocvr_argument_type, func_t>::call(stdFunc, ex_arg);
+        }
+        catch (...) {
+        }
+    }
+
     return any_call_with_ret_t<typename call_traits<FUNC>::result_type, nocvr_argument_type, func_t>::call(stdFunc, arg);
 }
 
