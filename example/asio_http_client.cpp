@@ -27,11 +27,13 @@
 #include <boost/beast/version.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <algorithm>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <regex>
 #include "promise.hpp"
 #include "add_ons/asio/io.hpp"
 
@@ -41,10 +43,79 @@ using     tcp    = boost::asio::ip::tcp;
 namespace http   = boost::beast::http;
 namespace beast  = boost::beast;
 
-                                        //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+//From https://stackoverflow.com/a/11044337
+struct Uri
+{
+public:
+    std::string QueryString, Path, Protocol, Host, Port;
+
+    static Uri Parse(const std::string &uri)
+    {
+        Uri result;
+
+        typedef std::string::const_iterator iterator_t;
+
+        if (uri.length() == 0)
+            return result;
+
+        iterator_t uriEnd = uri.end();
+
+        // get query start
+        iterator_t queryStart = std::find(uri.begin(), uriEnd, '?');
+
+        // protocol
+        iterator_t protocolStart = uri.begin();
+        iterator_t protocolEnd = std::find(protocolStart, uriEnd, ':');            //"://");
+
+        if (protocolEnd != uriEnd)
+        {
+            std::string prot = &*(protocolEnd);
+            if ((prot.length() > 3) && (prot.substr(0, 3) == "://"))
+            {
+                result.Protocol = std::string(protocolStart, protocolEnd);
+                protocolEnd += 3;   //      ://
+            }
+            else
+                protocolEnd = uri.begin();  // no protocol
+        }
+        else
+            protocolEnd = uri.begin();  // no protocol
+
+        // host
+        iterator_t hostStart = protocolEnd;
+        iterator_t pathStart = std::find(hostStart, uriEnd, '/');  // get pathStart
+
+        iterator_t hostEnd = std::find(protocolEnd, 
+            (pathStart != uriEnd) ? pathStart : queryStart,
+            L':');  // check for port
+
+        result.Host = std::string(hostStart, hostEnd);
+
+        // port
+        if ((hostEnd != uriEnd) && ((&*(hostEnd))[0] == ':'))  // we have a port
+        {
+            hostEnd++;
+            iterator_t portEnd = (pathStart != uriEnd) ? pathStart : queryStart;
+            result.Port = std::string(hostEnd, portEnd);
+        }
+
+        // path
+        if (pathStart != uriEnd)
+            result.Path = std::string(pathStart, queryStart);
+
+        // query
+        if (queryStart != uriEnd)
+            result.QueryString = std::string(queryStart, uri.end());
+
+        return result;
+
+    }   // Parse
+};  // uri
 
 // Performs an HTTP GET and prints the response
-void do_session(
+Promise do_session(
     std::string const& host,
     std::string const& port,
     std::string const& target,
@@ -75,7 +146,7 @@ void do_session(
     session->req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
     //<1> Resolve the host
-    async_resolve(session->resolver_, host, port)
+    return async_resolve(session->resolver_, host, port)
 
     .then([=](tcp::resolver::results_type &results) {
         //<2> Connect to the host
@@ -109,30 +180,41 @@ void do_session(
     });
 }
 
+
+Promise download(asio::io_context &ioc, const std::string &url) {
+    const Uri &uri = Uri::Parse(url);
+    if (uri.Protocol != "http") {
+        std::cerr << "Support http protocol only!\n";
+        return promise::reject();
+    }
+
+    std::string port = (uri.Port.empty() ? "80" : uri.Port);
+    std::string target = uri.Path + uri.QueryString;
+
+    std::cout << target << "\n";
+    std::cout << port << "\n";
+    std::cout << uri.Host << "\n";
+ 
+    int http_version = 10;
+    return do_session(uri.Host, port, target, http_version, ioc);
+
+}
+
 //------------------------------------------------------------------------------
 
-int main(int argc, char** argv)
-{
-    // Check command line arguments.
-    if (argc != 4 && argc != 5)
-    {
-        std::cerr <<
-            "Usage: http-client-async <host> <port> <target> [<HTTP version: 1.0 or 1.1(default)>]\n" <<
-            "Example:\n" <<
-            "    http-client-async www.example.com 80 /\n" <<
-            "    http-client-async www.example.com 80 / 1.0\n";
-        return EXIT_FAILURE;
-    }
-    auto const host = argv[1];
-    auto const port = argv[2];
-    auto const target = argv[3];
-    int version = argc == 5 && !std::strcmp("1.0", argv[4]) ? 10 : 11;
-
+int main(int argc, char** argv) {
     // The io_context is required for all I/O
     asio::io_context ioc;
 
     // Launch the asynchronous operation
-    do_session(host, port, target, version, ioc);
+    download(ioc, "http://www.163.com/")
+    .then([&]() {
+        return download(ioc, "http://baidu.com/");
+    }).then([&]() {
+        return download(ioc, "http://qq.com");
+    }).then([&]() {
+        return download(ioc, "http://github.com/xhawk18");
+    });
 
     // Run the I/O service. The call will return when
     // the get operation is complete.
