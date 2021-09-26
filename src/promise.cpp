@@ -427,12 +427,20 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
         return doWhile(run);
     }, [](const any &arg) -> any {
         return newPromise([arg](Defer &defer) {
-            if (arg.type() == typeid(std::tuple<DoBreakTag, any>)) {
-                std::tuple<DoBreakTag, any> &args = arg.cast<std::tuple<DoBreakTag, any> &>();
-                const any &result = std::get<1>(args);
-                defer.resolve(result);
+            //printf("arg. type = %s\n", arg.type().name());
+
+            bool isBreak = false;
+            if (arg.type() == typeid(std::vector<any>)) {
+                std::vector<any> &args = any_cast<std::vector<any> &>(arg);
+                if (args.size() == 2
+                    && args[0].type() == typeid(DoBreakTag)
+                    && args[1].type() == typeid(std::vector<any>)) {
+                    isBreak = true;
+                    defer.resolve(args[1]);
+                }
             }
-            else {
+            
+            if(!isBreak) {
                 defer.reject(arg);
             }
         });
