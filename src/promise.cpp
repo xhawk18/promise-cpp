@@ -80,16 +80,16 @@ void PromiseHolder::dump() const {
 #endif
 }
 
-static inline void join(std::shared_ptr<SharedPromise> &left, const std::shared_ptr<PromiseHolder> &right) {
-    healthyCheck(__LINE__, left->promiseHolder_.get());
+static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::shared_ptr<PromiseHolder> &right) {
+    healthyCheck(__LINE__, left.get());
     healthyCheck(__LINE__, right.get());
     //left->dump();
     //right->dump();
 
     for (const std::shared_ptr<Task> &task : right->pendingTasks_) {
-        task->promiseHolder_ = left->promiseHolder_;
+        task->promiseHolder_ = left;
     }
-    left->promiseHolder_->pendingTasks_.splice(left->promiseHolder_->pendingTasks_.end(), right->pendingTasks_);
+    left->pendingTasks_.splice(left->pendingTasks_.end(), right->pendingTasks_);
 
     std::list<std::weak_ptr<SharedPromise>> owners;
     owners.splice(owners.end(), right->owners_);
@@ -102,8 +102,8 @@ static inline void join(std::shared_ptr<SharedPromise> &left, const std::shared_
     for (const std::weak_ptr<SharedPromise> &owner_ : owners) {
         std::shared_ptr<SharedPromise> owner = owner_.lock();
         if (owner) {
-            owner->promiseHolder_ = left->promiseHolder_;
-            left->promiseHolder_->owners_.push_back(owner);
+            owner->promiseHolder_ = left;
+            left->owners_.push_back(owner);
         }
     }
 
@@ -112,7 +112,7 @@ static inline void join(std::shared_ptr<SharedPromise> &left, const std::shared_
     //fprintf(stderr, "left->promiseHolder_->owners_ size = %d\n", (int)left->promiseHolder_->owners_.size());
 
 
-    healthyCheck(__LINE__, left->promiseHolder_.get());
+    healthyCheck(__LINE__, left.get());
     healthyCheck(__LINE__, right.get());
 }
 
@@ -146,7 +146,7 @@ static inline void call(std::shared_ptr<Task> task) {
                     else {
                         // join the promise
                         Promise promise = value.cast<Promise>();
-                        join(promise.sharedPromise_, promiseHolder);
+                        join(promise.sharedPromise_->promiseHolder_, promiseHolder);
                         promiseHolder = promise.sharedPromise_->promiseHolder_;
                     }
                 }
@@ -168,7 +168,7 @@ static inline void call(std::shared_ptr<Task> task) {
                         else {
                             // join the promise
                             Promise promise = value.cast<Promise>();
-                            join(promise.sharedPromise_, promiseHolder);
+                            join(promise.sharedPromise_->promiseHolder_, promiseHolder);
                             promiseHolder = promise.sharedPromise_->promiseHolder_;
                         }
                     }
@@ -301,7 +301,7 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
     else if (deferOrPromiseOrOnResolved.type() == typeid(Promise)) {
         Promise &promise = deferOrPromiseOrOnResolved.cast<Promise &>();
         if (promise.sharedPromise_ && promise.sharedPromise_->promiseHolder_) {
-            join(this->sharedPromise_, promise.sharedPromise_->promiseHolder_);
+            join(this->sharedPromise_->promiseHolder_, promise.sharedPromise_->promiseHolder_);
             if (this->sharedPromise_->promiseHolder_->pendingTasks_.size() > 0) {
                 std::shared_ptr<Task> task = this->sharedPromise_->promiseHolder_->pendingTasks_.front();
                 call(task);
