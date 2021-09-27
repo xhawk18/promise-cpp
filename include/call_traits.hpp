@@ -214,6 +214,7 @@ public:
     }
 };
 
+#if 0 // Not used currently
 
 template <typename ...P>
 struct subst_gather {};
@@ -260,7 +261,7 @@ auto call_with_more_args(FUNC &&func, ARGS&&...args) -> typename call_traits<FUN
     return Type::call(std::forward<FUNC>(func), std::forward<ARGS>(args)...);
 }
 
-
+#endif
 
 }
 #endif
