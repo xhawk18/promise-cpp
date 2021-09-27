@@ -39,7 +39,7 @@ set(PROJECT_SOURCES
     ../../add_ons/qt/promise_qt.hpp
 )
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+if(${QT_VERSION_MAJOR} GREATER 5)
     qt_add_executable(qt_timer
         ${PROJECT_SOURCES}
     )

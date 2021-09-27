@@ -62,20 +62,22 @@ else()
         link_libraries(pthread)
     endif (UNIX)
 
-    add_compile_definitions(BOOST_ALL_NO_LIB)
-  
     include_directories(. ./add_ons/asio)
     
     add_executable(asio_benchmark_test ${my_headers} example/asio_benchmark_test.cpp)
+    target_compile_definitions(asio_benchmark_test PRIVATE BOOST_ALL_NO_LIB)  
     target_link_libraries(asio_benchmark_test PRIVATE promise)
 
     add_executable(asio_timer ${my_headers} example/asio_timer.cpp)
+    target_compile_definitions(asio_timer PRIVATE BOOST_ALL_NO_LIB)  
     target_link_libraries(asio_timer PRIVATE promise)
 
     add_executable(asio_http_client ${my_headers} example/asio_http_client.cpp)
+    target_compile_definitions(asio_http_client PRIVATE BOOST_ALL_NO_LIB)  
     target_link_libraries(asio_http_client PRIVATE promise)
 
     add_executable(asio_http_server ${my_headers} example/asio_http_server.cpp)
+    target_compile_definitions(asio_http_server PRIVATE BOOST_ALL_NO_LIB)  
     target_link_libraries(asio_http_server PRIVATE promise)
 endif()
 
