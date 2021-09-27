@@ -105,6 +105,33 @@ For examples, on windows, you can build boost library in these steps --
 
 ### Sample code 1
 
+Example of asio http client. [(full code here)](example/asio_http_client.cpp)
+
+```cpp
+int main(int argc, char** argv) {
+    // The io_context is required for all I/O
+    asio::io_context ioc;
+
+    // Launch the asynchronous operation
+    download(ioc, "http://www.163.com/")
+    .then([&]() {
+        return download(ioc, "http://baidu.com/");
+    }).then([&]() {
+        return download(ioc, "http://qq.com");
+    }).then([&]() {
+        return download(ioc, "http://github.com/xhawk18");
+    });
+
+    // Run the I/O service. The call will return when
+    // the get operation is complete.
+    ioc.run();
+
+    return 0;
+}
+```
+
+### Sample code 2
+
 This sample code shows converting a timer callback to promise object.
 
 ```cpp
@@ -154,91 +181,6 @@ int main() {
     });
 
     io.run();
-    return 0;
-}
-```
-
-### Sample code 2
-
-This sample code shows promise resolve/reject flows.
-
-```cpp
-#include <stdio.h>
-#include <string>
-#include "promise.hpp"
-
-using namespace promise;
-
-#define output_func_name() do{ printf("in function %s, line %d\n", __func__, __LINE__); } while(0)
-
-void test1() {
-    output_func_name();
-}
-
-int test2() {
-    output_func_name();
-    return 5;
-}
-
-void test3(int n) {
-    output_func_name();
-    printf("n = %d\n", n);
-}
-
-Promise run(Promise &next){
-
-    return newPromise([](Defer d){
-        output_func_name();
-        d.resolve(3, 5, 6);
-    }).then([](const int &a, int b, int c) {
-        printf("%d %d %d\n", a, b, c);
-        output_func_name();
-    }).then([](){
-        output_func_name();
-    }).then([&next](){
-        output_func_name();
-        next = newPromise([](Defer d) {
-            output_func_name();
-        });
-        //Will call next.resole() or next.reject() later
-        return next;
-    }).then([](int n, char c) {
-        output_func_name();
-        printf("n = %d, c = %c\n", (int)n, c);
-    }).fail([](char n){
-        output_func_name();
-        printf("n = %d\n", (int)n);
-    }).fail([](short n) {
-        output_func_name();
-        printf("n = %d\n", (int)n);
-    }).fail([](int &n) {
-        output_func_name();
-        printf("n = %d\n", (int)n);
-    }).fail([](const std::string &str) {
-        output_func_name();
-        printf("str = %s\n", str.c_str());
-    }).fail([](uint64_t n) {
-        output_func_name();
-        printf("n = %d\n", (int)n);
-    }).then(&test1)
-    .then(&test2)
-    .then(&test3)
-    .always([]() {
-        output_func_name();
-    });
-}
-
-int main(int argc, char **argv) {
-    Promise next;
-
-    run(next);
-    printf("======  after call run ======\n");
-
-    next.resolve(123, 'a');
-    //next.reject('c');
-    //next.reject(std::string("xhchen"));
-    //next.reject(45);
-
     return 0;
 }
 ```
