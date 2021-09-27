@@ -47,7 +47,7 @@ namespace promise {
 template<typename T,
          bool is_basic_type = (std::is_void<T>::value
                             || std::is_fundamental<T>::value
-                            || std::is_pointer<T>::value
+                            || (std::is_pointer<T>::value && !std::is_function<typename std::remove_pointer<T>::type>::value)
                             || std::is_union<T>::value
                             || std::is_enum<T>::value
                             || std::is_array<T>::value) && !std::is_function<T>::value>
@@ -141,7 +141,7 @@ struct call_traits_impl<RET(T::*)(ARG...), false> {
 };
 
 template<typename RET, class T, typename ...ARG>
-struct call_traits_impl<RET(T:: *)(ARG...) const, false> {
+struct call_traits_impl<RET(T::*)(ARG...) const, false> {
     static const bool is_callable = true;
     typedef std::function<RET(ARG...)> fun_type;
     typedef RET result_type;
@@ -173,30 +173,6 @@ struct call_traits_impl<RET(*)(ARG...), false> {
 
 template<typename RET, typename ...ARG>
 struct call_traits_impl<RET(ARG...), false> {
-    static const bool is_callable = true;
-    typedef std::function<RET(ARG...)> fun_type;
-    typedef RET result_type;
-    typedef std::tuple<ARG...> argument_type;
-
-    static fun_type to_std_function(RET(*func)(ARG...)) {
-        return func;
-    }
-};
-
-template<typename RET, typename ...ARG>
-struct call_traits_impl<RET(*)(ARG...), true> {
-    static const bool is_callable = true;
-    typedef std::function<RET(ARG...)> fun_type;
-    typedef RET result_type;
-    typedef std::tuple<ARG...> argument_type;
-
-    static fun_type to_std_function(RET(*func)(ARG...)) {
-        return func;
-    }
-};
-
-template<typename RET, typename ...ARG>
-struct call_traits_impl<RET(ARG...), true> {
     static const bool is_callable = true;
     typedef std::function<RET(ARG...)> fun_type;
     typedef RET result_type;

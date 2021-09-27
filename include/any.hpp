@@ -54,11 +54,16 @@ public: // structors
     }
 
     template<typename ValueType>
-    any(const ValueType & value)
+    any(const ValueType &value)
         : content(new holder<ValueType>(value)) {
     }
 
-    any(const any & other)
+    template<typename RET, typename ...ARG>
+    any(RET value(ARG...))
+        : content(new holder<RET (*)(ARG...)>(value)) {
+    }
+
+    any(const any &other)
         : content(other.content ? other.content->clone() : 0) {
     }
 

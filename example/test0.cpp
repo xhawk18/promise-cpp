@@ -91,8 +91,8 @@ Promise run(Promise &next){
     }).fail([](uint64_t n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).then(&test1)
-    .then(&test2)
+    }).then(test1)
+    .then(test2)
     .then(&test3);
     //.always([]() {
     //    output_func_name();
