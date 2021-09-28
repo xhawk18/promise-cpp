@@ -53,7 +53,8 @@ Promise-cpp is **header only** library that implements promise/A+ standard. (To 
   
 Promise-cpp is easy to use, just #include "promise.hpp" is enough. With promise-cpp, you can resolve or reject any type of data without writing complex template code.
 
-Promise-cpp is designed to built by c++11 compilers and almost no dependencies. Although some of the examples are linked against boost library, promise-cpp itself is absolutely **workable without boost library** and can be used together with other asynchronized libraries.
+Promise-cpp is depended only on STL (c++11 or higher).
+Although some of the asio examples are linked against boost library, promise-cpp itself is absolutely **workable without boost library** and can be used together with other asynchronized libraries.
 
 Promise-cpp can be the base component in event-looped asychronized programming, which is NOT std::promise.
 
@@ -95,12 +96,18 @@ The library has passed test on these compilers --
 
 Some of the [examples](example) use boost::asio as io service, and use boost::beast as http service. 
 You need to [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
- or higher to build the examples.
+ or higher to build these examples.
 
-For examples, on windows, you can build boost library in these steps --
+For examples, you can build with boost library --
 
 ```
-> cmake -DBOOST_ROOT=/path/to/boost_1_70_0 /path/to/promise/source
+> cmake -DBOOST_ROOT=/path/to/boost_source /path/to/promise_source
+```
+
+If you do not have boost installed, just build by --
+
+```
+> cmake /path/to/promise_source
 ```
 
 ### Sample code 1
