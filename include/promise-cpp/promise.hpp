@@ -3,8 +3,6 @@
 #define INC_PROMISE_HPP_
 
 #ifdef PROMISE_HEADER_ONLY
-
-#ifdef PROMISE_HEADER_ONLY
 #define PROMISE_API inline
 #elif defined PROMISE_BUILD_SHARED
 
