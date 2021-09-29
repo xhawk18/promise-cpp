@@ -30,7 +30,7 @@
 #include <iostream>
 #include <string>
 #include <chrono>
-#include "promise.hpp"
+#include "promise-cpp/promise.hpp"
 #include "add_ons/simple_task/simple_task.hpp"
 
 using namespace promise;

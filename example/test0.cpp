@@ -26,7 +26,7 @@
  */
 #include <stdio.h>
 #include <string>
-#include "promise.hpp"
+#include "promise-cpp/promise.hpp"
 
 using namespace promise;
 

@@ -41,7 +41,7 @@
 //   void clearTimeout(Promise promise);
 //
 
-#include "../../include/promise.hpp"
+#include "promise-cpp/promise.hpp"
 #include <chrono>
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>

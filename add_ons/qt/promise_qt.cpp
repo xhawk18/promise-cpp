@@ -40,7 +40,7 @@
 //   void clearTimeout(Promise promise);
 //
 
-#include "../../include/promise.hpp"
+#include "promise-cpp/promise.hpp"
 #include "promise_qt.hpp"
 #include <chrono>
 #include <QObject>

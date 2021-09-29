@@ -22,10 +22,10 @@ set(PROJECT_SOURCES
     res/mfc_timer.ico
     res/mfctimer.rc2
 
-    ../../include/promise.hpp
-    ../../include/any.hpp
-    ../../include/add_ons.hpp
-    ../../include/call_traits.hpp
+    ../../include/promise-cpp/promise.hpp
+    ../../include/promise-cpp/any.hpp
+    ../../include/promise-cpp/add_ons.hpp
+    ../../include/promise-cpp/call_traits.hpp
     ../../add_ons/windows/promise_windows.hpp
 )
 

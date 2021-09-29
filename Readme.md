@@ -1,13 +1,16 @@
 # C++ promise/A+ library in Javascript style.
 
 <!-- TOC -->
-
-- [C++ promise/A+ library in Javascript style.](#c-promisea-library-in-javascript-style)
   - [What is promise-cpp ?](#what-is-promise-cpp-)
+  - [Features](#features)
   - [Examples](#examples)
     - [Examples list](#examples-list)
     - [Compiler required](#compiler-required)
-    - [Build tips](#build-tips)
+    - [Usage](#usage)
+      - [Used as header only library](#used-as-header-only-library)
+      - [Used as static library](#used-as-static-library)
+      - [Used as shared library](#used-as-shared-library)
+      - [Build tips about asio examples](#build-tips-about-asio-examples)
     - [Sample code 1](#sample-code-1)
     - [Sample code 2](#sample-code-2)
   - [Global functions](#global-functions)
@@ -35,28 +38,36 @@
     - [DeferLoop::doContinue();](#deferloopdocontinue)
     - [DeferLoop::doBreak(const RET_ARG... &ret_arg);](#deferloopdobreakconst-ret_arg-ret_arg)
   - [And more ...](#and-more-)
-    - [about exceptions](#about-exceptions)
-    - [about the chaining parameter](#about-the-chaining-parameter)
+    - [About exceptions](#about-exceptions)
+    - [About the chaining parameter](#about-the-chaining-parameter)
     - [Match rule for chaining parameters](#match-rule-for-chaining-parameters)
       - [Resolved parameters](#resolved-parameters)
       - [Rejected parameters](#rejected-parameters)
       - [Omit parameters](#omit-parameters)
-    - [copy the promise object](#copy-the-promise-object)
-    - [handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
+    - [Copy the promise object](#copy-the-promise-object)
+    - [Handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
     - [about multithread](#about-multithread)
-
 <!-- /TOC -->
 
 ## What is promise-cpp ?
 
-Promise-cpp is **header only** library that implements promise/A+ standard. (To support header only, compiled with macro PROMISE_HEADONLY)
-  
-Promise-cpp is easy to use, just #include "promise.hpp" is enough. With promise-cpp, you can resolve or reject any type of data without writing complex template code.
+Promise-cpp is library that implements promise/A+ standard, which can be the base component in event-looped asychronized programming. It is NOT std::promise.
 
-Promise-cpp is depended only on STL (c++11 or higher).
-Although some of the asio examples are linked against boost library, promise-cpp itself is absolutely **workable without boost library** and can be used together with other asynchronized libraries.
+## Features
 
-Promise-cpp can be the base component in event-looped asychronized programming, which is NOT std::promise.
+Similar to Javascript Promise API.
+
+Type safety: the resolved/rejected arguments can be captured by the "then" function with same arguments type.
+
+Exceptions supports: cpp exception will be received by the "on_rejected" function.
+
+Optional header-only configuration enabled with the PROMISE_HEADONLY macro
+
+Easy to use, just #include "promise-cpp/promise.hpp" is enough, code based on standard c++11 syntax, no external dependencies required.
+
+Easy to integrate with other libararies (see examples of [asio](example/asio_timer.cpp), [qt](example/qt_timer) and [mfc](example/mfc_timer)).
+
+Useful extended functions on promise object: doWhile, raceAndResolve, raceAndReject
 
 ## Examples
 
@@ -92,7 +103,25 @@ The library has passed test on these compilers --
 
 * clang 3.4.2
 
-### Build tips
+### Usage
+
+#### Used as header only library
+
+To use as header only library, just define macro PROMISE_HEADONLY when compiling.
+
+#### Used as static library
+
+```
+cmake /path/to/promise_source
+```
+
+#### Used as shared library
+
+```
+cmake -DPROMISE_BUILD_SHARED=ON /path/to/promise_source
+```
+
+#### Build tips about asio examples
 
 Some of the [examples](example) use boost::asio as io service, and use boost::beast as http service. 
 You need to [boost_1_66](https://www.boost.org/doc/libs/1_66_0/more/getting_started/index.html)
@@ -102,12 +131,6 @@ For examples, you can build with boost library --
 
 ```
 > cmake -DBOOST_ROOT=/path/to/boost_source /path/to/promise_source
-```
-
-If you do not have boost installed, just build by --
-
-```
-> cmake /path/to/promise_source
 ```
 
 ### Sample code 1
@@ -195,7 +218,7 @@ int main() {
 ## Global functions
 
 ### Promise newPromise(FUNC func);
-Creates a new Promise object with a user-defined function.
+Creates a new promise object with a user-defined function.
 The user-defined functions, used as parameters by newPromise, must have a parameter Defer d. 
 for example --
 
@@ -222,7 +245,7 @@ return reject("some_error");
 
 ### Promise all(const PROMISE_LIST &promise_list);
 Wait until all promise objects in "promise_list" are resolved or one of which is rejected.
-The "promise_list" can be any container that has Promise object as element type.
+The "promise_list" can be any container that has promise object as element type.
 
 > for (Promise &promise : promise_list) { ... }
 
@@ -244,7 +267,7 @@ all(promise_list).then([](){
 Returns a promise that resolves or rejects as soon as one of
 the promises in the iterable resolves or rejects, with the value
 or reason from that promise.
-The "promise_list" can be any container that has Promise object as element type.
+The "promise_list" can be any container that has promise object as element type.
 
 > for (Promise &promise : promise_list) { ... }
 
@@ -446,7 +469,7 @@ Break the doWhile loop (ret_arg will be transferred).
 
 ## And more ...
 
-### about exceptions
+### About exceptions
 To throw any object in the callback functions above, including on_resolved, on_rejected, on_always, 
 will same as d.reject(the_throwed_object) and returns immediately.
 for example --
@@ -460,7 +483,7 @@ return newPromise([](Defer d){
 ```
 For the better performance, we suggest to use function reject instead of throw.
 
-### about the chaining parameter
+### About the chaining parameter
 Any type of parameter can be used when call resolve, reject or throw, except that the plain string or array.
 To use plain string or array as chaining parameters, we may wrap it into an object.
 
@@ -533,7 +556,7 @@ newPromise([](Defer d){
 
 The reject parameters follows the the same omit rule as resolved parameters.
 
-### copy the promise object
+### Copy the promise object
 To copy the promise object is allowed and effective, please do that when you need.
 
 ```cpp
@@ -541,7 +564,11 @@ Promise promise = newPromise([](Defer d){});
 Promise promise2 = promise;  //It's safe and effective
 ```
 
-### handle uncaught exceptional or rejected parameters
+<!--
+ ### Life time of the internal storage inside a promise chain
+-->
+
+### Handle uncaught exceptional or rejected parameters
 
 The uncaught exceptional or rejected parameters are ignored by default. We can specify a handler function to do with these parameters --
 

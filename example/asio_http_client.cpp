@@ -34,7 +34,6 @@
 #include <memory>
 #include <string>
 #include <regex>
-#include "promise.hpp"
 #include "add_ons/asio/io.hpp"
 
 using namespace promise;

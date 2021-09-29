@@ -2,7 +2,9 @@
 #ifndef INC_PROMISE_HPP_
 #define INC_PROMISE_HPP_
 
-#ifdef PROMISE_HEADONLY
+#ifdef PROMISE_HEADER_ONLY
+
+#ifdef PROMISE_HEADER_ONLY
 #define PROMISE_API inline
 #elif defined PROMISE_BUILD_SHARED
 
@@ -55,7 +57,7 @@ enum TaskState {
 
 struct PromiseHolder;
 struct SharedPromise;
-struct Promise;
+class Promise;
 
 struct Task {
     TaskState state_;
@@ -91,7 +93,8 @@ struct SharedPromise {
     PROMISE_API void dump() const;
 };
 
-struct Defer {
+class Defer {
+public:
     template<typename ...ARGS,
         typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void resolve(ARGS &&...args) const {
@@ -110,14 +113,15 @@ struct Defer {
     PROMISE_API Promise getPromise() const;
 
 private:
-    friend struct Promise;
+    friend class Promise;
     friend PROMISE_API Promise newPromise(const std::function<void(Defer &defer)> &run);
     PROMISE_API Defer(const std::shared_ptr<Task> &task);
     std::shared_ptr<Task>          task_;
     std::shared_ptr<SharedPromise> sharedPromise_;
 };
 
-struct DeferLoop {
+class DeferLoop {
+public:
     template<typename ...ARGS,
         typename std::enable_if<!is_one_any<ARGS...>::value>::type *dummy = nullptr>
     inline void doBreak(ARGS &&...args) const {
@@ -143,7 +147,8 @@ private:
     Defer defer_;
 };
 
-struct Promise {
+class Promise {
+public:
     PROMISE_API Promise &then(const any &deferOrPromiseOrOnResolved);
     PROMISE_API Promise &then(const any &onResolved, const any &onRejected);
     PROMISE_API Promise &fail(const any &onRejected);
@@ -259,7 +264,7 @@ inline void handleUncaughtException(const any &onUncaughtException) {
 } // namespace promise
 
 #ifdef PROMISE_HEADONLY
-#include "../src/promise.cpp"
+#include "promise-inl.hpp"
 #endif
 
 #endif

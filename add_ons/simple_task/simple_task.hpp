@@ -38,7 +38,7 @@
 #include <chrono>
 #include <thread>
 #include <utility>
-#include "../../include/promise.hpp"
+#include "promise-cpp/promise.hpp"
 
 
 class Service {

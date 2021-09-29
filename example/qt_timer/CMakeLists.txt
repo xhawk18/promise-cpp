@@ -32,10 +32,10 @@ set(PROJECT_SOURCES
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
-    ../../include/promise.hpp
-    ../../include/any.hpp
-    ../../include/add_ons.hpp
-    ../../include/call_traits.hpp
+    ../../include/promise-cpp/promise.hpp
+    ../../include/promise-cpp/any.hpp
+    ../../include/promise-cpp/add_ons.hpp
+    ../../include/promise-cpp/call_traits.hpp
     ../../add_ons/qt/promise_qt.hpp
 )
 
