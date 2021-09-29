@@ -10,16 +10,22 @@ CONFIG += c++11
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    ../../src/promise.cpp \
+    ../../add_ons/qt/promise_qt.cpp
 
 HEADERS += \
     mainwindow.h \
-    ../../qt/promise_qt.hpp
+    ../../include/promise-cpp/promise.hpp
+    ../../include/promise-cpp/promise_inl.hpp
+    ../../add_ons/qt/promise_qt.hpp
+    ../../add_ons/qt/promise_qt_inl.hpp
 
 FORMS += \
     mainwindow.ui
 
 INCLUDEPATH += \
+    ../../include \
     ../../
 
 # Default rules for deployment.

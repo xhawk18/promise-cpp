@@ -78,6 +78,7 @@ struct operator_parentheses_traits {
     typedef std::tuple<> argument_type;
     
     static fun_type to_std_function(const T &t) {
+        (void)t;
         return nullptr;
     }
 };
@@ -116,6 +117,7 @@ struct call_traits_impl<T, true> {
     typedef std::tuple<> argument_type;
 
     static fun_type to_std_function(const T &t) {
+        (void)t;
         return nullptr;
     }
 };

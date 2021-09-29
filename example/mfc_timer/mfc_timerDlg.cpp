@@ -9,7 +9,7 @@
 #include "afxdialogex.h"
 #include <sstream>
 #include <thread>
-#include "../../add_ons/windows/promise_windows.hpp"
+#include "add_ons/windows/promise_windows.hpp"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -106,11 +106,15 @@ BOOL CmfctimerDlg::OnInitDialog()
 
     // Update text on the dialog
     auto updateText = [=](int sourceLine) {
+#ifdef UNICODE
+        std::wstringstream os;
+#else
         std::stringstream os;
+#endif
         os << "thread id   = " << std::this_thread::get_id() << "\n"
            << "source line = " << sourceLine;
         CWnd *label = GetDlgItem(IDC_STATIC);
-        label->SetWindowTextA(os.str().c_str());
+        label->SetWindowText(os.str().c_str());
         //os.str();
     };
     updateText(__LINE__);

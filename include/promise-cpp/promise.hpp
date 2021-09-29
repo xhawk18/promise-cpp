@@ -262,7 +262,7 @@ inline void handleUncaughtException(const any &onUncaughtException) {
 } // namespace promise
 
 #ifdef PROMISE_HEADONLY
-#include "promise-inl.hpp"
+#include "promise_inl.hpp"
 #endif
 
 #endif

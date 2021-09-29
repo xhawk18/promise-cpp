@@ -9,6 +9,8 @@
 namespace promise {
 
 static inline void healthyCheck(int line, PromiseHolder *promiseHolder) {
+    (void)line;
+    (void)promiseHolder;
 #ifndef NDEBUG
     if (!promiseHolder) {
         fprintf(stderr, "line = %d, %d, promiseHolder is null\n", line, __LINE__);

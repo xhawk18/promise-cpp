@@ -139,7 +139,7 @@ PROMISE_QT_API void clearTimeout(Promise promise);
 
 
 #ifdef PROMISE_HEADONLY
-#include "promise_qt.cpp"
+#include "promise_qt_inl.hpp"
 #endif
 
 #endif
