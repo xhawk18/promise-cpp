@@ -95,7 +95,6 @@ static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::s
 
     std::list<std::weak_ptr<SharedPromise>> owners;
     owners.splice(owners.end(), right->owners_);
-    right->state_ = TaskState::kResolved;
 
     if(owners.size() > 100) {
         fprintf(stderr, "Maybe memory leak, too many promise owners: %d", (int)owners.size());
@@ -389,10 +388,8 @@ Promise newPromise(const std::function<void(Defer &defer)> &run) {
     promise.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
     promise.sharedPromise_->promiseHolder_->owners_.push_back(promise.sharedPromise_);
     
-    auto returnAsIs = [](const any &arg) -> any {
-        return arg;
-    };
-    promise.then(returnAsIs);
+    // return as is
+    promise.then(any(), any());
     std::shared_ptr<Task> &task = promise.sharedPromise_->promiseHolder_->pendingTasks_.front();
 
     Defer defer(task);
@@ -412,10 +409,8 @@ Promise newPromise() {
     promise.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
     promise.sharedPromise_->promiseHolder_->owners_.push_back(promise.sharedPromise_);
 
-    auto returnAsIs = [](const any &arg) -> any {
-        return arg;
-    };
-    promise.then(returnAsIs);
+    // return as is
+    promise.then(any(), any());
     return promise;
 }
 
@@ -435,10 +430,10 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
             if (arg.type() == typeid(std::vector<any>)) {
                 std::vector<any> &args = any_cast<std::vector<any> &>(arg);
                 if (args.size() == 2
-                    && args[0].type() == typeid(DoBreakTag)
-                    && args[1].type() == typeid(std::vector<any>)) {
+                    && args.front().type() == typeid(DoBreakTag)
+                    && args.back().type() == typeid(std::vector<any>)) {
                     isBreak = true;
-                    defer.resolve(args[1]);
+                    defer.resolve(args.back());
                 }
             }
             

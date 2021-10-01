@@ -29,6 +29,7 @@
  * THE SOFTWARE.
  */
 #include <typeindex>
+#include <vector>
 #include "add_ons.hpp"
 #include "call_traits.hpp"
 
@@ -55,7 +56,7 @@ public: // structors
 
     template<typename ValueType>
     any(const ValueType &value)
-        : content(new holder<ValueType>(value)) {
+        : content(new holder<typename std::remove_cvref<ValueType>::type>(value)) {
     }
 
     template<typename RET, typename ...ARG>
@@ -65,6 +66,20 @@ public: // structors
 
     any(const any &other)
         : content(other.content ? other.content->clone() : 0) {
+    }
+
+    // Move constructor
+    any(any &&other)
+        : content(other.content) {
+        other.content = 0;
+    }
+
+    // Perfect forwarding of ValueType
+    template<typename ValueType>
+    any(ValueType &&value
+        , typename std::enable_if<!std::is_same<any &, ValueType>::value>::type* = nullptr // disable if value has type `any&`
+        , typename std::enable_if<!std::is_const<ValueType>::value>::type* = nullptr) // disable if value has type `const ValueType&&`
+        : content(new holder<typename std::remove_cvref<ValueType>::type>(static_cast<ValueType &&>(value))) {
     }
 
     ~any() {
@@ -262,8 +277,8 @@ struct any_call_t<RET, std::tuple<NOCVR_ARG>, FUNC> {
             : any_cast<any_arguemnt_type &>(arg));
         if(args.size() < 1)
             throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
-        //printf("[%s] [%s]\n", args[0].type().name(), typeid(NOCVR_ARG).name());
-        return func(any_cast<NOCVR_ARG &>(args[0]));
+        //printf("[%s] [%s]\n", args.front().type().name(), typeid(NOCVR_ARG).name());
+        return func(any_cast<NOCVR_ARG &>(args.front()));
     }
 };
 
@@ -281,7 +296,7 @@ struct any_call_t<RET, std::tuple<any>, FUNC> {
             return (func(empty));
         }
         else if(args.size() == 1)
-            return (func(args[0]));
+            return (func(args.front()));
         else
             return (func(const_cast<any &>(arg)));
     }

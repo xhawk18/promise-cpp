@@ -19,6 +19,7 @@ option(PROMISE_BUILD_SHARED "Build shared library" OFF)
 
 set(my_headers
     include/promise-cpp/promise.hpp
+    include/promise-cpp/promise_inl.hpp
     include/promise-cpp/any.hpp
     include/promise-cpp/add_ons.hpp
     include/promise-cpp/call_traits.hpp

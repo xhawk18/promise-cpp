@@ -26,6 +26,7 @@
  */
 #include <stdio.h>
 #include <string>
+#include <vector>
 #include "promise-cpp/promise.hpp"
 
 using namespace promise;
@@ -121,10 +122,11 @@ void test_promise_all() {
 
 int main(int argc, char **argv) {
     handleUncaughtException([](Promise &d) {
-        printf("UncaughtException\n");
-        
+       
         d.fail([](long n, int m) {
             printf("UncaughtException parameters = %d %d\n", (int)n, m);
+        }).fail([]() {
+            printf("UncaughtException\n");
         });
     });
 
@@ -136,7 +138,9 @@ int main(int argc, char **argv) {
     printf("======  after call run ======\n");
 
     //next.reject(123, 'a');
-    next.reject((long)123, (int)345);   //it will go to handleUncaughtException(...)
+    if(next) {
+        next.reject((long)123, (int)345);   //it will go to handleUncaughtException(...)
+    }
     //next.resolve('b');
     //next.reject(std::string("xhchen"));
     //next.reject(45);
