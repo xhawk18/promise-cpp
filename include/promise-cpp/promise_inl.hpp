@@ -96,6 +96,10 @@ static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::s
     std::list<std::weak_ptr<SharedPromise>> owners;
     owners.splice(owners.end(), right->owners_);
 
+    // Looked on resolved if the PromiseHolder was joined to another,
+    // so that it will not throw onUncaughtException when destroyed.
+    right->state_ = TaskState::kResolved;
+
     if(owners.size() > 100) {
         fprintf(stderr, "Maybe memory leak, too many promise owners: %d", (int)owners.size());
     }
@@ -183,6 +187,9 @@ static inline void call(std::shared_ptr<Task> task) {
             promiseHolder->value_ = std::current_exception();
             promiseHolder->state_ = TaskState::kRejected;
         }
+
+        task->onResolved_.clear();
+        task->onRejected_.clear();
 
         // get next
         std::list<std::shared_ptr<Task>> &pendingTasks2 = promiseHolder->pendingTasks_;
