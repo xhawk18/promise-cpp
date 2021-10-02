@@ -591,8 +591,8 @@ handleUncaughtException([](Promise &d) {
 
 ### about multithread
 
-This library is thread safe by default. However, it's strongly recommented to use this library on one single thread,
+This library is thread safe by default. However, it is strongly recommented to use this library on single thread,
 especially when you don't clearly know about which thread will runs the chain tasks.
 
-For better performance, we can aslo disable multithread by add macro PROMISE_MULTITHREAD=0
+For better performance, we can aslo disable multithread by adding macro PROMISE_MULTITHREAD=0
 
