@@ -564,9 +564,13 @@ Promise promise = newPromise([](Defer d){});
 Promise promise2 = promise;  //It's safe and effective
 ```
 
-<!--
- ### Life time of the internal storage inside a promise chain
--->
+### Life time of the internal storage inside a promise chain
+
+The library uses std::shared_ptr to maintain the internal object of task and task chain.
+Resources of a task will be released after the task is finished (in resolved or rejected status) and not obtained by Defer or DeferLoop objects.
+Resources of a promise chain will be released when it is not obtained by any Promise, Defer or DeferLoop objects.
+
+![lifetime](./doc/lifetime.png)
 
 ### Handle uncaught exceptional or rejected parameters
 
