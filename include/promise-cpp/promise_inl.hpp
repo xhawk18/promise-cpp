@@ -125,7 +125,7 @@ static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::s
 //Unlock and then lock
 #if PROMISE_MULTITHREAD
 struct unlock_guard_t {
-    inline unlock_guard_t(Mutex *mutex)
+    inline unlock_guard_t(std::shared_ptr<Mutex> mutex)
         : mutex_(mutex)
         , lock_count_(mutex->lock_count()) {
         mutex_->unlock(lock_count_);
@@ -133,7 +133,7 @@ struct unlock_guard_t {
     inline ~unlock_guard_t() {
         mutex_->lock(lock_count_);
     }
-    Mutex *mutex_;
+    std::shared_ptr<Mutex> mutex_;
     size_t lock_count_;
 };
 #endif
@@ -147,8 +147,8 @@ static inline void call(std::shared_ptr<Task> task) {
         // lock for 1st stage
         {
 #if PROMISE_MULTITHREAD
-            Mutex &mutex = promiseHolder->mutex_;
-            std::lock_guard<Mutex> lock(mutex);
+            std::shared_ptr<Mutex> mutex = promiseHolder->mutex_;
+            std::lock_guard<Mutex> lock(*mutex);
 #endif
 
             if (task->state_ != TaskState::kPending) return;
@@ -170,14 +170,14 @@ static inline void call(std::shared_ptr<Task> task) {
                     }
                     else {
 #if PROMISE_MULTITHREAD
-                        Mutex *mutex0 = nullptr;
+                        std::shared_ptr<Mutex> mutex0 = nullptr;
                         auto call = [&]() -> any {
-                            unlock_guard_t lock(&mutex);
+                            unlock_guard_t lock(mutex);
                             const any &value = task->onResolved_.call(promiseHolder->value_);
                             // Make sure the returned promised is locked before than "mutex"
                             if (value.type() == typeid(Promise)) {
                                 Promise &promise = value.cast<Promise &>();
-                                mutex0 = &promise.sharedPromise_->obtainLock();
+                                mutex0 = promise.sharedPromise_->obtainLock();
                             }
                             return value;
                         };
@@ -220,14 +220,14 @@ static inline void call(std::shared_ptr<Task> task) {
                     else {
                         try {
 #if PROMISE_MULTITHREAD
-                            Mutex *mutex0 = nullptr;
+                            std::shared_ptr<Mutex> mutex0 = nullptr;
                             auto call = [&]() -> any {
-                                unlock_guard_t lock(&mutex);
+                                unlock_guard_t lock(mutex);
                                 const any &value = task->onRejected_.call(promiseHolder->value_);
                                 // Make sure the returned promised is locked before than "mutex"
                                 if (value.type() == typeid(Promise)) {
                                     Promise &promise = value.cast<Promise &>();
-                                    mutex0 = &promise.sharedPromise_->obtainLock();
+                                    mutex0 = promise.sharedPromise_->obtainLock();
                                 }
                                 return value;
                             };
@@ -279,8 +279,8 @@ static inline void call(std::shared_ptr<Task> task) {
         {
             // get next task
 #if PROMISE_MULTITHREAD
-            Mutex &mutex = promiseHolder->mutex_;
-            std::lock_guard<Mutex> lock(mutex);
+            std::shared_ptr<Mutex> mutex = promiseHolder->mutex_;
+            std::lock_guard<Mutex> lock(*mutex);
 #endif
             std::list<std::shared_ptr<Task>> &pendingTasks2 = promiseHolder->pendingTasks_;
             if (pendingTasks2.size() == 0) {
@@ -295,8 +295,8 @@ static inline void call(std::shared_ptr<Task> task) {
 Defer::Defer(const std::shared_ptr<Task> &task) {
     std::shared_ptr<SharedPromise> sharedPromise(new SharedPromise{ task->promiseHolder_.lock() });
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = sharedPromise->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = sharedPromise->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     task_ = task;
@@ -306,8 +306,8 @@ Defer::Defer(const std::shared_ptr<Task> &task) {
 
 void Defer::resolve(const any &arg) const {
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = this->sharedPromise_->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     if (task_->state_ != TaskState::kPending) return;
@@ -319,8 +319,8 @@ void Defer::resolve(const any &arg) const {
 
 void Defer::reject(const any &arg) const {
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = this->sharedPromise_->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     if (task_->state_ != TaskState::kPending) return;
@@ -385,6 +385,17 @@ void Mutex::unlock(size_t lock_count) {
 }
 #endif
 
+PromiseHolder::PromiseHolder() 
+    : owners_()
+    , pendingTasks_()
+    , state_(TaskState::kPending)
+    , value_()
+#if PROMISE_MULTITHREAD
+    , mutex_(std::make_shared<Mutex>())
+#endif
+{
+}
+
 PromiseHolder::~PromiseHolder() {
     if (this->state_ == TaskState::kRejected) {
         PromiseHolder::onUncaughtException(this->value_);
@@ -418,19 +429,18 @@ void PromiseHolder::handleUncaughtException(const any &onUncaughtException) {
 }
 
 #if PROMISE_MULTITHREAD
-Mutex &SharedPromise::obtainLock() const {
-    Mutex *mutex = nullptr;
+std::shared_ptr<Mutex> SharedPromise::obtainLock() const {
     while (true) {
-        mutex = &this->promiseHolder_->mutex_;
+        std::shared_ptr<Mutex> mutex = this->promiseHolder_->mutex_;
         mutex->lock();
 
         // pointer to mutex may be changed after locked, 
         // in this case we should try to lock and test again
-        if (mutex == &this->promiseHolder_->mutex_)
-            break;
+        if (mutex == this->promiseHolder_->mutex_)
+            return mutex;
         mutex->unlock();
     }
-    return *mutex;
+    return nullptr;
 }
 #endif
 
@@ -460,10 +470,10 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
         Promise &promise = deferOrPromiseOrOnResolved.cast<Promise &>();
 
 #if PROMISE_MULTITHREAD
-        Mutex &mutex0 = this->sharedPromise_->obtainLock();
-        std::lock_guard<Mutex> lock0(mutex0, std::adopt_lock_t());
-        Mutex &mutex1 = promise.sharedPromise_->obtainLock();
-        std::lock_guard<Mutex> lock1(mutex1, std::adopt_lock_t());
+        std::shared_ptr<Mutex> mutex0 = this->sharedPromise_->obtainLock();
+        std::lock_guard<Mutex> lock0(*mutex0, std::adopt_lock_t());
+        std::shared_ptr<Mutex> mutex1 = promise.sharedPromise_->obtainLock();
+        std::lock_guard<Mutex> lock1(*mutex1, std::adopt_lock_t());
 #endif
 
         if (promise.sharedPromise_ && promise.sharedPromise_->promiseHolder_) {
@@ -482,8 +492,8 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
 
 Promise &Promise::then(const any &onResolved, const any &onRejected) {
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = this->sharedPromise_->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     std::shared_ptr<Task> task = std::make_shared<Task>(Task {
@@ -528,8 +538,8 @@ Promise &Promise::finally(const any &onFinally) {
 
 void Promise::resolve(const any &arg) const {
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = this->sharedPromise_->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     std::list<std::shared_ptr<Task>> &pendingTasks_ = this->sharedPromise_->promiseHolder_->pendingTasks_;
@@ -542,8 +552,8 @@ void Promise::resolve(const any &arg) const {
 
 void Promise::reject(const any &arg) const {
 #if PROMISE_MULTITHREAD
-    Mutex &mutex = this->sharedPromise_->obtainLock();
-    std::lock_guard<Mutex> lock(mutex, std::adopt_lock_t());
+    std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
+    std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
 #endif
 
     std::list<std::shared_ptr<Task>> &pendingTasks_ = this->sharedPromise_->promiseHolder_->pendingTasks_;

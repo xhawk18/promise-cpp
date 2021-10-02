@@ -88,13 +88,14 @@ private:
  * Task state in TaskList always be kPending
  */
 struct PromiseHolder {
+    PROMISE_API PromiseHolder();
     PROMISE_API ~PromiseHolder();
     std::list<std::weak_ptr<SharedPromise>> owners_;
     std::list<std::shared_ptr<Task>>        pendingTasks_;
     TaskState                               state_;
     any                                     value_;
 #if PROMISE_MULTITHREAD
-    Mutex                                   mutex_;
+    std::shared_ptr<Mutex>                  mutex_;
 #endif
 
     PROMISE_API void dump() const;
@@ -112,7 +113,7 @@ struct SharedPromise {
     std::shared_ptr<PromiseHolder> promiseHolder_;
     PROMISE_API void dump() const;
 #if PROMISE_MULTITHREAD
-    PROMISE_API Mutex &obtainLock() const;
+    PROMISE_API std::shared_ptr<Mutex> obtainLock() const;
 #endif
 };
 
