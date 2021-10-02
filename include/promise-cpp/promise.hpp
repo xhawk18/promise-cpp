@@ -2,7 +2,7 @@
 #ifndef INC_PROMISE_HPP_
 #define INC_PROMISE_HPP_
 
-#ifdef PROMISE_HEADONLY
+#if defined PROMISE_HEADONLY
 #define PROMISE_API inline
 #elif defined PROMISE_BUILD_SHARED
 
@@ -38,11 +38,16 @@
 #define PROMISE_API
 #endif
 
+#ifndef PROMISE_MULTITHREAD
+#   define PROMISE_MULTITHREAD 1
+#endif
+
 
 #include <list>
 #include <vector>
 #include <memory>
 #include <functional>
+#include <mutex>
 #include "any.hpp"
 
 namespace promise {
@@ -64,6 +69,20 @@ struct Task {
     any                          onRejected_;
 };
 
+#if PROMISE_MULTITHREAD
+struct Mutex {
+public:
+    PROMISE_API Mutex();
+    PROMISE_API void lock();
+    PROMISE_API void unlock();
+    PROMISE_API void lock(size_t lock_count);
+    PROMISE_API void unlock(size_t lock_count);
+    inline size_t lock_count() const { return lock_count_; }
+private:
+    std::recursive_mutex mutex_;
+    size_t lock_count_;
+};
+#endif
 
 /* 
  * Task state in TaskList always be kPending
@@ -74,6 +93,9 @@ struct PromiseHolder {
     std::list<std::shared_ptr<Task>>        pendingTasks_;
     TaskState                               state_;
     any                                     value_;
+#if PROMISE_MULTITHREAD
+    Mutex                                   mutex_;
+#endif
 
     PROMISE_API void dump() const;
     PROMISE_API static any *getUncaughtExceptionHandler();
@@ -89,6 +111,9 @@ struct is_one_any : public std::is_same<typename tuple_remove_cvref<std::tuple<A
 struct SharedPromise {
     std::shared_ptr<PromiseHolder> promiseHolder_;
     PROMISE_API void dump() const;
+#if PROMISE_MULTITHREAD
+    PROMISE_API Mutex &obtainLock() const;
+#endif
 };
 
 class Defer {

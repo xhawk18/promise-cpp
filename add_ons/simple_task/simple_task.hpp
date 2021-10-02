@@ -37,6 +37,9 @@
 #include <deque>
 #include <chrono>
 #include <thread>
+#include <mutex>
+#include <atomic>
+#include <condition_variable>
 #include <utility>
 #include "promise-cpp/promise.hpp"
 
@@ -50,8 +53,15 @@ class Service {
 
     Timers timers_;
     Tasks  tasks_;
+    std::recursive_mutex mutex_;
+    std::condition_variable_any cond_;
+    std::atomic<bool> isAutoExit_;
 
 public:
+    Service()
+        : isAutoExit_(true) {
+    }
+
     // delay for milliseconds
     Promise delay(uint64_t time_ms) {
         return promise::newPromise([&](Defer &defer) {
@@ -64,36 +74,70 @@ public:
     // yield for other tasks to run
     Promise yield() {
         return promise::newPromise([&](Defer &defer) {
-            return tasks_.push_back(defer);
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
+            tasks_.push_back(defer);
+            cond_.notify_one();
         });
     }
 
+    // Resolve the defer object in this io thread
+    void runInIoThread(const std::function<void()> &func) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        promise::newPromise([=](Defer &defer) {
+            tasks_.push_back(defer);
+            cond_.notify_one();
+        }).then([func]() {
+            func();
+        });
+    }
+
+    // Set if the io thread will auto exist if no waiting tasks and timers.
+    void setAutoExit(bool isAutoExit) {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        isAutoExit_ = isAutoExit;
+        cond_.notify_one();
+    }
+
+
     // run the service loop
     void run() {
-        while(tasks_.size() > 0 || timers_.size() > 0){
-            while(timers_.size() > 0){
+        std::unique_lock<std::recursive_mutex> lock(mutex_);
+
+        while(!isAutoExit_ || tasks_.size() > 0 || timers_.size() > 0){
+
+            if (tasks_.size() == 0 && timers_.size() == 0) {
+                cond_.wait(lock);
+                continue;
+            }
+
+            while (timers_.size() > 0) {
                 TimePoint now = std::chrono::steady_clock::now();
                 TimePoint time = timers_.begin()->first;
-                if(time <= now){
+                if (time <= now) {
                     Defer &defer = timers_.begin()->second;
                     tasks_.push_back(defer);
                     timers_.erase(timers_.begin());
                 }
-                else if(tasks_.size() == 0)
-                    std::this_thread::sleep_for(time - now);
-                else
+                else if (tasks_.size() == 0) {
+                    //std::this_thread::sleep_for(time - now);
+                    cond_.wait_for(lock, time - now);
+                }
+                else {
                     break;
+                }
             }
 
             // Check fixed size of tasks in this loop, so that timer have a chance to run.
-            size_t size = tasks_.size();
-            for(size_t i = 0; i < size; ++i){
-                Defer defer = tasks_.front();
-                tasks_.pop_front();
-                defer.resolve(nullptr);
+            if(tasks_.size() > 0) {
+                size_t size = tasks_.size();
+                for(size_t i = 0; i < size; ++i){
+                    Defer defer = tasks_.front();
+                    tasks_.pop_front();
+                    defer.resolve();
+                }
             }
         }
-   }
+    }
 };
 
 #endif

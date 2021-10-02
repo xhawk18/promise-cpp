@@ -49,6 +49,12 @@ target_link_libraries(simple_timer PRIVATE promise)
 add_executable(simple_benchmark_test ${my_headers} example/simple_benchmark_test.cpp)
 target_link_libraries(simple_benchmark_test PRIVATE promise)
 
+find_package(Threads)
+if(Threads_FOUND)
+    add_executable(multithread_test ${my_headers} example/multithread_test.cpp)
+    target_link_libraries(multithread_test PRIVATE promise Threads::Threads)
+endif()
+
 add_executable(chain_defer_test ${my_headers} example/chain_defer_test.cpp)
 target_link_libraries(chain_defer_test PRIVATE promise)
 
