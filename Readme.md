@@ -45,6 +45,7 @@
       - [Rejected parameters](#rejected-parameters)
       - [Omit parameters](#omit-parameters)
     - [Copy the promise object](#copy-the-promise-object)
+    - [Life time of the internal storage inside a promise chain](#life-time-of-the-internal-storage-inside-a-promise-chain)
     - [Handle uncaught exceptional or rejected parameters](#handle-uncaught-exceptional-or-rejected-parameters)
     - [about multithread](#about-multithread)
 <!-- /TOC -->
