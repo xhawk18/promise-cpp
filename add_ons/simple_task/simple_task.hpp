@@ -82,8 +82,8 @@ public:
 
     // Resolve the defer object in this io thread
     void runInIoThread(const std::function<void()> &func) {
-        std::lock_guard<std::recursive_mutex> lock(mutex_);
         promise::newPromise([=](Defer &defer) {
+            std::lock_guard<std::recursive_mutex> lock(mutex_);
             tasks_.push_back(defer);
             cond_.notify_one();
         }).then([func]() {
