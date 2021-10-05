@@ -94,6 +94,7 @@ int main() {
         test_switch(io, 1).then([&]() {
             return test_switch(io, 1000);
         }).then([&]() {
+            io.stop();
             return test_switch(io, 10000);
         }).then([&]() {
             return test_switch(io, 100000);

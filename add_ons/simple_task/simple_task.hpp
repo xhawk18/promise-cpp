@@ -41,6 +41,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <utility>
+#include <stdexcept>
 #include "promise-cpp/promise.hpp"
 
 
@@ -55,11 +56,13 @@ class Service {
     Tasks  tasks_;
     std::recursive_mutex mutex_;
     std::condition_variable_any cond_;
-    std::atomic<bool> isAutoExit_;
+    std::atomic<bool> isAutoStop_;
+    std::atomic<bool> isStop_;
 
 public:
     Service()
-        : isAutoExit_(true) {
+        : isAutoStop_(true)
+        , isStop_(false) {
     }
 
     // delay for milliseconds
@@ -92,9 +95,9 @@ public:
     }
 
     // Set if the io thread will auto exist if no waiting tasks and timers.
-    void setAutoExit(bool isAutoExit) {
+    void setAutoStop(bool isAutoExit) {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
-        isAutoExit_ = isAutoExit;
+        isAutoStop_ = isAutoExit;
         cond_.notify_one();
     }
 
@@ -103,14 +106,14 @@ public:
     void run() {
         std::unique_lock<std::recursive_mutex> lock(mutex_);
 
-        while(!isAutoExit_ || tasks_.size() > 0 || timers_.size() > 0){
+        while(!isStop_ && (!isAutoStop_ || tasks_.size() > 0 || timers_.size() > 0)) {
 
             if (tasks_.size() == 0 && timers_.size() == 0) {
                 cond_.wait(lock);
                 continue;
             }
 
-            while (timers_.size() > 0) {
+            while (!isStop_ && timers_.size() > 0) {
                 TimePoint now = std::chrono::steady_clock::now();
                 TimePoint time = timers_.begin()->first;
                 if (time <= now) {
@@ -128,7 +131,7 @@ public:
             }
 
             // Check fixed size of tasks in this loop, so that timer have a chance to run.
-            if(tasks_.size() > 0) {
+            if(!isStop_ && tasks_.size() > 0) {
                 size_t size = tasks_.size();
                 for(size_t i = 0; i < size; ++i){
                     Defer defer = tasks_.front();
@@ -137,6 +140,27 @@ public:
                 }
             }
         }
+
+        // Clear pending timers and tasks
+        while (timers_.size() > 0 || tasks_.size()) {
+            while (timers_.size() > 0) {
+                Defer defer = timers_.begin()->second;
+                timers_.erase(timers_.begin());
+                defer.reject(std::runtime_error("service stopped"));
+            }
+            while (tasks_.size() > 0) {
+                Defer defer = tasks_.front();
+                tasks_.pop_front();
+                defer.reject(std::runtime_error("service stopped"));
+            }
+        }
+    }
+
+    // stop the service loop
+    void stop() {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        isStop_ = true;
+        cond_.notify_one();
     }
 };
 

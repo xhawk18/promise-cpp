@@ -107,7 +107,7 @@ int main() {
             return test_switch(io, 100);
         }).then([&]() {
 
-            io.setAutoExit(false);
+            io.setAutoStop(false);
             // Run in new thread
             return newPromise([](Defer &defer) {
                 std::thread([=]() {
@@ -127,7 +127,7 @@ int main() {
             });
 
         }).then([&]() {
-            io.setAutoExit(true);
+            io.setAutoStop(true);
 
             return test_switch(io, 1000);
         }).then([&, loop]() {

@@ -402,24 +402,36 @@ PromiseHolder::~PromiseHolder() {
     }
 }
 
+
+
 any *PromiseHolder::getUncaughtExceptionHandler() {
     static any onUncaughtException;
     return &onUncaughtException;
 }
 
+any *PromiseHolder::getDefaultUncaughtExceptionHandler() {
+    static any defaultUncaughtExceptionHandler = [](Promise &d) {
+        d.fail([](const std::runtime_error &err) {
+            fprintf(stderr, "onUncaughtException in line %d, %s\n", __LINE__, err.what());
+        }).fail([]() {
+            //go here for all other uncaught parameters.
+            fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
+        });
+    };
+
+    return &defaultUncaughtExceptionHandler;
+}
+
 void PromiseHolder::onUncaughtException(const any &arg) {
     any *onUncaughtException = getUncaughtExceptionHandler();
-    if (onUncaughtException != nullptr && !onUncaughtException->empty()) {
-        try {
-            onUncaughtException->call(reject(arg));
-        }
-        catch (...) {
-            // std::rethrow_exception(std::current_exception());
-            fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
-        }
+    if (onUncaughtException == nullptr || onUncaughtException->empty()) {
+        onUncaughtException = getDefaultUncaughtExceptionHandler();
     }
-    else {
-        //throw arg;
+
+    try {
+        onUncaughtException->call(reject(arg));
+    }
+    catch (...) {
         fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
     }
 }

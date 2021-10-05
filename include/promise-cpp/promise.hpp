@@ -100,6 +100,7 @@ struct PromiseHolder {
 
     PROMISE_API void dump() const;
     PROMISE_API static any *getUncaughtExceptionHandler();
+    PROMISE_API static any *getDefaultUncaughtExceptionHandler();
     PROMISE_API static void onUncaughtException(const any &arg);
     PROMISE_API static void handleUncaughtException(const any &onUncaughtException);
 };
