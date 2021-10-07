@@ -459,17 +459,26 @@ std::shared_ptr<Mutex> SharedPromise::obtainLock() const {
 Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
     if (deferOrPromiseOrOnResolved.type() == typeid(Defer)) {
         Defer &defer = deferOrPromiseOrOnResolved.cast<Defer &>();
-        return then([defer](const any &arg) -> any {
+        Promise promise = defer.getPromise();
+        Promise &ret = then([defer](const any &arg) -> any {
             defer.resolve(arg);
             return nullptr;
         }, [defer](const any &arg) ->any {
             defer.reject(arg);
             return nullptr;
         });
+
+        promise.finally([=]() {
+            ret.reject();
+        });
+
+        return ret;
     }
     else if (deferOrPromiseOrOnResolved.type() == typeid(DeferLoop)) {
         DeferLoop &loop = deferOrPromiseOrOnResolved.cast<DeferLoop &>();
-        return then([loop](const any &arg) -> any {
+        Promise promise = loop.getPromise();
+
+        Promise &ret = then([loop](const any &arg) -> any {
             (void)arg;
             loop.doContinue();
             return nullptr;
@@ -477,6 +486,12 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
             loop.reject(arg);
             return nullptr;
         });
+
+        promise.finally([=]() {
+            ret.reject();
+        });
+
+        return ret;
     }
     else if (deferOrPromiseOrOnResolved.type() == typeid(Promise)) {
         Promise &promise = deferOrPromiseOrOnResolved.cast<Promise &>();
@@ -549,6 +564,7 @@ Promise &Promise::finally(const any &onFinally) {
 
 
 void Promise::resolve(const any &arg) const {
+    if (!this->sharedPromise_) return;
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
     std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
@@ -563,6 +579,7 @@ void Promise::resolve(const any &arg) const {
 }
 
 void Promise::reject(const any &arg) const {
+    if (!this->sharedPromise_) return;
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
     std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());

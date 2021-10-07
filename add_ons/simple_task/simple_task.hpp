@@ -51,18 +51,42 @@ class Service {
     using TimePoint = std::chrono::time_point<std::chrono::steady_clock>;
     using Timers    = std::multimap<TimePoint, Defer>;
     using Tasks     = std::deque<Defer>;
+#if PROMISE_MULTITHREAD
+    using Mutex     = promise::Mutex;
+#endif
 
     Timers timers_;
     Tasks  tasks_;
-    std::recursive_mutex mutex_;
+#if PROMISE_MULTITHREAD
+    //std::recursive_mutex mutex_;
+    std::shared_ptr<Mutex> mutex_;
+#endif
     std::condition_variable_any cond_;
     std::atomic<bool> isAutoStop_;
     std::atomic<bool> isStop_;
-
+    //Unlock and then lock
+#if PROMISE_MULTITHREAD
+    struct unlock_guard_t {
+        inline unlock_guard_t(std::shared_ptr<Mutex> mutex)
+            : mutex_(mutex)
+            , lock_count_(mutex->lock_count()) {
+            mutex_->unlock(lock_count_);
+        }
+        inline ~unlock_guard_t() {
+            mutex_->lock(lock_count_);
+        }
+        std::shared_ptr<Mutex> mutex_;
+        size_t lock_count_;
+    };
+#endif
 public:
     Service()
         : isAutoStop_(true)
-        , isStop_(false) {
+        , isStop_(false)
+#if PROMISE_MULTITHREAD
+        , mutex_(std::make_shared<Mutex>())
+#endif
+    {
     }
 
     // delay for milliseconds
@@ -77,7 +101,9 @@ public:
     // yield for other tasks to run
     Promise yield() {
         return promise::newPromise([&](Defer &defer) {
-            std::lock_guard<std::recursive_mutex> lock(mutex_);
+#if PROMISE_MULTITHREAD
+            std::lock_guard<Mutex> lock(*mutex_);
+#endif
             tasks_.push_back(defer);
             cond_.notify_one();
         });
@@ -86,7 +112,9 @@ public:
     // Resolve the defer object in this io thread
     void runInIoThread(const std::function<void()> &func) {
         promise::newPromise([=](Defer &defer) {
-            std::lock_guard<std::recursive_mutex> lock(mutex_);
+#if PROMISE_MULTITHREAD
+            std::lock_guard<Mutex> lock(*mutex_);
+#endif
             tasks_.push_back(defer);
             cond_.notify_one();
         }).then([func]() {
@@ -96,7 +124,9 @@ public:
 
     // Set if the io thread will auto exist if no waiting tasks and timers.
     void setAutoStop(bool isAutoExit) {
-        std::lock_guard<std::recursive_mutex> lock(mutex_);
+#if PROMISE_MULTITHREAD
+        std::lock_guard<Mutex> lock(*mutex_);
+#endif
         isAutoStop_ = isAutoExit;
         cond_.notify_one();
     }
@@ -104,7 +134,9 @@ public:
 
     // run the service loop
     void run() {
-        std::unique_lock<std::recursive_mutex> lock(mutex_);
+#if PROMISE_MULTITHREAD
+        std::unique_lock<Mutex> lock(*mutex_);
+#endif
 
         while(!isStop_ && (!isAutoStop_ || tasks_.size() > 0 || timers_.size() > 0)) {
 
@@ -136,7 +168,14 @@ public:
                 for(size_t i = 0; i < size; ++i){
                     Defer defer = tasks_.front();
                     tasks_.pop_front();
+
+#if PROMISE_MULTITHREAD
+                    unlock_guard_t unlock(mutex_);
                     defer.resolve();
+                    break; // for only once
+#else
+                    defer.resolve(); // loop with the size
+#endif
                 }
             }
         }
@@ -146,11 +185,17 @@ public:
             while (timers_.size() > 0) {
                 Defer defer = timers_.begin()->second;
                 timers_.erase(timers_.begin());
+#if PROMISE_MULTITHREAD
+                unlock_guard_t unlock(mutex_);
+#endif
                 defer.reject(std::runtime_error("service stopped"));
             }
             while (tasks_.size() > 0) {
                 Defer defer = tasks_.front();
                 tasks_.pop_front();
+#if PROMISE_MULTITHREAD
+                unlock_guard_t unlock(mutex_);
+#endif
                 defer.reject(std::runtime_error("service stopped"));
             }
         }
@@ -158,7 +203,9 @@ public:
 
     // stop the service loop
     void stop() {
-        std::lock_guard<std::recursive_mutex> lock(mutex_);
+#if PROMISE_MULTITHREAD
+        std::lock_guard<Mutex> lock(*mutex_);
+#endif
         isStop_ = true;
         cond_.notify_one();
     }
