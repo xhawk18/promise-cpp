@@ -49,7 +49,10 @@
 
 namespace promise {
 
-PromiseEventFilter::PromiseEventFilter() {}
+PromiseEventFilter::PromiseEventFilter() 
+    : removeLaters_(ListenersIteratorCompare())
+    , eventFilterRecursiveCount_(0) {
+}
 
 PromiseEventFilter::Listeners::iterator PromiseEventFilter::addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func) {
     std::pair<QObject *, QEvent::Type> key = { object, eventType };
@@ -57,7 +60,8 @@ PromiseEventFilter::Listeners::iterator PromiseEventFilter::addEventListener(QOb
 }
 
 void PromiseEventFilter::removeEventListener(PromiseEventFilter::Listeners::iterator itr) {
-    listeners_.erase(itr);
+    removeLaters_.insert(itr);
+    //listeners_.erase(itr);
 }
 
 PromiseEventFilter &PromiseEventFilter::getSingleInstance() {
@@ -68,8 +72,7 @@ PromiseEventFilter &PromiseEventFilter::getSingleInstance() {
 bool PromiseEventFilter::eventFilter(QObject *object, QEvent *event) {
     std::pair<QObject *, QEvent::Type> key = { object, event->type() };
 
-    //LOG_INFO("eventFilter = {} {}", object, event->type());
-    // may not safe if one handler is removed by other
+    eventFilterRecursiveCount_.fetch_add(1);
     std::list<Listeners::iterator> itrs;
     for (Listeners::iterator itr = listeners_.lower_bound(key);
         itr != listeners_.end() && key == itr->first; ++itr) {
@@ -79,28 +82,15 @@ bool PromiseEventFilter::eventFilter(QObject *object, QEvent *event) {
         itr->second(object, event);
     }
 
-    if (event->type() == QEvent::Destroy) {
-        removeObjectFilters(object);
+    int value = eventFilterRecursiveCount_.fetch_sub(1);
+    if (value <= 1) {
+        for (Listeners::iterator itr : removeLaters_) {
+            listeners_.erase(itr);
+        }
+        removeLaters_.clear();
     }
 
     return QObject::eventFilter(object, event);
-}
-
-bool PromiseEventFilter::removeObjectFilters(QObject *object) {
-    std::pair<QObject *, QEvent::Type> key = { object, QEvent::None };
-
-    // checked one by one for safety (others may be removed)
-    while (true) {
-        Listeners::iterator itr = listeners_.lower_bound(key);
-        if (itr != listeners_.end() && itr->first.first == object) {
-            itr->second(object, nullptr);
-        }
-        else {
-            break;
-        }
-    }
-
-    return false;
 }
 
 // Wait event will wait the event for only once
@@ -115,7 +105,7 @@ Promise waitEvent(QObject *object,
         *listener = PromiseEventFilter::getSingleInstance().addEventListener(
             object, eventType, [defer, callSysHandler, disableFilter](QObject *object, QEvent *event) {
             (void)object;
-            if (event == nullptr) {
+            if (event->type() == QEvent::Destroy) {
                 defer.reject();
                 return false;
             }

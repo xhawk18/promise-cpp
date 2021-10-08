@@ -43,6 +43,8 @@
 
 #include "promise-cpp/promise.hpp"
 #include <chrono>
+#include <set>
+#include <atomic>
 #include <QObject>
 #include <QTimerEvent>
 #include <QApplication>
@@ -100,8 +102,17 @@ public:
 
 protected:
     PROMISE_QT_API bool eventFilter(QObject *object, QEvent *event) override;
-    PROMISE_QT_API bool removeObjectFilters(QObject *object);
     Listeners listeners_;
+
+    struct ListenersIteratorCompare {
+        bool operator()(Listeners::iterator l,
+            Listeners::iterator r) const {
+            return &*l < &*r;
+        }
+    };
+    std::set<Listeners::iterator, ListenersIteratorCompare> removeLaters_;
+    // eventFilter recursive level
+    std::atomic<int> eventFilterRecursiveCount_;
 };
 
 // Wait event will wait the event for only once
