@@ -28,7 +28,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <typeindex>
 #include <vector>
 #include "add_ons.hpp"
 #include "call_traits.hpp"
@@ -136,8 +135,8 @@ public: // queries
         any().swap(*this);
     }
 
-    const std::type_info & type() const {
-        return content ? content->type() : typeid(void);
+    type_index type() const {
+        return content ? content->type() : type_id<void>();
     }
 
 public: // types (public so any_cast can be non-friend)
@@ -147,8 +146,8 @@ public: // types (public so any_cast can be non-friend)
         }
 
     public: // queries
-        virtual const std::type_info & type() const = 0;
-        virtual placeholder * clone() const = 0;
+        virtual type_index type() const = 0;
+        virtual placeholder *clone() const = 0;
         virtual any call(const any &arg) const = 0;
     };
 
@@ -160,8 +159,8 @@ public: // types (public so any_cast can be non-friend)
         }
 
     public: // queries
-        virtual const std::type_info & type() const {
-            return typeid(ValueType);
+        virtual type_index type() const {
+            return type_id<ValueType>();
         }
 
         virtual placeholder * clone() const {
@@ -183,9 +182,9 @@ public: // representation (public so any_cast can be non-friend)
 
 class bad_any_cast : public std::bad_cast {
 public:
-    std::type_index from_;
-    std::type_index to_;
-    bad_any_cast(const std::type_index &from, const std::type_index &to)
+    type_index from_;
+    type_index to_;
+    bad_any_cast(const type_index &from, const type_index &to)
         : from_(from)
         , to_(to) {
         //fprintf(stderr, "bad_any_cast: from = %s, to = %s\n", from.name(), to.name());
@@ -199,7 +198,7 @@ template<typename ValueType>
 ValueType * any_cast(any *operand) {
     typedef typename any::template holder<ValueType> holder_t;
     return operand &&
-        operand->type() == typeid(ValueType)
+        operand->type() == type_id<ValueType>()
         ? &static_cast<holder_t *>(operand->content)->held
         : 0;
 }
@@ -215,7 +214,7 @@ ValueType any_cast(any & operand) {
 
     nonref *result = any_cast<nonref>(&operand);
     if (!result)
-        throw bad_any_cast(operand.type(), typeid(ValueType));
+        throw bad_any_cast(operand.type(), type_id<ValueType>());
     return *result;
 }
 
@@ -242,11 +241,11 @@ struct any_call_t<RET, std::tuple<NOCVR_ARGS...>, FUNC> {
         using nocvr_argument_type = std::tuple<NOCVR_ARGS...>;
         using any_arguemnt_type = std::vector<any>;
 
-        const any_arguemnt_type &args = (arg.type() != typeid(any_arguemnt_type)
+        const any_arguemnt_type &args = (arg.type() != type_id<any_arguemnt_type>()
             ? any_arguemnt_type{ arg }
             : any_cast<any_arguemnt_type &>(arg));
         if(args.size() < sizeof...(NOCVR_ARGS))
-            throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
+            throw bad_any_cast(arg.type(), type_id<nocvr_argument_type>());
 
         return func(any_cast<typename std::tuple_element<I, nocvr_argument_type>::type &>(args[I])...);
     }
@@ -259,7 +258,7 @@ struct any_call_t<RET, std::tuple<NOCVR_ARG>, FUNC> {
         using nocvr_argument_type = std::tuple<NOCVR_ARG>;
         using any_arguemnt_type = std::vector<any>;
 
-        if (arg.type() == typeid(std::exception_ptr)) {
+        if (arg.type() == type_id<std::exception_ptr>()) {
             try {
                 std::rethrow_exception(any_cast<std::exception_ptr>(arg));
             }
@@ -268,16 +267,16 @@ struct any_call_t<RET, std::tuple<NOCVR_ARG>, FUNC> {
             }
         }
 
-        if (typeid(NOCVR_ARG) == typeid(any_arguemnt_type)) {
+        if (type_id<NOCVR_ARG>() == type_id<any_arguemnt_type>()) {
             return func(any_cast<NOCVR_ARG &>(arg));
         }
 
-        const any_arguemnt_type &args = (arg.type() != typeid(any_arguemnt_type)
+        const any_arguemnt_type &args = (arg.type() != type_id<any_arguemnt_type>()
             ? any_arguemnt_type{ arg }
             : any_cast<any_arguemnt_type &>(arg));
         if(args.size() < 1)
-            throw bad_any_cast(arg.type(), typeid(nocvr_argument_type));
-        //printf("[%s] [%s]\n", args.front().type().name(), typeid(NOCVR_ARG).name());
+            throw bad_any_cast(arg.type(), type_id<nocvr_argument_type>());
+        //printf("[%s] [%s]\n", args.front().type().name(), type_id<NOCVR_ARG>().name());
         return func(any_cast<NOCVR_ARG &>(args.front()));
     }
 };
@@ -287,7 +286,7 @@ template<typename RET, typename FUNC>
 struct any_call_t<RET, std::tuple<any>, FUNC> {
     static inline RET call(const typename FUNC::fun_type &func, const any &arg) {
         using any_arguemnt_type = std::vector<any>;
-        if (arg.type() != typeid(any_arguemnt_type))
+        if (arg.type() != type_id<any_arguemnt_type>())
             return (func(const_cast<any &>(arg)));
 
         any_arguemnt_type &args = any_cast<any_arguemnt_type &>(arg);
@@ -325,7 +324,7 @@ inline any any_call(const FUNC &func, const any &arg) {
     if (!stdFunc)
         return any();
 
-    if (arg.type() == typeid(std::exception_ptr)) {
+    if (arg.type() == type_id<std::exception_ptr>()) {
         try {
             std::rethrow_exception(any_cast<std::exception_ptr>(arg));
         }

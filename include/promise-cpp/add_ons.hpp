@@ -5,6 +5,29 @@
 #include <iterator>
 #include <type_traits>
 
+#ifdef __cpp_rtti
+#include <typeindex>
+namespace promise {
+using type_index = std::type_index;
+
+template<typename T>
+inline type_index type_id() {
+    return typeid(T);
+}
+} // namespace promise
+#else
+namespace promise {
+using type_index = ptrdiff_t;
+
+template<typename T>
+inline type_index type_id() {
+    static char idHolder;
+    return (type_index)&idHolder;
+}
+} // namespace promise
+#endif
+
+
 namespace std {
 
 

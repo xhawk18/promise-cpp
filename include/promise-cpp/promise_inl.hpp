@@ -165,7 +165,7 @@ static inline void call(std::shared_ptr<Task> task) {
             try {
                 if (promiseHolder->state_ == TaskState::kResolved) {
                     if (task->onResolved_.empty()
-                        || task->onResolved_.type() == typeid(std::nullptr_t)) {
+                        || task->onResolved_.type() == type_id<std::nullptr_t>()) {
                         //to next resolved task
                     }
                     else {
@@ -175,7 +175,7 @@ static inline void call(std::shared_ptr<Task> task) {
                             unlock_guard_t lock(mutex);
                             const any &value = task->onResolved_.call(promiseHolder->value_);
                             // Make sure the returned promised is locked before than "mutex"
-                            if (value.type() == typeid(Promise)) {
+                            if (value.type() == type_id<Promise>()) {
                                 Promise &promise = value.cast<Promise &>();
                                 mutex0 = promise.sharedPromise_->obtainLock();
                             }
@@ -197,7 +197,7 @@ static inline void call(std::shared_ptr<Task> task) {
 #else
                         const any &value = task->onResolved_.call(promiseHolder->value_);
 
-                        if (value.type() != typeid(Promise)) {
+                        if (value.type() != type_id<Promise>()) {
                             promiseHolder->value_ = value;
                             promiseHolder->state_ = TaskState::kResolved;
                         }
@@ -212,7 +212,7 @@ static inline void call(std::shared_ptr<Task> task) {
                 }
                 else if (promiseHolder->state_ == TaskState::kRejected) {
                     if (task->onRejected_.empty()
-                        || task->onRejected_.type() == typeid(std::nullptr_t)) {
+                        || task->onRejected_.type() == type_id<std::nullptr_t>()) {
                         //to next rejected task
                         //promiseHolder->value_ = promiseHolder->value_;
                         //promiseHolder->state_ = TaskState::kRejected;
@@ -225,7 +225,7 @@ static inline void call(std::shared_ptr<Task> task) {
                                 unlock_guard_t lock(mutex);
                                 const any &value = task->onRejected_.call(promiseHolder->value_);
                                 // Make sure the returned promised is locked before than "mutex"
-                                if (value.type() == typeid(Promise)) {
+                                if (value.type() == type_id<Promise>()) {
                                     Promise &promise = value.cast<Promise &>();
                                     mutex0 = promise.sharedPromise_->obtainLock();
                                 }
@@ -247,7 +247,7 @@ static inline void call(std::shared_ptr<Task> task) {
 #else
                             const any &value = task->onRejected_.call(promiseHolder->value_);
 
-                            if (value.type() != typeid(Promise)) {
+                            if (value.type() != type_id<Promise>()) {
                                 promiseHolder->value_ = value;
                                 promiseHolder->state_ = TaskState::kResolved;
                             }
@@ -457,7 +457,7 @@ std::shared_ptr<Mutex> SharedPromise::obtainLock() const {
 #endif
 
 Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
-    if (deferOrPromiseOrOnResolved.type() == typeid(Defer)) {
+    if (deferOrPromiseOrOnResolved.type() == type_id<Defer>()) {
         Defer &defer = deferOrPromiseOrOnResolved.cast<Defer &>();
         Promise promise = defer.getPromise();
         Promise &ret = then([defer](const any &arg) -> any {
@@ -474,7 +474,7 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
 
         return ret;
     }
-    else if (deferOrPromiseOrOnResolved.type() == typeid(DeferLoop)) {
+    else if (deferOrPromiseOrOnResolved.type() == type_id<DeferLoop>()) {
         DeferLoop &loop = deferOrPromiseOrOnResolved.cast<DeferLoop &>();
         Promise promise = loop.getPromise();
 
@@ -493,7 +493,7 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
 
         return ret;
     }
-    else if (deferOrPromiseOrOnResolved.type() == typeid(Promise)) {
+    else if (deferOrPromiseOrOnResolved.type() == type_id<Promise>()) {
         Promise &promise = deferOrPromiseOrOnResolved.cast<Promise &>();
 
 #if PROMISE_MULTITHREAD
@@ -646,11 +646,11 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
             //printf("arg. type = %s\n", arg.type().name());
 
             bool isBreak = false;
-            if (arg.type() == typeid(std::vector<any>)) {
+            if (arg.type() == type_id<std::vector<any>>()) {
                 std::vector<any> &args = any_cast<std::vector<any> &>(arg);
                 if (args.size() == 2
-                    && args.front().type() == typeid(DoBreakTag)
-                    && args.back().type() == typeid(std::vector<any>)) {
+                    && args.front().type() == type_id<DoBreakTag>()
+                    && args.back().type() == type_id<std::vector<any>>()) {
                     isBreak = true;
                     defer.resolve(args.back());
                 }
