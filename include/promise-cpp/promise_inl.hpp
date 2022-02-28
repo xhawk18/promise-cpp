@@ -148,18 +148,24 @@ static inline void call(std::shared_ptr<Task> task) {
         {
 #if PROMISE_MULTITHREAD
             std::shared_ptr<Mutex> mutex = promiseHolder->mutex_;
-            std::lock_guard<Mutex> lock(*mutex);
+            std::unique_lock<Mutex> lock(*mutex);
 #endif
 
             if (task->state_ != TaskState::kPending) return;
-
             if (promiseHolder->state_ == TaskState::kPending) return;
-            task->state_ = promiseHolder->state_;
 
             std::list<std::shared_ptr<Task>> &pendingTasks = promiseHolder->pendingTasks_;
             //promiseHolder->dump();
+
+#if PROMISE_MULTITHREAD
+            while (pendingTasks.front() != task) {
+                mutex->cond_.wait<std::unique_lock<Mutex>>(lock);
+            }
+#else
             assert(pendingTasks.front() == task);
+#endif
             pendingTasks.pop_front();
+            task->state_ = promiseHolder->state_;
             //promiseHolder->dump();
 
             try {
@@ -361,6 +367,7 @@ Promise DeferLoop::getPromise() const {
 #if PROMISE_MULTITHREAD
 Mutex::Mutex()
     : mutex_()
+    , cond_()
     , lock_count_(0) {
 }
 

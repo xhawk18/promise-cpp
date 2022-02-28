@@ -48,6 +48,7 @@
 #include <memory>
 #include <functional>
 #include <mutex>
+#include <condition_variable>
 #include "any.hpp"
 
 namespace promise {
@@ -78,6 +79,7 @@ public:
     PROMISE_API void lock(size_t lock_count);
     PROMISE_API void unlock(size_t lock_count);
     inline size_t lock_count() const { return lock_count_; }
+    std::condition_variable_any cond_;
 private:
     std::recursive_mutex mutex_;
     size_t lock_count_;
