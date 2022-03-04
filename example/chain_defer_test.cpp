@@ -3,20 +3,24 @@
 #include <iostream>
 
 promise::Promise writeTo(std::ostream& out) {
-    return promise::newPromise(PM_LOC).then(PM_LOC, [&out](int value) {
-        out << value;
-        return promise::reject(PM_LOC, std::string(" testErrorReason "));
-    }, [&out](const std::string& reason) {
-        out << reason;
-        return 456;
-    });
+    return promise::newPromise(PM_LOC)
+        .then(PM_LOC, [&out](int value) {
+            out << value;
+            promise::callStack().dump();
+            return promise::reject(PM_LOC, std::string(" testErrorReason "));
+        }, [&out](const std::string& reason) {
+            out << reason;
+            return 456;
+        });
 }
 
 int main() {
     promise::Promise d = promise::newPromise(PM_LOC);
     std::ostringstream out;
     promise::Promise writeToOut = writeTo(out);
-    d.then(PM_LOC, writeToOut).then(PM_LOC, writeTo(out)).then(PM_LOC, writeTo(out));
+    d.then(PM_LOC, writeToOut)
+        .then(PM_LOC, writeTo(out))
+        .then(PM_LOC, writeTo(out));
     d.resolve(PM_LOC, 123);
 
     std::string expected = "123 testErrorReason 456";

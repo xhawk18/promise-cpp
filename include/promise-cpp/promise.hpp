@@ -227,6 +227,7 @@ public:
 };
 
 
+PROMISE_API CallStack callStack();
 PROMISE_API Promise newPromise(const Loc &loc, const std::function<void(Defer &defer)> &run);
 PROMISE_API Promise newPromise(const Loc &loc);
 PROMISE_API Promise doWhile(const Loc &loc, const std::function<void(DeferLoop &loop)> &run);

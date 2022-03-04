@@ -58,6 +58,7 @@ Promise run(Promise &next){
     }).then(PM_LOC, [](const int &a, int b, int c) {
         printf("%d %d %d\n", a, b, c);
         output_func_name();
+        promise::callStack().dump();
     }).then(PM_LOC, [](){
         output_func_name();
     }).then(PM_LOC, [&next](){

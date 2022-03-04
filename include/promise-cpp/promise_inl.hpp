@@ -18,7 +18,7 @@ void CallStack::dump() const {
     }
     else {
         size_t count = 0;
-        for (auto it = locations_->begin(); it != locations_->end(); ++it, ++count) {
+        for (auto it = locations_->rbegin(); it != locations_->rend(); ++it, ++count) {
             for (size_t i = 0; i < count; ++i) printf(" ");
             printf("%d:%s\n", it->line_, it->file_);
         }
@@ -124,6 +124,7 @@ static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::s
         task->promiseHolder_ = left;
     }
     left->pendingTasks_.splice(left->pendingTasks_.end(), right->pendingTasks_);
+    left->callStack_.splice(left->callStack_.begin(), right->callStack_);
 
     std::list<std::weak_ptr<SharedPromise>> owners;
     owners.splice(owners.end(), right->owners_);
@@ -151,6 +152,11 @@ static inline void join(const std::shared_ptr<PromiseHolder> &left, const std::s
 
     healthyCheck(__LINE__, left.get());
     healthyCheck(__LINE__, right.get());
+}
+
+inline std::list<std::shared_ptr<PromiseHolder>> &threadLocalPromiseHolders() {
+    static thread_local std::list<std::shared_ptr<PromiseHolder>> promiseHolder;
+    return promiseHolder;
 }
 
 //Unlock and then lock
@@ -213,7 +219,9 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
                         std::shared_ptr<Mutex> mutex0 = nullptr;
                         auto call = [&]() -> any {
                             unlock_guard_t lock(mutex);
+                            threadLocalPromiseHolders().push_back(promiseHolder);
                             const any &value = task->onResolved_.call(promiseHolder->value_);
+                            threadLocalPromiseHolders().pop_back();
                             // Make sure the returned promised is locked before than "mutex"
                             if (value.type() == type_id<Promise>()) {
                                 Promise &promise = value.cast<Promise &>();
@@ -235,7 +243,9 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
                             promiseHolder = promise.sharedPromise_->promiseHolder_;
                         }
 #else
+                        threadLocalPromiseHolders().push_back(promiseHolder);
                         const any &value = task->onResolved_.call(promiseHolder->value_);
+                        threadLocalPromiseHolders().pop_back();
 
                         if (value.type() != type_id<Promise>()) {
                             promiseHolder->value_ = value;
@@ -263,7 +273,9 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
                             std::shared_ptr<Mutex> mutex0 = nullptr;
                             auto call = [&]() -> any {
                                 unlock_guard_t lock(mutex);
+                                threadLocalPromiseHolders().push_back(promiseHolder);
                                 const any &value = task->onRejected_.call(promiseHolder->value_);
+                                threadLocalPromiseHolders().pop_back();
                                 // Make sure the returned promised is locked before than "mutex"
                                 if (value.type() == type_id<Promise>()) {
                                     Promise &promise = value.cast<Promise &>();
@@ -285,7 +297,9 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
                                 promiseHolder = promise.sharedPromise_->promiseHolder_;
                             }
 #else
+                            threadLocalPromiseHolders().push_back(promiseHolder);
                             const any &value = task->onRejected_.call(promiseHolder->value_);
+                            threadLocalPromiseHolders().pop_back();
 
                             if (value.type() != type_id<Promise>()) {
                                 promiseHolder->value_ = value;
@@ -649,6 +663,14 @@ void Promise::clear() {
 
 Promise::operator bool() const {
     return sharedPromise_.operator bool();
+}
+
+CallStack callStack() {
+    std::list<std::shared_ptr<PromiseHolder>> &promiseHolders = threadLocalPromiseHolders();
+    if (promiseHolders.size() != 0)
+        return CallStack{ &promiseHolders.back()->callStack_ };
+    else
+        return CallStack{ nullptr };
 }
 
 Promise newPromise(const Loc &loc, const std::function<void(Defer &defer)> &run) {
