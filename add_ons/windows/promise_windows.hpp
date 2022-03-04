@@ -58,16 +58,16 @@ public:
     static Promise delay(int time_ms) {
         UINT_PTR timerId = ::SetTimer(NULL, 0, (UINT)time_ms, &WindowsTimerHolder::timerEvent);
 
-        return newPromise([timerId](Defer &Defer) {
+        return newPromise(PM_LOC, [timerId](Defer &Defer) {
             //printf("timerId = %d\n", (int)timerId);
             WindowsTimerHolder::getDefers().insert({ timerId, Defer });
-        }).then([timerId]() {
+        }).then(PM_LOC, [timerId]() {
             WindowsTimerHolder::getDefers().erase(timerId);
-            return promise::resolve();
+            return promise::resolve(PM_LOC);
         }, [timerId]() {
             ::KillTimer(NULL, timerId);
             WindowsTimerHolder::getDefers().erase(timerId);
-            return promise::reject();
+            return promise::reject(PM_LOC);
         });
 
     }
@@ -78,7 +78,7 @@ public:
 
     static Promise setTimeout(const std::function<void(bool)> &func,
                               int time_ms) {
-        return delay(time_ms).then([func]() {
+        return delay(time_ms).then(PM_LOC, [func]() {
             func(false);
         }, [func]() {
             func(true);
@@ -97,7 +97,7 @@ protected:
         auto found = getDefers().find(timerId);
         if (found != getDefers().end()) {
             Defer d = found->second;
-            d.resolve();
+            d.resolve(PM_LOC);
         }
     }
 
@@ -125,7 +125,7 @@ inline Promise setTimeout(const std::function<void(bool)> &func,
 
 
 inline void cancelDelay(Defer d) {
-    d.reject();
+    d.reject(PM_LOC);
 }
 
 inline void clearTimeout(Defer d) {

@@ -91,7 +91,7 @@ public:
 
     // delay for milliseconds
     Promise delay(uint64_t time_ms) {
-        return promise::newPromise([&](Defer &defer) {
+        return promise::newPromise(PM_LOC, [&](Defer &defer) {
             TimePoint now = std::chrono::steady_clock::now();
             TimePoint time = now + std::chrono::milliseconds(time_ms);
             timers_.emplace(time, defer);
@@ -100,7 +100,7 @@ public:
 
     // yield for other tasks to run
     Promise yield() {
-        return promise::newPromise([&](Defer &defer) {
+        return promise::newPromise(PM_LOC, [&](Defer &defer) {
 #if PROMISE_MULTITHREAD
             std::lock_guard<Mutex> lock(*mutex_);
 #endif
@@ -111,13 +111,13 @@ public:
 
     // Resolve the defer object in this io thread
     void runInIoThread(const std::function<void()> &func) {
-        promise::newPromise([=](Defer &defer) {
+        promise::newPromise(PM_LOC, [=](Defer &defer) {
 #if PROMISE_MULTITHREAD
             std::lock_guard<Mutex> lock(*mutex_);
 #endif
             tasks_.push_back(defer);
             cond_.notify_one();
-        }).then([func]() {
+        }).then(PM_LOC, [func]() {
             func();
         });
     }
@@ -171,7 +171,7 @@ public:
 
 #if PROMISE_MULTITHREAD
                     unlock_guard_t unlock(mutex_);
-                    defer.resolve();
+                    defer.resolve(PM_LOC);
                     break; // for only once
 #else
                     defer.resolve(); // loop with the size
@@ -188,7 +188,7 @@ public:
 #if PROMISE_MULTITHREAD
                 unlock_guard_t unlock(mutex_);
 #endif
-                defer.reject(std::runtime_error("service stopped"));
+                defer.reject(PM_LOC, std::runtime_error("service stopped"));
             }
             while (tasks_.size() > 0) {
                 Defer defer = tasks_.front();
@@ -196,7 +196,7 @@ public:
 #if PROMISE_MULTITHREAD
                 unlock_guard_t unlock(mutex_);
 #endif
-                defer.reject(std::runtime_error("service stopped"));
+                defer.reject(PM_LOC, std::runtime_error("service stopped"));
             }
         }
     }

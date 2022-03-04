@@ -22,29 +22,29 @@ MainWindow::MainWindow(QWidget *parent)
 
     // delay tasks
 #if 1
-    doWhile([=](DeferLoop &loop) {
-        delay(1000).then([=]() {
+    doWhile(PM_LOC, [=](DeferLoop &loop) {
+        delay(1000).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return yield();
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then([=]() {
+        }).then(PM_LOC, [=]() {
             updateText(__LINE__);
             return delay(1000);
-        }).then(loop); //call doWhile
+        }).then(PM_LOC, loop); //call doWhile
     });
 #endif
 

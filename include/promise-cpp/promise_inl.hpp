@@ -9,6 +9,23 @@
 
 namespace promise {
 
+void CallStack::dump() const {
+    if (locations_ == nullptr) {
+        printf("call stack is nullptr\n");
+    }
+    else if (locations_->size() == 0) {
+        printf("call stack is empty\n");
+    }
+    else {
+        size_t count = 0;
+        for (auto it = locations_->begin(); it != locations_->end(); ++it, ++count) {
+            for (size_t i = 0; i < count; ++i) printf(" ");
+            printf("%d:%s\n", it->line_, it->file_);
+        }
+    }
+}
+
+
 static inline void healthyCheck(int line, PromiseHolder *promiseHolder) {
     (void)line;
     (void)promiseHolder;
@@ -56,12 +73,26 @@ void Promise::dump() const {
 #endif
 }
 
+CallStack Promise::callStack() const {
+    if (this->sharedPromise_)
+        return this->sharedPromise_->callStack();
+    else
+        return CallStack{ nullptr };
+}
+
 void SharedPromise::dump() const {
 #ifndef NDEBUG
     printf("SharedPromise = %p, PromiseHolder = %p\n", this, this->promiseHolder_.get());
     if (this->promiseHolder_)
         this->promiseHolder_->dump();
 #endif
+}
+
+CallStack SharedPromise::callStack() const {
+    if (this->promiseHolder_)
+        return CallStack{ &this->promiseHolder_->callStack_ };
+    else
+        return CallStack{ nullptr };
 }
 
 void PromiseHolder::dump() const {
@@ -138,7 +169,7 @@ struct unlock_guard_t {
 };
 #endif
 
-static inline void call(std::shared_ptr<Task> task) {
+static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
     std::shared_ptr<PromiseHolder> promiseHolder; //Can hold the temporarily created promise
     while (true) {
         promiseHolder = task->promiseHolder_.lock();
@@ -165,6 +196,9 @@ static inline void call(std::shared_ptr<Task> task) {
             assert(pendingTasks.front() == task);
 #endif
             pendingTasks.pop_front();
+            promiseHolder->callStack_.push_back(task->loc_);
+            while (promiseHolder->callStack_.size() > PM_MAX_LOC) promiseHolder->callStack_.pop_front();
+
             task->state_ = promiseHolder->state_;
             //promiseHolder->dump();
 
@@ -310,7 +344,7 @@ Defer::Defer(const std::shared_ptr<Task> &task) {
 }
 
 
-void Defer::resolve(const any &arg) const {
+void Defer::resolve(const Loc &loc, const any &arg) const {
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
     std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
@@ -320,10 +354,10 @@ void Defer::resolve(const any &arg) const {
     std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kResolved;
     promiseHolder->value_ = arg;
-    call(task_);
+    call(loc, task_);
 }
 
-void Defer::reject(const any &arg) const {
+void Defer::reject(const Loc &loc, const any &arg) const {
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
     std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
@@ -333,12 +367,16 @@ void Defer::reject(const any &arg) const {
     std::shared_ptr<PromiseHolder> &promiseHolder = sharedPromise_->promiseHolder_;
     promiseHolder->state_ = TaskState::kRejected;
     promiseHolder->value_ = arg;
-    call(task_);
+    call(loc, task_);
 }
 
 
 Promise Defer::getPromise() const {
     return Promise{ sharedPromise_ };
+}
+
+CallStack Defer::callStack() const {
+    return getPromise().callStack();
 }
 
 
@@ -348,20 +386,24 @@ DeferLoop::DeferLoop(const Defer &defer)
     : defer_(defer) {
 }
 
-void DeferLoop::doContinue() const {
-    defer_.resolve();
+void DeferLoop::doContinue(const Loc &loc) const {
+    defer_.resolve(loc);
 }
 
-void DeferLoop::doBreak(const any &arg) const {
-    defer_.reject(DoBreakTag(), arg);
+void DeferLoop::doBreak(const Loc &loc, const any &arg) const {
+    defer_.reject(loc, DoBreakTag(), arg);
 }
 
-void DeferLoop::reject(const any &arg) const {
-    defer_.reject(arg);
+void DeferLoop::reject(const Loc &loc, const any &arg) const {
+    defer_.reject(loc, arg);
 }
 
 Promise DeferLoop::getPromise() const {
     return defer_.getPromise();
+}
+
+CallStack DeferLoop::callStack() const {
+    return getPromise().callStack();
 }
 
 #if PROMISE_MULTITHREAD
@@ -418,9 +460,9 @@ any *PromiseHolder::getUncaughtExceptionHandler() {
 
 any *PromiseHolder::getDefaultUncaughtExceptionHandler() {
     static any defaultUncaughtExceptionHandler = [](Promise &d) {
-        d.fail([](const std::runtime_error &err) {
+        d.fail(PM_LOC, [](const std::runtime_error &err) {
             fprintf(stderr, "onUncaughtException in line %d, %s\n", __LINE__, err.what());
-        }).fail([]() {
+        }).fail(PM_LOC, []() {
             //go here for all other uncaught parameters.
             fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
         });
@@ -436,7 +478,7 @@ void PromiseHolder::onUncaughtException(const any &arg) {
     }
 
     try {
-        onUncaughtException->call(reject(arg));
+        onUncaughtException->call(reject(PM_LOC, arg));
     }
     catch (...) {
         fprintf(stderr, "onUncaughtException in line %d\n", __LINE__);
@@ -463,20 +505,20 @@ std::shared_ptr<Mutex> SharedPromise::obtainLock() const {
 }
 #endif
 
-Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
+Promise &Promise::then(const Loc &loc, const any &deferOrPromiseOrOnResolved) {
     if (deferOrPromiseOrOnResolved.type() == type_id<Defer>()) {
         Defer &defer = deferOrPromiseOrOnResolved.cast<Defer &>();
         Promise promise = defer.getPromise();
-        Promise &ret = then([defer](const any &arg) -> any {
-            defer.resolve(arg);
+        Promise &ret = then(PM_LOC, [loc, defer](const any &arg) -> any {
+            defer.resolve(loc, arg);
             return nullptr;
-        }, [defer](const any &arg) ->any {
-            defer.reject(arg);
+        }, [loc, defer](const any &arg) ->any {
+            defer.reject(loc, arg);
             return nullptr;
         });
 
-        promise.finally([=]() {
-            ret.reject();
+        promise.finally(PM_LOC, [=]() {
+            ret.reject(PM_LOC);
         });
 
         return ret;
@@ -485,17 +527,17 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
         DeferLoop &loop = deferOrPromiseOrOnResolved.cast<DeferLoop &>();
         Promise promise = loop.getPromise();
 
-        Promise &ret = then([loop](const any &arg) -> any {
+        Promise &ret = then(PM_LOC, [loc, loop](const any &arg) -> any {
             (void)arg;
-            loop.doContinue();
+            loop.doContinue(loc);
             return nullptr;
-        }, [loop](const any &arg) ->any {
-            loop.reject(arg);
+        }, [loc, loop](const any &arg) ->any {
+            loop.reject(loc, arg);
             return nullptr;
         });
 
-        promise.finally([=]() {
-            ret.reject();
+        promise.finally(PM_LOC, [=]() {
+            ret.reject(PM_LOC);
         });
 
         return ret;
@@ -514,17 +556,17 @@ Promise &Promise::then(const any &deferOrPromiseOrOnResolved) {
             join(this->sharedPromise_->promiseHolder_, promise.sharedPromise_->promiseHolder_);
             if (this->sharedPromise_->promiseHolder_->pendingTasks_.size() > 0) {
                 std::shared_ptr<Task> task = this->sharedPromise_->promiseHolder_->pendingTasks_.front();
-                call(task);
+                call(loc, task);
             }
         }
         return *this;
     }
     else {
-        return then(deferOrPromiseOrOnResolved, any());
+        return then(loc, deferOrPromiseOrOnResolved, any());
     }
 }
 
-Promise &Promise::then(const any &onResolved, const any &onRejected) {
+Promise &Promise::then(const Loc &loc, const any &onResolved, const any &onRejected) {
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
     std::lock_guard<Mutex> lock(*mutex, std::adopt_lock_t());
@@ -533,44 +575,45 @@ Promise &Promise::then(const any &onResolved, const any &onRejected) {
     std::shared_ptr<Task> task = std::make_shared<Task>(Task {
         TaskState::kPending,
         sharedPromise_->promiseHolder_,
+        loc,
         onResolved,
         onRejected
     });
     sharedPromise_->promiseHolder_->pendingTasks_.push_back(task);
-    call(task);
+    call(loc, task);
     return *this;
 }
 
-Promise &Promise::fail(const any &onRejected) {
-    return then(any(), onRejected);
+Promise &Promise::fail(const Loc &loc, const any &onRejected) {
+    return then(loc, any(), onRejected);
 }
 
-Promise &Promise::always(const any &onAlways) {
-    return then(onAlways, onAlways);
+Promise &Promise::always(const Loc &loc, const any &onAlways) {
+    return then(loc, onAlways, onAlways);
 }
 
-Promise &Promise::finally(const any &onFinally) {
-    return then([onFinally](const any &arg)->any {
-        return newPromise([onFinally, arg](Defer &defer) {
+Promise &Promise::finally(const Loc &loc, const any &onFinally) {
+    return then(PM_LOC, [loc, onFinally](const any &arg)->any {
+        return newPromise(PM_LOC, [loc, onFinally, arg](Defer &defer) {
             try {
                 onFinally.call(arg);
             }
             catch (bad_any_cast &) {}
-            defer.resolve(arg);
+            defer.resolve(loc, arg);
         });
-    }, [onFinally](const any &arg)->any {
-        return newPromise([onFinally, arg](Defer &defer) {
+    }, [loc, onFinally](const any &arg)->any {
+        return newPromise(PM_LOC, [loc, onFinally, arg](Defer &defer) {
             try {
                 onFinally.call(arg);
             }
             catch (bad_any_cast &) {}
-            defer.reject(arg);
+            defer.reject(loc, arg);
         });
     });
 }
 
 
-void Promise::resolve(const any &arg) const {
+void Promise::resolve(const Loc &loc, const any &arg) const {
     if (!this->sharedPromise_) return;
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
@@ -581,11 +624,11 @@ void Promise::resolve(const any &arg) const {
     if (pendingTasks_.size() > 0) {
         std::shared_ptr<Task> &task = pendingTasks_.front();
         Defer defer(task);
-        defer.resolve(arg);
+        defer.resolve(loc, arg);
     }
 }
 
-void Promise::reject(const any &arg) const {
+void Promise::reject(const Loc &loc, const any &arg) const {
     if (!this->sharedPromise_) return;
 #if PROMISE_MULTITHREAD
     std::shared_ptr<Mutex> mutex = this->sharedPromise_->obtainLock();
@@ -596,7 +639,7 @@ void Promise::reject(const any &arg) const {
     if (pendingTasks_.size() > 0) {
         std::shared_ptr<Task> &task = pendingTasks_.front();
         Defer defer(task);
-        defer.reject(arg);
+        defer.reject(loc, arg);
     }
 }
 
@@ -608,14 +651,14 @@ Promise::operator bool() const {
     return sharedPromise_.operator bool();
 }
 
-Promise newPromise(const std::function<void(Defer &defer)> &run) {
+Promise newPromise(const Loc &loc, const std::function<void(Defer &defer)> &run) {
     Promise promise;
     promise.sharedPromise_ = std::make_shared<SharedPromise>();
     promise.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
     promise.sharedPromise_->promiseHolder_->owners_.push_back(promise.sharedPromise_);
     
     // return as is
-    promise.then(any(), any());
+    promise.then(loc, any(), any());
     std::shared_ptr<Task> &task = promise.sharedPromise_->promiseHolder_->pendingTasks_.front();
 
     Defer defer(task);
@@ -623,33 +666,33 @@ Promise newPromise(const std::function<void(Defer &defer)> &run) {
         run(defer);
     }
     catch (...) {
-        defer.reject(std::current_exception());
+        defer.reject(loc, std::current_exception());
     }
    
     return promise;
 }
 
-Promise newPromise() {
+Promise newPromise(const Loc &loc) {
     Promise promise;
     promise.sharedPromise_ = std::make_shared<SharedPromise>();
     promise.sharedPromise_->promiseHolder_ = std::make_shared<PromiseHolder>();
     promise.sharedPromise_->promiseHolder_->owners_.push_back(promise.sharedPromise_);
 
     // return as is
-    promise.then(any(), any());
+    promise.then(loc, any(), any());
     return promise;
 }
 
-Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
+Promise doWhile(const Loc &loc, const std::function<void(DeferLoop &loop)> &run) {
 
-    return newPromise([run](Defer &defer) {
+    return newPromise(loc, [run](Defer &defer) {
         DeferLoop loop(defer);
         run(loop);
-    }).then([run](const any &arg) -> any {
+    }).then(loc, [loc, run](const any &arg) -> any {
         (void)arg;
-        return doWhile(run);
-    }, [](const any &arg) -> any {
-        return newPromise([arg](Defer &defer) {
+        return doWhile(loc, run);
+    }, [loc](const any &arg) -> any {
+        return newPromise(loc, [loc, arg](Defer &defer) {
             //printf("arg. type = %s\n", arg.type().name());
 
             bool isBreak = false;
@@ -659,12 +702,12 @@ Promise doWhile(const std::function<void(DeferLoop &loop)> &run) {
                     && args.front().type() == type_id<DoBreakTag>()
                     && args.back().type() == type_id<std::vector<any>>()) {
                     isBreak = true;
-                    defer.resolve(args.back());
+                    defer.resolve(loc, args.back());
                 }
             }
             
             if(!isBreak) {
-                defer.reject(arg);
+                defer.reject(loc, arg);
             }
         });
     });
@@ -680,9 +723,9 @@ Promise resolve(const any &arg) {
 }
 #endif
 
-Promise all(const std::list<Promise> &promise_list) {
+Promise all(const Loc &loc, const std::list<Promise> &promise_list) {
     if (promise_list.size() == 0) {
-        return resolve();
+        return resolve(loc);
     }
 
     std::shared_ptr<size_t> finished = std::make_shared<size_t>(0);
@@ -690,16 +733,16 @@ Promise all(const std::list<Promise> &promise_list) {
     std::shared_ptr<std::vector<any>> retArr = std::make_shared<std::vector<any>>();
     retArr->resize(*size);
 
-    return newPromise([=](Defer &defer) {
+    return newPromise(loc, [=](Defer &defer) {
         size_t index = 0;
         for (auto promise : promise_list) {
-            promise.then([=](const any &arg) {
+            promise.then(loc, [=](const any &arg) {
                 (*retArr)[index] = arg;
                 if (++(*finished) >= *size) {
-                    defer.resolve(*retArr);
+                    defer.resolve(loc, *retArr);
                 }
             }, [=](const any &arg) {
-                defer.reject(arg);
+                defer.reject(loc, arg);
             });
 
             ++index;
@@ -707,30 +750,30 @@ Promise all(const std::list<Promise> &promise_list) {
     });
 }
 
-Promise race(const std::list<Promise> &promise_list) {
-    return newPromise([=](Defer &defer) {
+Promise race(const Loc &loc, const std::list<Promise> &promise_list) {
+    return newPromise(loc, [=](Defer &defer) {
         for (auto promise : promise_list) {
-            promise.then([=](const any &arg) {
-                defer.resolve(arg);
+            promise.then(loc, [=](const any &arg) {
+                defer.resolve(loc, arg);
             }, [=](const any &arg) {
-                defer.reject(arg);
+                defer.reject(loc, arg);
             });
         }
     });
 }
 
-Promise raceAndReject(const std::list<Promise> &promise_list) {
-    return race(promise_list).finally([promise_list] {
+Promise raceAndReject(const Loc &loc, const std::list<Promise> &promise_list) {
+    return race(loc, promise_list).finally(PM_LOC, [loc, promise_list] {
         for (auto promise : promise_list) {
-            promise.reject();
+            promise.reject(loc);
         }
     });
 }
 
-Promise raceAndResolve(const std::list<Promise> &promise_list) {
-    return race(promise_list).finally([promise_list] {
+Promise raceAndResolve(const Loc &loc, const std::list<Promise> &promise_list) {
+    return race(loc, promise_list).finally(PM_LOC, [loc, promise_list] {
         for (auto promise : promise_list) {
-            promise.resolve();
+            promise.resolve(loc);
         }
     });
 }

@@ -37,15 +37,15 @@ using namespace promise;
 
 Promise testTimer(Service &service) {
 
-    return service.delay(3000).then([&] {
+    return service.delay(3000).then(PM_LOC, [&] {
         printf("timer after 3000 ms!\n");
         return service.delay(1000);
-    }).then([&] {
+    }).then(PM_LOC, [&] {
         printf("timer after 1000 ms!\n");
         return service.delay(2000);
-    }).then([] {
+    }).then(PM_LOC, [] {
         printf("timer after 2000 ms!\n");
-    }).fail([] {
+    }).fail(PM_LOC, [] {
         printf("timer cancelled!\n");
     });
 }

@@ -49,52 +49,52 @@ void test3(int n) {
 
 Promise run(Promise &next){
 
-    return newPromise([](Defer d) {
+    return newPromise(PM_LOC, [](Defer d) {
         output_func_name();
-        d.resolve(3, 5, 6);
-    }).then([](pm_any &any){
+        d.resolve(PM_LOC, 3, 5, 6);
+    }).then(PM_LOC, [](pm_any &any){
         output_func_name();
-        return resolve(3, 5, 16);
-    }).then([](const int &a, int b, int c) {
+        return resolve(PM_LOC, 3, 5, 16);
+    }).then(PM_LOC, [](const int &a, int b, int c) {
         printf("%d %d %d\n", a, b, c);
         output_func_name();
-    }).then([](){
+    }).then(PM_LOC, [](){
         output_func_name();
-    }).then([&next](){
+    }).then(PM_LOC, [&next](){
         output_func_name();
-        next = newPromise([](Defer d) {
+        next = newPromise(PM_LOC, [](Defer d) {
             output_func_name();
         });
         //Will call next.resole() or next.reject() later
         //throw 33;
         //next.reject(55, 66);
         return next;
-    }).finally([](int n) {
+    }).finally(PM_LOC, [](int n) {
         printf("finally n == %d\n", n);
-    }).then([](int n, char c) {
+    }).then(PM_LOC, [](int n, char c) {
         output_func_name();
         printf("n = %d, c = %c\n", (int)n, c);
-    }).then([](char n) {
+    }).then(PM_LOC, [](char n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).fail([](char n) {
+    }).fail(PM_LOC, [](char n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).fail([](short n) {
+    }).fail(PM_LOC, [](short n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).fail([](int &n) {
+    }).fail(PM_LOC, [](int &n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).fail([](const std::string &str) {
+    }).fail(PM_LOC, [](const std::string &str) {
         output_func_name();
         printf("str = %s\n", str.c_str());
-    }).fail([](uint64_t n) {
+    }).fail(PM_LOC, [](uint64_t n) {
         output_func_name();
         printf("n = %d\n", (int)n);
-    }).then(test1)
-    .then(test2)
-    .then(&test3);
+    }).then(PM_LOC, test1)
+    .then(PM_LOC, test2)
+    .then(PM_LOC, &test3);
     //.always([]() {
     //    output_func_name();
     //});
@@ -102,18 +102,18 @@ Promise run(Promise &next){
 
 void test_promise_all() {
     std::vector<Promise> ds = {
-        newPromise([](Defer d) {
+        newPromise(PM_LOC, [](Defer d) {
             output_func_name();
-            d.resolve(1);
+            d.resolve(PM_LOC, 1);
             //d.reject(1);
         }),
-        newPromise([](Defer d) {
+        newPromise(PM_LOC, [](Defer d) {
             output_func_name();
-            d.resolve(2);
+            d.resolve(PM_LOC, 2);
         })
     };
 
-    all(ds).then([]() {
+    all(PM_LOC, ds).then(PM_LOC, []() {
         output_func_name();
     }, []() {
         output_func_name();
@@ -123,9 +123,9 @@ void test_promise_all() {
 int main(int argc, char **argv) {
     handleUncaughtException([](Promise &d) {
        
-        d.fail([](long n, int m) {
+        d.fail(PM_LOC, [](long n, int m) {
             printf("UncaughtException parameters = %d %d\n", (int)n, m);
-        }).fail([]() {
+        }).fail(PM_LOC, []() {
             printf("UncaughtException\n");
         });
     });
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
 
     //next.reject(123, 'a');
     if(next) {
-        next.reject((long)123, (int)345);   //it will go to handleUncaughtException(...)
+        next.reject(PM_LOC, (long)123, (int)345);   //it will go to handleUncaughtException(...)
     }
     //next.resolve('b');
     //next.reject(std::string("xhchen"));

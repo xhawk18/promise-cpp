@@ -53,11 +53,11 @@ void task(Service &io, int task_id, int count, int *pcoro, Defer defer) {
     if (count == 0) {
         -- *pcoro;
         if (*pcoro == 0)
-            defer.resolve();
+            defer.resolve(PM_LOC);
         return;
     }
 
-    io.yield().then([=, &io]() {
+    io.yield().then(PM_LOC, [=, &io]() {
         task(io, task_id, count - 1, pcoro, defer);
     });
 };
@@ -68,11 +68,11 @@ Promise test_switch(Service &io, int coro) {
 
     int *pcoro = new int(coro);
 
-    return newPromise([=, &io](Defer &defer){
+    return newPromise(PM_LOC, [=, &io](Defer &defer){
         for (int task_id = 0; task_id < coro; ++task_id) {
             task(io, task_id, N / coro, pcoro, defer);
         }
-    }).then([=]() {
+    }).then(PM_LOC, [=]() {
         delete pcoro;
         steady_clock::time_point end = steady_clock::now();
         dump("BenchmarkSwitch_" + std::to_string(coro), N, start, end);
@@ -84,23 +84,23 @@ int main() {
     Service io;
 
     int i = 0;
-    doWhile([&](DeferLoop &loop) {
+    doWhile(PM_LOC, [&](DeferLoop &loop) {
 #ifdef PM_DEBUG
         printf("In while ..., alloc_size = %d\n", (int)(*dbg_alloc_size()));
 #else
         printf("In while ...\n");
 #endif
         //Sleep(5000);
-        test_switch(io, 1).then([&]() {
+        test_switch(io, 1).then(PM_LOC, [&]() {
             return test_switch(io, 1000);
-        }).then([&]() {
+        }).then(PM_LOC, [&]() {
             return test_switch(io, 10000);
-        }).then([&]() {
+        }).then(PM_LOC, [&]() {
             return test_switch(io, 100000);
-        }).then([&, loop]() {
-            if (i++ > 3) loop.doBreak();
+        }).then(PM_LOC, [&, loop]() {
+            if (i++ > 3) loop.doBreak(PM_LOC);
             return test_switch(io, 1000000);
-        }).then(loop);
+        }).then(PM_LOC, loop);
     });
 
     io.run();

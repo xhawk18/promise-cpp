@@ -98,7 +98,7 @@ Promise waitEvent(QObject *object,
                   QEvent::Type  eventType,
                   bool          callSysHandler) {
     auto listener = std::make_shared<PromiseEventFilter::Listeners::iterator>();
-    Promise promise = newPromise([listener, object, eventType, callSysHandler](Defer &defer) {
+    Promise promise = newPromise(PM_LOC, [listener, object, eventType, callSysHandler](Defer &defer) {
 
         std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
         //PTI;
@@ -106,7 +106,7 @@ Promise waitEvent(QObject *object,
             object, eventType, [defer, callSysHandler, disableFilter](QObject *object, QEvent *event) {
             (void)object;
             if (event->type() == QEvent::Destroy) {
-                defer.reject();
+                defer.reject(PM_LOC);
                 return false;
             }
             // The next then function will be call immediately
@@ -119,17 +119,17 @@ Promise waitEvent(QObject *object,
                 *disableFilter = true;
                 QApplication::sendEvent(object, event);
                 *disableFilter = false;
-                defer.resolve(event);
+                defer.resolve(PM_LOC, event);
                 return true;
             }
             else {
                 //PTI;
-                defer.resolve(event);
+                defer.resolve(PM_LOC, event);
                 return false;
             }
         }
         );
-    }).finally([listener]() {
+    }).finally(PM_LOC, [listener]() {
         //PTI;
         PromiseEventFilter::getSingleInstance().removeEventListener(*listener);
     });
@@ -147,9 +147,9 @@ QtTimerHolder::~QtTimerHolder() {
 Promise QtTimerHolder::delay(int time_ms) {
     int timerId = getInstance().startTimer(time_ms);
 
-    return newPromise([timerId](Defer &defer) {
+    return newPromise(PM_LOC, [timerId](Defer &defer) {
         getInstance().defers_.insert({ timerId, defer });
-    }).finally([timerId]() {
+    }).finally(PM_LOC, [timerId]() {
         getInstance().killTimer(timerId);
         getInstance().defers_.erase(timerId);
     });
@@ -161,7 +161,7 @@ Promise QtTimerHolder::yield() {
 
 Promise QtTimerHolder::setTimeout(const std::function<void(bool)> &func,
                                   int time_ms) {
-    return delay(time_ms).then([func]() {
+    return delay(time_ms).then(PM_LOC, [func]() {
         func(false);
     }, [func]() {
         func(true);
@@ -173,7 +173,7 @@ void QtTimerHolder::timerEvent(QTimerEvent *event) {
     auto found = this->defers_.find(timerId);
     if (found != this->defers_.end()) {
         Defer &defer = found->second;
-        defer.resolve();
+        defer.resolve(PM_LOC);
     }
     QObject::timerEvent(event);
 }
@@ -198,7 +198,7 @@ Promise setTimeout(const std::function<void(bool)> &func,
 
 
 void cancelDelay(Promise promise) {
-    promise.reject();
+    promise.reject(PM_LOC);
 }
 
 void clearTimeout(Promise promise) {
