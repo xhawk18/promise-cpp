@@ -69,11 +69,17 @@ struct Loc {
     const char *file_;
 };
 
+struct CallRecord {
+    Loc loc_;
+    int serialNo_;
+    std::chrono::system_clock::time_point callTime_;
+};
+
 #define PM_MAX_LOC 100
 #define PM_LOC promise::Loc{__LINE__, __FILE__}
 
 struct CallStack {
-    std::list<Loc> *locations_;
+    std::list<CallRecord> *locations_;
     PROMISE_API void dump() const;
 };
 
@@ -111,7 +117,7 @@ struct PromiseHolder {
     PROMISE_API ~PromiseHolder();
     std::list<std::weak_ptr<SharedPromise>> owners_;
     std::list<std::shared_ptr<Task>>        pendingTasks_;
-    std::list<Loc>                          callStack_;
+    std::list<CallRecord>                   callStack_;
     TaskState                               state_;
     any                                     value_;
 #if PROMISE_MULTITHREAD
@@ -278,7 +284,7 @@ inline Promise race(const Loc &loc, PROMISE0 defer0, PROMISE_LIST ...promise_lis
 }
 
 
-PROMISE_API Promise raceAndReject(const std::list<Promise> &promise_list);
+PROMISE_API Promise raceAndReject(const Loc &loc, const std::list<Promise> &promise_list);
 template<typename PROMISE_LIST,
     typename std::enable_if<is_iterable<PROMISE_LIST>::value
                             && !std::is_same<PROMISE_LIST, std::list<Promise>>::value

@@ -5,9 +5,29 @@
 #include <cassert>
 #include <stdexcept>
 #include <vector>
+#include <sstream>
+#include <iomanip>
+#include <atomic>
 #include "promise.hpp"
 
 namespace promise {
+
+// format data and time
+static inline std::string toDateTimeString(const std::chrono::system_clock::time_point &clock) {
+    time_t in_time_t = std::chrono::system_clock::to_time_t(clock);
+
+    std::stringstream ss;
+    struct tm in_tm;
+#ifdef _WIN32
+    localtime_s(&in_tm, &in_time_t);
+#elif defined __GNUC__
+    localtime_r(&in_time_t, &in_tm);
+#else
+    localtime_s(&in_time_t, &in_tm);
+#endif
+    ss << std::put_time(&in_tm, "%Y-%m-%d_%H:%M:%S");
+    return ss.str();
+}
 
 void CallStack::dump() const {
     if (locations_ == nullptr) {
@@ -17,10 +37,10 @@ void CallStack::dump() const {
         printf("call stack is empty\n");
     }
     else {
+        printf("call stack size = %d\n", (int)locations_->size());
         size_t count = 0;
         for (auto it = locations_->rbegin(); it != locations_->rend(); ++it, ++count) {
-            for (size_t i = 0; i < count; ++i) printf(" ");
-            printf("%d:%s\n", it->line_, it->file_);
+            printf("  %d,%s,%d,%s\n", it->serialNo_, toDateTimeString(it->callTime_).c_str(), it->loc_.line_, it->loc_.file_);
         }
     }
 }
@@ -159,6 +179,11 @@ inline std::list<std::shared_ptr<PromiseHolder>> &threadLocalPromiseHolders() {
     return promiseHolder;
 }
 
+inline std::atomic<int> &callSerialNo() {
+    static std::atomic<int> callSerialNo_{ 0 };
+    return callSerialNo_;
+}
+
 //Unlock and then lock
 #if PROMISE_MULTITHREAD
 struct unlock_guard_t {
@@ -202,7 +227,8 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
             assert(pendingTasks.front() == task);
 #endif
             pendingTasks.pop_front();
-            promiseHolder->callStack_.push_back(task->loc_);
+            int serialNo = callSerialNo().fetch_add(1);
+            promiseHolder->callStack_.push_back(CallRecord{ task->loc_, serialNo, std::chrono::system_clock::now() });
             while (promiseHolder->callStack_.size() > PM_MAX_LOC) promiseHolder->callStack_.pop_front();
 
             task->state_ = promiseHolder->state_;
