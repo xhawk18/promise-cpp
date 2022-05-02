@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "add_ons/qt/promise_qt.hpp"
+#include <promise-cpp/add_ons/qt/promise_qt.hpp>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

@@ -25,7 +25,7 @@
  * THE SOFTWARE.
  */
 
-#include "add_ons/asio/timer.hpp"
+#include <promise-cpp/add_ons/asio/timer.hpp>
 #include <stdio.h>
 #include <boost/asio.hpp>
 

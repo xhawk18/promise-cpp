@@ -30,8 +30,8 @@
 #include <iostream>
 #include <string>
 #include <chrono>
-#include "promise-cpp/promise.hpp"
-#include "add_ons/simple_task/simple_task.hpp"
+#include <promise-cpp/promise.hpp>
+#include <promise-cpp/add_ons/simple_task/simple_task.hpp>
 
 using namespace promise;
 namespace chrono       = std::chrono;

@@ -42,7 +42,7 @@
 #include <condition_variable>
 #include <utility>
 #include <stdexcept>
-#include "promise-cpp/promise.hpp"
+#include <promise-cpp/promise.hpp>
 
 
 class Service {
