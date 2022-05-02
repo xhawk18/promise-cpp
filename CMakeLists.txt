@@ -40,10 +40,6 @@ endif()
 
 target_include_directories(promise PUBLIC include)
 
-if(PROMISE_BUILD_EXAMPLES) 
-    add_library(common_example_options INTERFACE)
-endif()
-
 find_package(Boost)
 if(NOT Boost_FOUND)
     message(WARNING "Boost not found, so asio projects will not be compiled")
@@ -71,39 +67,39 @@ endif()
 
 if(PROMISE_BUILD_EXAMPLES) 
     add_executable(test0 ${my_headers} example/test0.cpp)
-    target_link_libraries(test0 PRIVATE promise common_example_options)
+    target_link_libraries(test0 PRIVATE promise)
 
     add_executable(simple_timer ${my_headers} example/simple_timer.cpp)
-    target_link_libraries(simple_timer PRIVATE promise common_example_options)
+    target_link_libraries(simple_timer PRIVATE promise)
 
     add_executable(simple_benchmark_test ${my_headers} example/simple_benchmark_test.cpp)
-    target_link_libraries(simple_benchmark_test PRIVATE promise common_example_options)
+    target_link_libraries(simple_benchmark_test PRIVATE promise)
 
     find_package(Threads)
     if(Threads_FOUND)
         add_executable(multithread_test ${my_headers} example/multithread_test.cpp)
-        target_link_libraries(multithread_test PRIVATE promise common_example_options Threads::Threads)
+        target_link_libraries(multithread_test PRIVATE promise Threads::Threads)
     endif()
 
     add_executable(chain_defer_test ${my_headers} example/chain_defer_test.cpp)
-    target_link_libraries(chain_defer_test PRIVATE promise common_example_options)
+    target_link_libraries(chain_defer_test PRIVATE promise)
         
     if(Boost_FOUND)
         add_executable(asio_benchmark_test ${my_headers} example/asio_benchmark_test.cpp)
         target_compile_definitions(asio_benchmark_test PRIVATE BOOST_ALL_NO_LIB)  
-        target_link_libraries(asio_benchmark_test PRIVATE promise common_example_options)
+        target_link_libraries(asio_benchmark_test PRIVATE promise)
 
         add_executable(asio_timer ${my_headers} example/asio_timer.cpp)
         target_compile_definitions(asio_timer PRIVATE BOOST_ALL_NO_LIB)  
-        target_link_libraries(asio_timer PRIVATE promise common_example_options)
+        target_link_libraries(asio_timer PRIVATE promise)
 
         add_executable(asio_http_client ${my_headers} example/asio_http_client.cpp)
         target_compile_definitions(asio_http_client PRIVATE BOOST_ALL_NO_LIB)  
-        target_link_libraries(asio_http_client PRIVATE promise common_example_options)
+        target_link_libraries(asio_http_client PRIVATE promise)
 
         add_executable(asio_http_server ${my_headers} example/asio_http_server.cpp)
         target_compile_definitions(asio_http_server PRIVATE BOOST_ALL_NO_LIB)  
-        target_link_libraries(asio_http_server PRIVATE promise common_example_options)
+        target_link_libraries(asio_http_server PRIVATE promise)
     endif()
 
     if(QT_FOUND)
