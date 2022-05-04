@@ -5,9 +5,6 @@
 #include <iterator>
 #include <type_traits>
 
-#ifndef INC_STD_ADD_ONS_HPP_
-#define INC_STD_ADD_ONS_HPP_
-
 #ifdef __cpp_rtti
 #include <typeindex>
 namespace promise {
@@ -30,6 +27,8 @@ inline type_index type_id() {
 } // namespace promise
 #endif
 
+#ifndef INC_STD_ADD_ONS_HPP_
+#define INC_STD_ADD_ONS_HPP_
 
 namespace std {
 
