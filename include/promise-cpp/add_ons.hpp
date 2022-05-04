@@ -5,6 +5,9 @@
 #include <iterator>
 #include <type_traits>
 
+#ifndef INC_STD_ADD_ONS_HPP_
+#define INC_STD_ADD_ONS_HPP_
+
 #ifdef __cpp_rtti
 #include <typeindex>
 namespace promise {
@@ -77,7 +80,7 @@ struct remove_cvref {
 
 } //namespace std
 
-
+#endif // #ifndef INC_STD_ADD_ONS_HPP_
 
 namespace promise {
 
@@ -100,6 +103,10 @@ template <typename T>
 struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>())),
     decltype(std::end(std::declval<T>()))
     >> : std::true_type {};
+
+
+template<typename T> struct is_std_function : std::false_type {};
+template<typename T> struct is_std_function<std::function<T>> : std::true_type {};
 
 } //namespace promise
 

@@ -94,12 +94,18 @@ public:
     typedef typename the_type::argument_type argument_type;
 
     static fun_type to_std_function(const FUNCTOR &functor) {
-        return call_traits_impl<callable_type>::to_std_function(const_cast<FUNCTOR &>(functor), &FUNCTOR::operator());
+        if (is_std_function<FUNCTOR>::value) {
+            // on windows, FUNCTOR is not same as std::function<...>, must return functor directly.
+            return functor;
+        }
+        else {
+            return call_traits_impl<callable_type>::to_std_function(const_cast<FUNCTOR &>(functor), &FUNCTOR::operator());
+        }
     }
 };
 
-template<typename T, bool is_basic_type>
-struct call_traits_impl {
+//template<typename T, bool is_basic_type>
+//struct call_traits_impl {
 //    typedef call_traits_impl<T, is_fundamental, is_pointer> the_type;
 //    static const bool is_callable = the_type::is_callable;
 //    typedef typename the_type::fun_type fun_type;
@@ -107,7 +113,7 @@ struct call_traits_impl {
 //    static fun_type to_std_function(const T &t) {
 //        return the_type::to_std_function(t);
 //    }
-};
+//};
 
 template<typename T>
 struct call_traits_impl<T, true> {
@@ -132,7 +138,7 @@ struct call_traits_impl<RET(T::*)(ARG...), false> {
 
     static fun_type to_std_function(T &obj, RET(T::*func)(ARG...)) {
         return [obj, func](ARG...arg) -> RET {
-            return (obj.*func)(arg...);
+            return (const_cast<T &>(obj).*func)(arg...);
         };
     }
 
