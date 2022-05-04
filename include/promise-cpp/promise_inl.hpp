@@ -227,8 +227,14 @@ static inline void call(const Loc &loc, std::shared_ptr<Task> task) {
             assert(pendingTasks.front() == task);
 #endif
             pendingTasks.pop_front();
+
+            auto now = std::chrono::system_clock::now();
             int serialNo = callSerialNo().fetch_add(1);
-            promiseHolder->callStack_.push_back(CallRecord{ task->loc_, serialNo, std::chrono::system_clock::now() });
+            promiseHolder->callStack_.push_back(CallRecord{ loc, serialNo, now });
+
+            serialNo = callSerialNo().fetch_add(1);
+            promiseHolder->callStack_.push_back(CallRecord{ task->loc_, serialNo, now });
+
             while (promiseHolder->callStack_.size() > PM_MAX_LOC) promiseHolder->callStack_.pop_front();
 
             task->state_ = promiseHolder->state_;
@@ -487,6 +493,7 @@ PromiseHolder::PromiseHolder()
 
 PromiseHolder::~PromiseHolder() {
     if (this->state_ == TaskState::kRejected) {
+        CallStack{ &this->callStack_ }.dump();
         PromiseHolder::onUncaughtException(this->value_);
     }
 }
