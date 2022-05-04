@@ -46,22 +46,41 @@
 #include <QObject>
 #include <QTimerEvent>
 #include <QApplication>
+#include <QTimer>
+#include <QThread>
 
 namespace promise {
 
+class PromiseEventListener {
+public:
+    using Listeners = std::multimap<std::pair<QObject *, QEvent::Type>, std::shared_ptr<PromiseEventListener>>;
+    std::function<bool(QObject *, QEvent *)> cb_;
+    Listeners::iterator self_;
+};
+
+class PromiseEventPrivate {
+public:
+    PromiseEventListener::Listeners listeners_;
+};
+
 PromiseEventFilter::PromiseEventFilter() 
-    : removeLaters_(ListenersIteratorCompare())
-    , eventFilterRecursiveCount_(0) {
+    : private_(new PromiseEventPrivate) {
 }
 
-PromiseEventFilter::Listeners::iterator PromiseEventFilter::addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func) {
+std::weak_ptr<PromiseEventListener> PromiseEventFilter::addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func) {
+    std::shared_ptr<PromiseEventListener> listener = std::make_shared<PromiseEventListener>();
     std::pair<QObject *, QEvent::Type> key = { object, eventType };
-    return listeners_.insert({ key, func });
+    auto itr = private_->listeners_.insert({ key, listener });
+    listener->cb_ = func;
+    listener->self_ = itr;
+    return listener;
 }
 
-void PromiseEventFilter::removeEventListener(PromiseEventFilter::Listeners::iterator itr) {
-    removeLaters_.insert(itr);
-    //listeners_.erase(itr);
+void PromiseEventFilter::removeEventListener(std::weak_ptr<PromiseEventListener> listener) {
+    auto sListener = listener.lock();
+    if (sListener) {
+        private_->listeners_.erase(sListener->self_);
+    }
 }
 
 PromiseEventFilter &PromiseEventFilter::getSingleInstance() {
@@ -72,32 +91,30 @@ PromiseEventFilter &PromiseEventFilter::getSingleInstance() {
 bool PromiseEventFilter::eventFilter(QObject *object, QEvent *event) {
     std::pair<QObject *, QEvent::Type> key = { object, event->type() };
 
-    eventFilterRecursiveCount_.fetch_add(1);
-    std::list<Listeners::iterator> itrs;
-    for (Listeners::iterator itr = listeners_.lower_bound(key);
-        itr != listeners_.end() && key == itr->first; ++itr) {
-        itrs.push_back(itr);
-    }
-    for (Listeners::iterator itr : itrs) {
-        itr->second(object, event);
-    }
+    bool filtered = false;
 
-    int value = eventFilterRecursiveCount_.fetch_sub(1);
-    if (value <= 1) {
-        for (Listeners::iterator itr : removeLaters_) {
-            listeners_.erase(itr);
+    std::list<std::weak_ptr<PromiseEventListener>> listeners;
+    for (auto itr = private_->listeners_.lower_bound(key);
+        itr != private_->listeners_.end() && key == itr->first; ++itr) {
+        listeners.push_back(itr->second);
+    }
+    for (const auto &listener : listeners) {
+        auto sListener = listener.lock();
+        if (sListener) {
+            bool res = sListener->cb_(object, event);
+            if (res) filtered = true;
         }
-        removeLaters_.clear();
     }
 
-    return QObject::eventFilter(object, event);
+    if (filtered) return true;
+    else return QObject::eventFilter(object, event);
 }
 
 // Wait event will wait the event for only once
 Promise waitEvent(QObject *object,
                   QEvent::Type  eventType,
                   bool          callSysHandler) {
-    auto listener = std::make_shared<PromiseEventFilter::Listeners::iterator>();
+    auto listener = std::make_shared<std::weak_ptr<PromiseEventListener>>();
     Promise promise = newPromise([listener, object, eventType, callSysHandler](Defer &defer) {
 
         std::shared_ptr<bool> disableFilter = std::make_shared<bool>(false);
@@ -127,8 +144,7 @@ Promise waitEvent(QObject *object,
                 defer.resolve(event);
                 return false;
             }
-        }
-        );
+        });
     }).finally([listener]() {
         //PTI;
         PromiseEventFilter::getSingleInstance().removeEventListener(*listener);
@@ -138,10 +154,54 @@ Promise waitEvent(QObject *object,
 }
 
 
+std::weak_ptr<PromiseEventListener> addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func) {
+    return PromiseEventFilter::getSingleInstance().addEventListener(object, eventType, func);
+}
+
+void removeEventListener(std::weak_ptr<PromiseEventListener> listener) {
+    PromiseEventFilter::getSingleInstance().removeEventListener(listener);
+}
+
+
 QtTimerHolder::QtTimerHolder() {
 }
 
 QtTimerHolder::~QtTimerHolder() {
+}
+
+
+void QtPromiseTimerHandler::wait() {
+    while (timer_ != nullptr) {
+        QCoreApplication::processEvents();
+    }
+}
+
+
+std::shared_ptr<QtPromiseTimerHandler> qtPromiseSetTimeout(const std::function<void()> &cb, int ms) {
+    //LOG_INFO("setTimeout({})", ms);
+    std::shared_ptr<QtPromiseTimerHandler> handler(new QtPromiseTimerHandler);
+    handler->timer_ = new QTimer();
+
+    QMetaObject::Connection conneciton = QObject::connect(QThread::currentThread(), &QThread::finished, [handler]() {
+        QTimer *timer = handler->timer_;
+        if (timer != nullptr) {
+            handler->timer_ = nullptr;
+            timer->stop();
+            timer->deleteLater();
+        }
+    });
+
+    handler->timer_->singleShot(ms, [handler, cb, conneciton]() {
+        cb();
+        QObject::disconnect(conneciton);
+        QTimer *timer = handler->timer_;
+        if (timer != nullptr) {
+            handler->timer_ = nullptr;
+            timer->deleteLater();
+        }
+    });
+
+    return handler;
 }
 
 Promise QtTimerHolder::delay(int time_ms) {

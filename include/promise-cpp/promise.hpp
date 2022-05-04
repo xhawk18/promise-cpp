@@ -53,7 +53,7 @@
 
 namespace promise {
 
-enum TaskState {
+enum class TaskState {
     kPending,
     kResolved,
     kRejected

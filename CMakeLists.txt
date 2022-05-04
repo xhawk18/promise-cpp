@@ -38,7 +38,7 @@ else()
     add_library(promise STATIC ${my_sources} ${my_headers})
 endif()
 
-target_include_directories(promise PUBLIC include)
+target_include_directories(promise PUBLIC include .)
 
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets)

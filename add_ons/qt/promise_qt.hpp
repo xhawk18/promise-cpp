@@ -87,38 +87,29 @@
 
 namespace promise {
 
-
+class PromiseEventListener;
+class PromiseEventPrivate;
 class PromiseEventFilter : public QObject {
 private:
     PROMISE_QT_API PromiseEventFilter();
 
 public:
-    using Listener = std::function<bool(QObject *, QEvent *)>;
-    using Listeners = std::multimap<std::pair<QObject *, QEvent::Type>, Listener>;
 
-    PROMISE_QT_API Listeners::iterator addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
-    PROMISE_QT_API void removeEventListener(Listeners::iterator itr);
+    PROMISE_QT_API std::weak_ptr<PromiseEventListener> addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
+    PROMISE_QT_API void removeEventListener(std::weak_ptr<PromiseEventListener> listener);
     PROMISE_QT_API static PromiseEventFilter &getSingleInstance();
 
 protected:
     PROMISE_QT_API bool eventFilter(QObject *object, QEvent *event) override;
-    Listeners listeners_;
-
-    struct ListenersIteratorCompare {
-        bool operator()(Listeners::iterator l,
-            Listeners::iterator r) const {
-            return &*l < &*r;
-        }
-    };
-    std::set<Listeners::iterator, ListenersIteratorCompare> removeLaters_;
-    // eventFilter recursive level
-    std::atomic<int> eventFilterRecursiveCount_;
+    std::shared_ptr<PromiseEventPrivate> private_;
 };
 
 // Wait event will wait the event for only once
 PROMISE_QT_API Promise waitEvent(QObject      *object,
                                  QEvent::Type  eventType,
                                  bool          callSysHandler = false);
+PROMISE_QT_API std::weak_ptr<PromiseEventListener> addEventListener(QObject *object, QEvent::Type eventType, const std::function<bool(QObject *, QEvent *)> &func);
+PROMISE_QT_API void removeEventListener(std::weak_ptr<PromiseEventListener> listener);
 
 struct QtTimerHolder: QObject {
     PROMISE_QT_API ~QtTimerHolder();
@@ -145,6 +136,14 @@ PROMISE_QT_API Promise setTimeout(const std::function<void(bool)> &func,
                                   int time_ms);
 PROMISE_QT_API void cancelDelay(Promise promise);
 PROMISE_QT_API void clearTimeout(Promise promise);
+
+
+// Low level set timeout
+struct PROMISE_QT_API QtPromiseTimerHandler {
+    void wait();
+    QTimer *timer_;
+};
+PROMISE_QT_API std::shared_ptr<QtPromiseTimerHandler> qtPromiseSetTimeout(const std::function<void()> &cb, int ms);
 
 }
 
