@@ -205,13 +205,10 @@ std::shared_ptr<QtPromiseTimerHandler> qtPromiseSetTimeout(const std::function<v
 }
 
 Promise QtTimerHolder::delay(int time_ms) {
-    int timerId = getInstance().startTimer(time_ms);
-
-    return newPromise(PM_LOC, [timerId](Defer &defer) {
-        getInstance().defers_.insert({ timerId, defer });
-    }).finally(PM_LOC, [timerId]() {
-        getInstance().killTimer(timerId);
-        getInstance().defers_.erase(timerId);
+    return newPromise(PM_LOC, [time_ms](Defer &defer) {
+        qtPromiseSetTimeout([defer] {
+            defer.resolve(PM_LOC);
+        }, time_ms);
     });
 }
 
