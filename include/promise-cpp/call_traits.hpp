@@ -138,7 +138,7 @@ struct call_traits_impl<RET(T::*)(ARG...), false> {
 
     static fun_type to_std_function(T &obj, RET(T::*func)(ARG...)) {
         return [obj, func](ARG...arg) -> RET {
-            return (const_cast<T &>(obj).*func)(arg...);
+            return (const_cast<typename std::remove_const<T>::type &>(obj).*func)(arg...);
         };
     }
 
