@@ -454,8 +454,8 @@ CallStack DeferLoop::callStack() const {
 
 #if PROMISE_MULTITHREAD
 Mutex::Mutex()
-    : mutex_()
-    , cond_()
+    : cond_()
+    , mutex_()
     , lock_count_(0) {
 }
 
@@ -493,6 +493,18 @@ PromiseHolder::PromiseHolder()
 
 PromiseHolder::~PromiseHolder() {
     if (this->state_ == TaskState::kRejected) {
+        static thread_local std::atomic<bool> s_inUncaughtExceptionHandler{false};
+        if(s_inUncaughtExceptionHandler) return;
+        s_inUncaughtExceptionHandler = true;
+        struct Releaser {
+            Releaser(std::atomic<bool> *inUncaughtExceptionHandler)
+                : inUncaughtExceptionHandler_(inUncaughtExceptionHandler) {}
+            ~Releaser() {
+                *inUncaughtExceptionHandler_ = false;
+            }
+            std::atomic<bool> *inUncaughtExceptionHandler_;
+        } releaser(&s_inUncaughtExceptionHandler);
+
         CallStack{ &this->callStack_ }.dump();
         PromiseHolder::onUncaughtException(this->value_);
     }
