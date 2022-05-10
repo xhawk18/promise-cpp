@@ -57,14 +57,15 @@ if(PROMISE_BUILD_EXAMPLES)
     add_executable(test0 ${my_headers} example/test0.cpp)
     target_link_libraries(test0 PRIVATE promise)
 
-    add_executable(simple_timer ${my_headers} example/simple_timer.cpp)
-    target_link_libraries(simple_timer PRIVATE promise)
-
-    add_executable(simple_benchmark_test ${my_headers} example/simple_benchmark_test.cpp)
-    target_link_libraries(simple_benchmark_test PRIVATE promise)
 
     find_package(Threads)
     if(Threads_FOUND)
+        add_executable(simple_timer ${my_headers} example/simple_timer.cpp)
+        target_link_libraries(simple_timer PRIVATE promise Threads::Threads)
+
+        add_executable(simple_benchmark_test ${my_headers} example/simple_benchmark_test.cpp)
+        target_link_libraries(simple_benchmark_test PRIVATE promise Threads::Threads)
+    
         add_executable(multithread_test ${my_headers} example/multithread_test.cpp)
         target_link_libraries(multithread_test PRIVATE promise Threads::Threads)
     endif()
