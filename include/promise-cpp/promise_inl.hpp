@@ -176,11 +176,11 @@ static inline void call(std::shared_ptr<Task> task) {
                         //to next resolved task
                     }
                     else {
-                        promiseHolder->state_ = TaskState::kPending; // 避免递归任务再次使用
+                        promiseHolder->state_ = TaskState::kPending; // 閬垮厤閫掑綊浠诲姟鍐嶆浣跨敤
 #if PROMISE_MULTITHREAD
                         std::shared_ptr<Mutex> mutex0 = nullptr;
                         auto call = [&]() -> any {
-                            unlock_guard_t lock(mutex);
+                            unlock_guard_t lock_inner(mutex);
                             const any &value = task->onResolved_.call(promiseHolder->value_);
                             // Make sure the returned promised is locked before than "mutex"
                             if (value.type() == type_id<Promise>()) {
@@ -227,11 +227,11 @@ static inline void call(std::shared_ptr<Task> task) {
                     }
                     else {
                         try {
-                            promiseHolder->state_ = TaskState::kPending; // 避免递归任务再次使用
+                            promiseHolder->state_ = TaskState::kPending; // 閬垮厤閫掑綊浠诲姟鍐嶆浣跨敤
 #if PROMISE_MULTITHREAD
                             std::shared_ptr<Mutex> mutex0 = nullptr;
                             auto call = [&]() -> any {
-                                unlock_guard_t lock(mutex);
+                                unlock_guard_t lock_inner(mutex);
                                 const any &value = task->onRejected_.call(promiseHolder->value_);
                                 // Make sure the returned promised is locked before than "mutex"
                                 if (value.type() == type_id<Promise>()) {
