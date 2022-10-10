@@ -176,7 +176,7 @@ static inline void call(std::shared_ptr<Task> task) {
                         //to next resolved task
                     }
                     else {
-                        promiseHolder->state_ = TaskState::kPending; // 避免递归任务再次使用
+                        promiseHolder->state_ = TaskState::kPending; // avoid recursive task using this state
 #if PROMISE_MULTITHREAD
                         std::shared_ptr<Mutex> mutex0 = nullptr;
                         auto call = [&]() -> any {
@@ -227,7 +227,7 @@ static inline void call(std::shared_ptr<Task> task) {
                     }
                     else {
                         try {
-                            promiseHolder->state_ = TaskState::kPending; // 避免递归任务再次使用
+                            promiseHolder->state_ = TaskState::kPending; // avoid recursive task using this state
 #if PROMISE_MULTITHREAD
                             std::shared_ptr<Mutex> mutex0 = nullptr;
                             auto call = [&]() -> any {
@@ -270,6 +270,7 @@ static inline void call(std::shared_ptr<Task> task) {
                         }
                         catch (const bad_any_cast &) {
                             //just go through if argument type is not match
+                            promiseHolder->state_ = TaskState::kRejected;
                         }
                     }
                 }
