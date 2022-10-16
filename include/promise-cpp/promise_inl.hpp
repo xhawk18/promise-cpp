@@ -180,7 +180,7 @@ static inline void call(std::shared_ptr<Task> task) {
 #if PROMISE_MULTITHREAD
                         std::shared_ptr<Mutex> mutex0 = nullptr;
                         auto call = [&]() -> any {
-                            unlock_guard_t lock(mutex);
+                            unlock_guard_t lock_inner(mutex);
                             const any &value = task->onResolved_.call(promiseHolder->value_);
                             // Make sure the returned promised is locked before than "mutex"
                             if (value.type() == type_id<Promise>()) {
@@ -231,7 +231,7 @@ static inline void call(std::shared_ptr<Task> task) {
 #if PROMISE_MULTITHREAD
                             std::shared_ptr<Mutex> mutex0 = nullptr;
                             auto call = [&]() -> any {
-                                unlock_guard_t lock(mutex);
+                                unlock_guard_t lock_inner(mutex);
                                 const any &value = task->onRejected_.call(promiseHolder->value_);
                                 // Make sure the returned promised is locked before than "mutex"
                                 if (value.type() == type_id<Promise>()) {
