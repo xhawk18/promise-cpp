@@ -52,7 +52,7 @@
 
 ## What is promise-cpp ?
 
-Promise-cpp is library that implements promise/A+ standard, which can be the base component in event-looped asychronized programming. It is NOT std::promise.
+Promise-cpp is library that implements promise/A+ standard, which can be the base component in event-looped asynchronized programming. It is NOT std::promise.
 
 ## Features
 
