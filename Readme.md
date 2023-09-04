@@ -1,3 +1,5 @@
+散了吧，cpp20 coroutine了，这么代码已经没有意义 -- 作者
+
 # C++ promise/A+ library in Javascript style.
 
 <!-- TOC -->
