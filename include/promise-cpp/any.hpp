@@ -29,6 +29,10 @@
  * THE SOFTWARE.
  */
 #include <vector>
+#include <exception>
+#include <utility>
+#include <type_traits>
+#include <tuple>
 #include "add_ons.hpp"
 #include "call_traits.hpp"
 
